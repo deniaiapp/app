@@ -1,8 +1,56 @@
+import type { UIMessage } from "ai";
+import { safeValidateUIMessages } from "ai";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { chats } from "@/db/schema";
+import type { db as Db } from "@/db/drizzle";
+import { chats, projects } from "@/db/schema";
 import { protectedProcedure, router } from "../trpc";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export type ChatPagePayload = {
+  id: string;
+  title: string | null;
+  projectId: string | null;
+  projectName: string | null;
+  messages: UIMessage[];
+};
+
+async function loadChatPage(
+  database: typeof Db,
+  userId: string,
+  id: string,
+): Promise<ChatPagePayload | null> {
+  const [row] = await database
+    .select({
+      id: chats.id,
+      title: chats.title,
+      projectId: chats.projectId,
+      messages: chats.messages,
+      projectName: projects.name,
+    })
+    .from(chats)
+    .leftJoin(projects, and(eq(projects.id, chats.projectId), eq(projects.userId, userId)))
+    .where(and(eq(chats.id, id), eq(chats.uid, userId)))
+    .limit(1);
+
+  if (!row) {
+    return null;
+  }
+
+  const validated = await safeValidateUIMessages<UIMessage>({
+    messages: (row.messages as UIMessage[]) ?? [],
+  });
+
+  return {
+    id: row.id,
+    title: row.title,
+    projectId: row.projectId,
+    projectName: row.projectName ?? null,
+    messages: validated.success ? validated.data : [],
+  };
+}
 
 export const chatRouter = router({
   getChats: protectedProcedure.query(async ({ ctx }) => {
@@ -41,6 +89,68 @@ export const chatRouter = router({
         })
         .returning();
       return newChat[0].id;
+    }),
+  /**
+   * Chat pane payload for SPA ChatRouteHost (messages + project label).
+   * null when the id is missing or owned by another user.
+   */
+  getChatPage: protectedProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .query(async ({ ctx, input }) => {
+      return loadChatPage(ctx.db, ctx.userId, input.id);
+    }),
+  /**
+   * Upsert used when the client navigates to /chat/<uuid> before the row exists
+   * (new chat flow). Returns the page payload so the host can paint immediately.
+   */
+  ensureChat: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().min(1),
+        projectId: z.string().min(1).nullable().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (!UUID_RE.test(input.id)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid chat id" });
+      }
+
+      const existing = await loadChatPage(ctx.db, ctx.userId, input.id);
+      if (existing) {
+        return existing;
+      }
+
+      let projectId: string | null = null;
+      const rawProjectId = input.projectId ?? null;
+      if (rawProjectId && UUID_RE.test(rawProjectId)) {
+        const [owned] = await ctx.db
+          .select({ id: projects.id })
+          .from(projects)
+          .where(and(eq(projects.id, rawProjectId), eq(projects.userId, ctx.userId)))
+          .limit(1);
+        if (owned) {
+          projectId = owned.id;
+        }
+      }
+
+      await ctx.db
+        .insert(chats)
+        .values({
+          id: input.id,
+          uid: ctx.userId,
+          projectId,
+          title: "New Chat",
+        })
+        .onConflictDoNothing();
+
+      const row = await loadChatPage(ctx.db, ctx.userId, input.id);
+      if (!row) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Chat not found",
+        });
+      }
+      return row;
     }),
   getChat: protectedProcedure
     .input(

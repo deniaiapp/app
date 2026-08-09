@@ -6,6 +6,7 @@ import { billing } from "@/db/schema";
 import { env } from "@/env";
 import { findPlanByLookupKey, isTeamPlan } from "@/lib/billing";
 import { getBillingFingerprintUpdates } from "@/lib/billing-card-usage";
+import { isAffiliatePaidStatus, processAffiliatePurchase } from "@/lib/affiliate";
 import { resetMaxModeUsage } from "@/lib/max-mode";
 import { stripe } from "@/lib/stripe";
 import { getSubscriptionPeriodEnd } from "@/lib/stripe-subscriptions";
@@ -85,6 +86,14 @@ async function saveSubscription(payload: SubscriptionPayload) {
         updatedAt: new Date(),
       },
     });
+
+  if (!organizationId && plan?.id && isAffiliatePaidStatus(payload.status)) {
+    await processAffiliatePurchase({
+      referredUserId: payload.userId,
+      planId: plan.id,
+      purchasedAt: updates.firstPaidAt ?? new Date(),
+    });
+  }
 
   // If this is a renewal and Max Mode is enabled, reset usage counters
   if (isRenewal && existingRecord?.maxModeEnabled) {
@@ -311,6 +320,22 @@ export async function POST(req: Request) {
               status: computedStatus,
               currentPeriodEnd: getSubscriptionPeriodEnd(subscription),
               organizationId,
+            });
+          }
+        } else if (session.mode === "payment" && session.payment_status === "paid") {
+          const userId =
+            session.metadata?.userId ??
+            session.client_reference_id ??
+            (typeof session.customer === "string"
+              ? await resolveUserIdFromCustomer(session.customer)
+              : null);
+          const planId = session.metadata?.planId;
+
+          if (userId && planId) {
+            await processAffiliatePurchase({
+              referredUserId: userId,
+              planId,
+              purchasedAt: new Date(event.created * 1000),
             });
           }
         }

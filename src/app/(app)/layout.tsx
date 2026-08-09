@@ -22,9 +22,13 @@ async function RequireAuth({ children }: { children: React.ReactNode }) {
   return children;
 }
 
+/**
+ * App chrome (sidebar) is outside auth Suspense so chat list navigation keeps
+ * the shell mounted. Nested /chat/[id] owns its own Suspense + skeleton.
+ * Navigations between recent chats may also restore via Activity without
+ * re-fetching the pane.
+ */
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  // Shell first: sidebar paints with the static shell; only the main pane
-  // suspends for session (and nested page data). Avoids a full-screen loader.
   return (
     <AppProviders>
       <AppShell>

@@ -1,5 +1,6 @@
 import { useRouter } from "next/navigation";
 import { useCallback } from "react";
+import { makeTRPCClient } from "@/lib/trpc/client";
 import { trpc } from "@/lib/trpc/react";
 
 type NewChatOptions = {
@@ -8,11 +9,11 @@ type NewChatOptions = {
 
 /**
  * Start a new chat by generating a client-side id and navigating immediately.
- * The chat page upserts the DB row on first render — no round-trip needed.
- * Optimistically prepends the new chat to the sidebar list cache.
+ * Seeds the SPA ChatRouteHost cache and sidebar list so the empty pane paints
+ * with no loading flash; ensureChat persists the DB row in the background.
  */
 export function useNewChat() {
-  const { push } = useRouter();
+  const router = useRouter();
   const utils = trpc.useUtils();
 
   return useCallback(
@@ -35,13 +36,36 @@ export function useNewChat() {
         ...(old ?? []),
       ]);
 
+      // Seed SPA host cache so the pane paints without waiting on the network.
+      utils.chat.getChatPage.setData(
+        { id },
+        {
+          id,
+          title: "New Chat",
+          projectId,
+          projectName: null,
+          messages: [],
+        },
+      );
+
+      // Persist row ASAP so /api/chat can write on first message.
+      void makeTRPCClient()
+        .chat.ensureChat.mutate({ id, projectId })
+        .then((row) => {
+          utils.chat.getChatPage.setData({ id }, row);
+        })
+        .catch(() => {
+          // ChatRouteHost will retry ensure on mount if needed.
+        });
+
       const url = projectId
         ? `/chat/${id}?projectId=${encodeURIComponent(projectId)}`
         : `/chat/${id}`;
-      push(url);
+      router.prefetch(url);
+      router.push(url);
 
       return id;
     },
-    [push, utils.chat.getChats],
+    [router, utils.chat.getChatPage, utils.chat.getChats],
   );
 }

@@ -85,6 +85,9 @@ STRIPE_WEBHOOK_SECRET=whsec_your-webhook-secret
 # Email (optional — magic link / org invites)
 RESEND_API_KEY=re_your-resend-key
 
+# Affiliate administration (optional; comma-separated server-side admin emails)
+# AFFILIATE_ADMIN_EMAILS=you@example.com
+
 # Rate limiting (optional — falls back to in-memory)
 UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
@@ -110,6 +113,8 @@ Notes:
 - When adding or changing supported models, update `src/lib/constants.ts`.
 - `OPENROUTER_API_KEY` routes OpenAI-family and other OpenRouter models when voids mode is off.
 - Optional voids.top mode: set `VOIDS_MODE=true` (or `1`) to send **platform** (non-BYOK) OpenAI and Anthropic traffic through the OpenAI-compatible voids.top gateway. When enabled, **`VOIDS_API_KEY` is required** (voids returns `401 invalid apikey` without it). Optional `VOIDS_BASE_URL` (default `https://capi.voids.top/v2`). When `VOIDS_MODE` is off, OpenAI uses OpenRouter and Anthropic uses `ANTHROPIC_API_KEY`.
+- Affiliate administration: set `AFFILIATE_ADMIN_EMAILS` to a comma-separated list of account emails that can approve reset rewards and send manual affiliate coupon emails. The address is read only on the server.
+- New 30% OFF affiliate coupon rewards remain pending until an admin enters a Stripe coupon or promotion code and sends the email from the affiliate settings page.
 
 #### Generate `BETTER_AUTH_SECRET`
 
