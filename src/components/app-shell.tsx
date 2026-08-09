@@ -3,6 +3,8 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
+import { AffiliateSessionClaim } from "@/components/affiliate/affiliate-session-claim";
+import { ChatRouteHost } from "@/components/chat/chat-route-host";
 import { ChatSearch } from "@/components/chat/chat-search";
 import { TwoFactorBanner } from "@/components/two-factor-banner";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -52,11 +54,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider>
+      <AffiliateSessionClaim />
       <ChatSearch open={isChatSearchOpen} onOpenChange={setIsChatSearchOpen} />
       <AppSidebar onOpenChatSearch={() => setIsChatSearchOpen(true)} />
       <SidebarInset>
         <TwoFactorBanner />
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4">{children}</div>
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4">
+          {/* Chat routes: SPA host. Everything else: normal RSC children. */}
+          <ChatRouteHost>{children}</ChatRouteHost>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

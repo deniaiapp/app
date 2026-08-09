@@ -223,6 +223,11 @@ function ChatItem({ item }: { item: ChatListItem }) {
     } satisfies ChatDragPayload & { type: "chat" },
   });
 
+  // Warm tRPC chat payload on intent so ChatRouteHost can paint without waiting.
+  const prefetchChatPage = () => {
+    void utils.chat.getChatPage.prefetch({ id: item.id });
+  };
+
   const openDetails = () => {
     setDraft(createChatItemDraft(item));
     setIsDetailsOpen(true);
@@ -286,6 +291,8 @@ function ChatItem({ item }: { item: ChatListItem }) {
           containIntrinsicSize: "auto 2.75rem",
         }}
       >
+        {/* Thin /chat/[id] page + ChatRouteHost SPA host. Prefetch message payload
+            on hover/focus so the pane paints from tRPC cache on click. */}
         <SidebarMenuButton
           {...attributes}
           {...listeners}
@@ -297,7 +304,13 @@ function ChatItem({ item }: { item: ChatListItem }) {
           isActive={pathname === `/chat/${item.id}`}
           asChild
         >
-          <Link href={`/chat/${item.id}`} className="flex min-w-0 items-center gap-2">
+          <Link
+            href={`/chat/${item.id}`}
+            className="flex min-w-0 items-center gap-2"
+            onMouseEnter={prefetchChatPage}
+            onFocus={prefetchChatPage}
+            onTouchStart={prefetchChatPage}
+          >
             <div className="min-w-0 flex-1">
               <div className="truncate leading-5">{item.title ?? t("Untitled")}</div>
               {item.tags.length > 0 ? (

@@ -1,9 +1,7 @@
-import ChatHome from "@/components/chat/home";
-
+/**
+ * Thin route marker. Chat UI is hosted client-side by ChatRouteHost in AppShell
+ * so navigations to /chat stay SPA-instant under cacheComponents + partialPrefetching.
+ */
 export default function ChatHomePage() {
-  return (
-    <div className="-m-4 flex min-h-0 flex-1 overflow-hidden">
-      <ChatHome />
-    </div>
-  );
+  return null;
 }

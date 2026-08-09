@@ -1,4 +1,5 @@
 import { apiKeysRouter } from "./routers/api-keys";
+import { affiliateRouter } from "./routers/affiliate";
 import { billingRouter } from "./routers/billing";
 import { chatRouter } from "./routers/chat";
 import { memoryRouter } from "./routers/memory";
@@ -11,6 +12,7 @@ import { router } from "./trpc";
 
 export const appRouter = router({
   apiKeys: apiKeysRouter,
+  affiliate: affiliateRouter,
   chat: chatRouter,
   memory: memoryRouter,
   billing: billingRouter,

@@ -16,7 +16,7 @@ export default function TermsPage() {
     <main className="min-h-screen bg-background" id="main-content">
       <div className="mx-auto flex max-w-4xl flex-col gap-10 px-4 pb-16 pt-28 sm:px-6 lg:px-8">
         <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">{t("Last updated: 2025-12-31")}</p>
+          <p className="text-sm text-muted-foreground">{t("Last updated: 2026-08-09")}</p>
           <h1 className="text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
             {t("Terms of Service")}
           </h1>
@@ -49,6 +49,11 @@ export default function TermsPage() {
           <h2 className="text-xl font-semibold">{t("3. Acceptable Use")}</h2>
           <ul className="list-disc space-y-2 pl-6 text-muted-foreground">
             <li>{t("Do not use the Service for unlawful, harmful, or abusive activity.")}</li>
+            <li>
+              {t(
+                "Do not engage in spam, mass account creation, automated abuse, fraud, or other deceptive practices.",
+              )}
+            </li>
             <li>{t("Do not attempt to reverse engineer or interfere with the Service.")}</li>
             <li>
               {t(
@@ -58,6 +63,11 @@ export default function TermsPage() {
             <li>
               {t(
                 "Do not attempt to access, probe, or test the vulnerability of the Service without authorization.",
+              )}
+            </li>
+            <li>
+              {t(
+                "Deni AI Flixa may only be used with approved, authenticated clients: Codex, Claude Code, OpenCode, Flixa, and Flixa CLI. Using any other client, proxy, or unauthorized tool with Deni AI Flixa may result in a Flixa ban (including suspension or permanent loss of Flixa access) without prior notice.",
               )}
             </li>
           </ul>
@@ -109,6 +119,16 @@ export default function TermsPage() {
           <p className="text-muted-foreground">
             {t(
               "We may suspend or terminate your access to the Service at any time if you violate these Terms or if required to protect the Service or other users.",
+            )}
+          </p>
+          <p className="text-muted-foreground">
+            {t(
+              "In particular, if we detect spam, mass signup, fraud, automated abuse, or other unauthorized or harmful activity, we may delete the related accounts and associated data without prior notice when reasonably necessary to protect the Service, other users, or our infrastructure.",
+            )}
+          </p>
+          <p className="text-muted-foreground">
+            {t(
+              "We may also ban, suspend, or permanently revoke Deni AI Flixa access if Flixa is used with clients other than the approved authenticated clients listed above (Codex, Claude Code, OpenCode, Flixa, and Flixa CLI).",
             )}
           </p>
         </section>

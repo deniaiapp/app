@@ -274,7 +274,9 @@ export function ChatInterface({
     }
 
     void utils.billing.usage.invalidate();
-  }, [status, utils]);
+    // Keep SPA ChatRouteHost cache in sync after a generation settles.
+    void utils.chat.getChatPage.invalidate({ id });
+  }, [id, status, utils]);
 
   useMemorySaveNotice({ status });
 
