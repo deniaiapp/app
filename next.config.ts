@@ -7,6 +7,9 @@ const nextConfig: NextConfig = {
   output: "standalone",
   transpilePackages: ["shiki"],
   cacheComponents: true,
+  // One App Shell per route (shared across every /chat/[id] link). Required for
+  // instant chat list navigations under Cache Components.
+  partialPrefetching: true,
   reactCompiler: true,
   poweredByHeader: false,
   // Tree-shake large icon/date packages more aggressively
@@ -21,9 +24,6 @@ const nextConfig: NextConfig = {
     ],
     turbopackFileSystemCacheForBuild: true,
     turbopackRustReactCompiler: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
   },
   async headers() {
     const securityHeaders = [

@@ -19,6 +19,7 @@ import {
   isTrialFingerprintEligible,
 } from "@/lib/billing-card-usage";
 import { isBillingDisabled } from "@/lib/billing-config";
+import { isAffiliatePaidStatus, processAffiliatePurchase } from "@/lib/affiliate";
 import {
   createFlashOfferEndAt,
   getFlashOfferCouponId,
@@ -773,6 +774,14 @@ export const billingRouter = router({
           },
         })
         .returning();
+
+      if (plan?.id && isAffiliatePaidStatus(saved.status)) {
+        await processAffiliatePurchase({
+          referredUserId: ctx.userId,
+          planId: plan.id,
+          purchasedAt: updates.firstPaidAt ?? new Date(),
+        });
+      }
 
       return {
         planId: saved.planId ?? null,

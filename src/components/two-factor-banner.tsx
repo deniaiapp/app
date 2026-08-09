@@ -1,21 +1,21 @@
 "use client";
 
-import { ArrowRight, Code2, KeyRound, ShieldCheck, X } from "lucide-react";
+import { ArrowRight, Code2, FileText, KeyRound, ShieldCheck, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { AnimatePresence, LazyMotion, domAnimation, m, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useExtracted } from "next-intl";
-import { startTransition, useEffect, useState, useSyncExternalStore } from "react";
+import { startTransition, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { authClient } from "@/lib/auth-client";
 import { isCheckoutSettingsRoute } from "@/lib/settings-routes";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
-const DISMISSED_KEY = "flixa-2fa-dismissed";
-const DISMISSED_EVENT = "deni:2fa-dismissed";
-const ANNOUNCEMENT_COUNT = 3;
+// Bump when a new announcement must reappear for previously dismissed users.
+const DISMISSED_KEY = "deni-announcements-2026-08-terms";
+const DISMISSED_EVENT = "deni:announcements-dismissed";
 const ANNOUNCEMENT_INTERVAL_MS = 8000;
 
 type Announcement = {
@@ -64,45 +64,64 @@ export function TwoFactorBanner() {
   const visible = !dismissed;
   const shouldReduceMotion = useReducedMotion();
   const [announcementIndex, setAnnouncementIndex] = useState(0);
-  const announcements: Announcement[] = [
-    {
-      id: "two-factor",
-      message: t("2FA - Enhance your security with two-factor authentication"),
-      linkLabel: t("Setup"),
-      href: "/account/settings",
-      external: false,
-      icon: ShieldCheck,
-      iconClassName: "text-emerald-500",
-    },
-    {
-      id: "flixa",
-      message: t("Flixa - A low-cost, high-performance coding agent"),
-      linkLabel: t("Download"),
-      href: "/flixa",
-      external: false,
-      icon: Code2,
-      iconClassName: "text-sky-500",
-    },
-    {
-      id: "api-credits",
-      message: t("API - API now available at 2/3 the price. Get $10 credit for just $1 now."),
-      linkLabel: t("Get it now"),
-      href: "https://platform.deniai.app/free-credits",
-      external: true,
-      icon: KeyRound,
-      iconClassName: "text-amber-500",
-    },
-  ];
+  const twoFactorEnabled = Boolean(session.data?.user?.twoFactorEnabled);
+
+  const announcements: Announcement[] = useMemo(() => {
+    const items: Announcement[] = [
+      {
+        id: "terms",
+        message: t("Terms - We updated our Terms of Service."),
+        linkLabel: t("Read"),
+        href: "/legal/terms",
+        external: false,
+        icon: FileText,
+        iconClassName: "text-violet-500",
+      },
+      {
+        id: "flixa",
+        message: t("Flixa - A low-cost, high-performance coding agent"),
+        linkLabel: t("Download"),
+        href: "/flixa",
+        external: false,
+        icon: Code2,
+        iconClassName: "text-sky-500",
+      },
+      {
+        id: "api-credits",
+        message: t("API - API now available at 2/3 the price. Get $10 credit for just $1 now."),
+        linkLabel: t("Get it now"),
+        href: "https://platform.deniai.app/free-credits",
+        external: true,
+        icon: KeyRound,
+        iconClassName: "text-amber-500",
+      },
+    ];
+
+    if (!twoFactorEnabled) {
+      items.push({
+        id: "two-factor",
+        message: t("2FA - Enhance your security with two-factor authentication"),
+        linkLabel: t("Setup"),
+        href: "/account/settings",
+        external: false,
+        icon: ShieldCheck,
+        iconClassName: "text-emerald-500",
+      });
+    }
+
+    return items;
+  }, [t, twoFactorEnabled]);
 
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || announcements.length <= 1) return;
 
     const shuffleAnnouncement = () => {
       startTransition(() => {
         setAnnouncementIndex((currentIndex) => {
-          let nextIndex = Math.floor(Math.random() * ANNOUNCEMENT_COUNT);
+          const count = announcements.length;
+          let nextIndex = Math.floor(Math.random() * count);
           if (nextIndex === currentIndex) {
-            nextIndex = (nextIndex + 1) % ANNOUNCEMENT_COUNT;
+            nextIndex = (nextIndex + 1) % count;
           }
           return nextIndex;
         });
@@ -112,16 +131,19 @@ export function TwoFactorBanner() {
     shuffleAnnouncement();
     const intervalId = window.setInterval(shuffleAnnouncement, ANNOUNCEMENT_INTERVAL_MS);
     return () => window.clearInterval(intervalId);
-  }, [visible]);
+  }, [visible, announcements.length]);
+
+  // Keep index in range when the announcement list shrinks (e.g. 2FA enabled).
+  useEffect(() => {
+    if (announcementIndex >= announcements.length) {
+      setAnnouncementIndex(0);
+    }
+  }, [announcementIndex, announcements.length]);
 
   const announcement = announcements[announcementIndex] ?? announcements[0];
   const AnnouncementIcon = announcement.icon;
 
-  if (
-    isCheckoutSettingsRoute(pathname) ||
-    pathname === "/account/settings" ||
-    session.data?.user?.twoFactorEnabled
-  ) {
+  if (isCheckoutSettingsRoute(pathname) || pathname === "/account/settings") {
     return (
       <header className="flex h-10 shrink-0 items-center gap-2 border-b px-4">
         <SidebarTrigger className="-ml-1" />

@@ -3,6 +3,7 @@
 import { MessageSquare, Plus, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useExtracted } from "next-intl";
+import { useEffect } from "react";
 import {
   CommandDialog,
   CommandEmpty,
@@ -31,17 +32,32 @@ export function ChatSearch({
   onOpenChange: (open: boolean) => void;
 }) {
   const t = useExtracted();
-  const { push } = useRouter();
+  const router = useRouter();
   const { data } = trpc.chat.getChats.useQuery(undefined, {
     enabled: open,
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
 
+  const utils = trpc.useUtils();
+
+  // Warm route shell + first chat page payload for SPA host.
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    router.prefetch("/chat");
+    const firstId = data?.[0]?.id;
+    if (firstId) {
+      router.prefetch(`/chat/${firstId}`);
+      void utils.chat.getChatPage.prefetch({ id: firstId });
+    }
+  }, [open, data, router, utils.chat.getChatPage]);
+
   // Parent AppShell closes this dialog on pathname changes.
   const handleSelect = (href: string) => {
     onOpenChange(false);
-    push(href);
+    router.push(href);
   };
 
   return (

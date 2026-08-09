@@ -60,6 +60,11 @@ export default function SettingsWrapper({ children }: { children: React.ReactNod
       href: "/settings/billing",
     },
     {
+      label: t("Affiliate"),
+      value: "affiliate",
+      href: "/settings/affiliate",
+    },
+    {
       label: t("Team"),
       value: "team",
       href: "/settings/team",

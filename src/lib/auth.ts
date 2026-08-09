@@ -1,6 +1,6 @@
 import { passkey } from "@better-auth/passkey";
 import { betterAuth } from "better-auth";
-import { APIError } from "better-auth/api";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import {
   anonymous,
@@ -23,10 +23,22 @@ import { PasswordResetEmail, passwordResetEmailSubject } from "@/emails/password
 import { VerificationEmail, verificationEmailSubject } from "@/emails/verification-email";
 import { env } from "@/env";
 import { EMAIL_FROM } from "@/lib/constants";
-import { isDisposableEmail } from "@/lib/disposable-email";
+import { isAllowedSignupEmail } from "@/lib/email-domain-policy";
 import { cancelPersonalSubscription, updateTeamSeatCount } from "@/lib/team-billing";
 
 const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
+
+const EMAIL_DOMAIN_NOT_ALLOWED_MESSAGE =
+  "Please use a major email provider (Gmail, Outlook, iCloud, Proton, etc.) or an educational address (.edu / .ac.*). To request adding another email domain, contact contact@deniai.app.";
+
+function assertAllowedSignupEmail(email: string) {
+  if (!isAllowedSignupEmail(email)) {
+    throw new APIError("BAD_REQUEST", {
+      message: EMAIL_DOMAIN_NOT_ALLOWED_MESSAGE,
+      code: "EMAIL_DOMAIN_NOT_ALLOWED",
+    });
+  }
+}
 
 export const auth = betterAuth({
   appName: "Deni AI",
@@ -34,6 +46,36 @@ export const auth = betterAuth({
     provider: "pg",
     schema,
   }),
+  // Reject disallowed domains before verification / magic-link emails are sent.
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      if (
+        ctx.path !== "/sign-up/email" &&
+        ctx.path !== "/sign-in/magic-link" &&
+        ctx.path !== "/change-email"
+      ) {
+        return;
+      }
+
+      const body = ctx.body as { email?: unknown; newEmail?: unknown } | undefined;
+      const email =
+        typeof body?.email === "string"
+          ? body.email
+          : typeof body?.newEmail === "string"
+            ? body.newEmail
+            : null;
+      if (!email) return;
+
+      // Magic-link sign-in for an *existing* account keeps working even if
+      // the domain is no longer on the allowlist (grandfathered users).
+      if (ctx.path === "/sign-in/magic-link") {
+        const existing = await ctx.context.internalAdapter.findUserByEmail(email);
+        if (existing) return;
+      }
+
+      assertAllowedSignupEmail(email);
+    }),
+  },
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: !!resend,
@@ -170,13 +212,26 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
-        before: async (user) => {
-          if (user.email && isDisposableEmail(user.email)) {
-            throw new APIError("BAD_REQUEST", {
-              message: "Disposable email addresses are not allowed.",
-              code: "DISPOSABLE_EMAIL_NOT_ALLOWED",
-            });
-          }
+        before: async (user, ctx) => {
+          // Guest / anonymous accounts are not gated by email domain.
+          if (user.isAnonymous) return;
+          if (!user.email) return;
+
+          const path = typeof ctx?.path === "string" ? ctx.path : undefined;
+          // OAuth (Google / GitHub) may use corporate domains — allow those.
+          if (path?.startsWith("/callback/")) return;
+
+          // Email/password, magic-link (new user), and other non-OAuth creates:
+          // major providers + educational domains only (see email-domain-policy).
+          assertAllowedSignupEmail(user.email);
+        },
+      },
+      update: {
+        before: async (data) => {
+          // Block change-email flows that switch to a disallowed domain.
+          const email = typeof data.email === "string" ? data.email : undefined;
+          if (!email) return;
+          assertAllowedSignupEmail(email);
         },
       },
     },
