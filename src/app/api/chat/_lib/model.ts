@@ -10,7 +10,7 @@ import { db } from "@/db/drizzle";
 import { providerKey, providerSetting } from "@/db/schema";
 import { env } from "@/env";
 import { decryptFromB64 } from "@/lib/crypto";
-import { models, resolveReasoningEffort } from "@/lib/constants";
+import { isFreePlanModel, models, resolveReasoningEffort } from "@/lib/constants";
 import { assertSafePublicHttpUrl } from "@/lib/network-security";
 import { createDeniOpenRouter } from "@/lib/openrouter-provider";
 import { getUsageSummary, type UsageCategory, UsageLimitError } from "@/lib/usage";
@@ -184,32 +184,52 @@ export async function resolveChatModelContext({
   const isPremiumModel = Boolean(selectedModel.premium);
   // Pro mode always bills against premium quota (even when the base model is basic).
   const usageCategory: UsageCategory = isPremiumModel || useProMode ? "premium" : "basic";
+  const modelAllowedOnFreePlan = isFreePlanModel(selectedModel.value);
 
-  if (isAnonymous && usageCategory === "premium") {
-    throw new ChatRouteError(403, {
-      error: useProMode
-        ? "Pro mode is not available for guest sessions."
-        : "Premium models are not available for guest sessions.",
-    });
-  }
+  // Free plan / guest sessions are limited to the free-plan model allowlist.
+  // Paid tiers unlock the full catalog. Check tier even for BYOK so free users
+  // cannot bypass the allowlist with their own keys.
+  // Usage limits still apply for non-BYOK traffic.
+  const needsUsageSummary = !useByok || !modelAllowedOnFreePlan;
 
-  if (!useByok) {
+  if (needsUsageSummary) {
     try {
       const usageSummary = await getUsageSummary({ userId, isAnonymous });
-      const categoryUsage = usageSummary.usage.find((usage) => usage.category === usageCategory);
-      usageUnit = categoryUsage?.unit ?? "requests";
-      const isLimitReached =
-        categoryUsage?.remaining !== null &&
-        categoryUsage?.remaining !== undefined &&
-        categoryUsage.remaining <= 0;
 
-      if (isLimitReached && !usageSummary.maxModeEnabled) {
-        throw new UsageLimitError(
-          "You've hit the usage limit for your plan.",
-          usageSummary.maxModeEligible,
-        );
+      if (!modelAllowedOnFreePlan && (isAnonymous || usageSummary.tier === "free")) {
+        throw new ChatRouteError(403, {
+          error:
+            "This model is not available on the Free plan. Upgrade to Plus or higher to use it.",
+        });
+      }
+
+      if (isAnonymous && usageCategory === "premium") {
+        throw new ChatRouteError(403, {
+          error: useProMode
+            ? "Pro mode is not available for guest sessions."
+            : "Premium models are not available for guest sessions.",
+        });
+      }
+
+      if (!useByok) {
+        const categoryUsage = usageSummary.usage.find((usage) => usage.category === usageCategory);
+        usageUnit = categoryUsage?.unit ?? "requests";
+        const isLimitReached =
+          categoryUsage?.remaining !== null &&
+          categoryUsage?.remaining !== undefined &&
+          categoryUsage.remaining <= 0;
+
+        if (isLimitReached && !usageSummary.maxModeEnabled) {
+          throw new UsageLimitError(
+            "You've hit the usage limit for your plan.",
+            usageSummary.maxModeEligible,
+          );
+        }
       }
     } catch (error) {
+      if (error instanceof ChatRouteError) {
+        throw error;
+      }
       if (error instanceof UsageLimitError) {
         throw new ChatRouteError(402, {
           error: error.message,
@@ -220,6 +240,11 @@ export async function resolveChatModelContext({
       console.error("Failed to check usage", error);
       throw new ChatRouteError(500, { error: "Unable to check usage" });
     }
+  } else if (isAnonymous && usageCategory === "premium") {
+    // BYOK path with a free-plan model + Pro mode: still block guests.
+    throw new ChatRouteError(403, {
+      error: "Pro mode is not available for guest sessions.",
+    });
   }
 
   // OpenRouter exposes GPT-5.6 Pro as `*-pro`. voids.top does not — keep base id there.

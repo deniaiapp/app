@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FieldDescription, FieldGroup, FieldSeparator } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
+import { checkSignupEmail, signupEmailDenialMessage } from "@/lib/email-domain-policy";
 import { cn } from "@/lib/utils";
 import { ProviderButtons, type SocialLayout } from "./provider-buttons";
 import { SignUpFormFields } from "./sign-up-form-fields";
@@ -105,6 +106,16 @@ export function SignUp({ className, socialLayout, socialPosition = "bottom" }: S
       toast.error(localization.auth.passwordsDoNotMatch);
       setPassword("");
       setConfirmPassword("");
+      return;
+    }
+
+    const emailPolicy = checkSignupEmail(email);
+    if (!emailPolicy.ok) {
+      toast.error(signupEmailDenialMessage(emailPolicy.reason));
+      setFieldErrors((current) => ({
+        ...current,
+        email: signupEmailDenialMessage(emailPolicy.reason),
+      }));
       return;
     }
 

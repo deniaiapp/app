@@ -7,17 +7,37 @@
  *     registration** (real schools / universities), not open `.edu.<cc>`
  *     namespaces that are routinely sold as throwaway mail
  *
+ * Extra anti-abuse rules on email-based registration:
+ *  - Gmail / Googlemail must use Google OAuth (aliases share one inbox;
+ *    password/magic-link sign-up cannot prove primary ownership).
+ *  - Microsoft free mail rejects alias-like local parts (`+` tags,
+ *    fragmented dots) used by bot farms.
+ *
  * OAuth (Google / GitHub) is not gated by this module — those identities
  * are already provider-verified. Apply only on email-based registration
  * paths (see auth.ts).
  */
 
-/** Exact domains allowed for email/password and magic-link sign-up. */
-export const ALLOWED_EMAIL_PROVIDERS: ReadonlySet<string> = new Set([
-  // Google
+/** Google consumer mail — email/password and magic-link sign-up forbidden. */
+export const GOOGLE_MAIL_DOMAINS: ReadonlySet<string> = new Set([
   "gmail.com",
   "googlemail.com",
-  // Microsoft
+]);
+
+/** Microsoft free consumer mail — alias-like local parts rejected. */
+export const MICROSOFT_MAIL_DOMAINS: ReadonlySet<string> = new Set([
+  "outlook.com",
+  "outlook.jp",
+  "hotmail.com",
+  "hotmail.co.jp",
+  "live.com",
+  "live.jp",
+  "msn.com",
+]);
+
+/** Exact domains allowed for email/password and magic-link sign-up. */
+export const ALLOWED_EMAIL_PROVIDERS: ReadonlySet<string> = new Set([
+  // Microsoft (primary address only — see alias checks)
   "outlook.com",
   "outlook.jp",
   "hotmail.com",
@@ -145,6 +165,15 @@ export function extractEmailDomain(email: string): string | null {
   return domain;
 }
 
+export function extractEmailLocalPart(email: string): string | null {
+  const trimmed = email.trim().toLowerCase();
+  const at = trimmed.lastIndexOf("@");
+  if (at <= 0) return null;
+  const local = trimmed.slice(0, at);
+  if (!local || local.includes(" ")) return null;
+  return local;
+}
+
 function domainMatchesSuffix(domain: string, suffix: string): boolean {
   return domain === suffix || domain.endsWith(`.${suffix}`);
 }
@@ -165,28 +194,122 @@ export function isAllowedEducationalDomain(domain: string): boolean {
   return ALLOWED_EDU_DOMAIN_SUFFIXES.some((suffix) => domainMatchesSuffix(d, suffix));
 }
 
+export function isGoogleMailDomain(domain: string): boolean {
+  return GOOGLE_MAIL_DOMAINS.has(domain.toLowerCase());
+}
+
+export function isMicrosoftMailDomain(domain: string): boolean {
+  return MICROSOFT_MAIL_DOMAINS.has(domain.toLowerCase());
+}
+
 export function isAllowedEmailProviderDomain(domain: string): boolean {
   return ALLOWED_EMAIL_PROVIDERS.has(domain.toLowerCase());
 }
 
-/** True when the email may be used for email/password or magic-link sign-up. */
-export function isAllowedSignupEmail(email: string): boolean {
-  const domain = extractEmailDomain(email);
-  if (!domain) return false;
-  if (isAllowedEmailProviderDomain(domain)) return true;
-  if (isAllowedEducationalDomain(domain)) return true;
+/**
+ * Microsoft free-mail alias / bot-farm local-part heuristics.
+ *
+ * Blocks:
+ *  - plus addressing (`user+tag@outlook.com`)
+ *  - fragmented dots (`e.l.adu.v.a.r.61.5@…`, `a.b.c.d@…`)
+ *  - consecutive dots / empty segments
+ *  - random alnum farm blobs (`muxjcx87394v@outlook.com`)
+ *
+ * Allows normal names: `john.doe@outlook.com`, `jane_smith@hotmail.com`.
+ */
+export function isMicrosoftAliasLikeLocalPart(local: string): boolean {
+  const l = local.trim().toLowerCase();
+  if (!l) return true;
+
+  // Plus aliases (and the random +tag farm).
+  if (l.includes("+")) return true;
+
+  // Empty segments / leading / trailing dots.
+  if (l.startsWith(".") || l.endsWith(".") || l.includes("..")) return true;
+
+  const segments = l.split(".");
+  const dotCount = segments.length - 1;
+
+  // Many dots are almost never a real primary mailbox name.
+  if (dotCount >= 3) return true;
+
+  // Three or more single-character segments → fragmented alias style.
+  const singleCharSegments = segments.filter((segment) => segment.length === 1).length;
+  if (singleCharSegments >= 3) return true;
+
+  // Random-looking local: letters + digit run, no separators
+  // e.g. muxjcx87394v, zayaalaina6874
+  if (/^[a-z]{4,14}\d{3,8}[a-z]{0,3}$/i.test(l) && !l.includes(".") && !l.includes("_")) {
+    return true;
+  }
+
   return false;
 }
 
-export type SignupEmailPolicyResult =
-  | { ok: true }
-  | { ok: false; reason: "invalid" | "not_allowed" };
+export type SignupEmailDenyReason =
+  | "invalid"
+  | "not_allowed"
+  | "use_google_oauth"
+  | "alias_not_allowed";
 
+export type SignupEmailPolicyResult = { ok: true } | { ok: false; reason: SignupEmailDenyReason };
+
+/**
+ * Full sign-up policy for email/password and magic-link registration.
+ * Does not apply to OAuth callbacks.
+ */
 export function checkSignupEmail(email: string): SignupEmailPolicyResult {
   const domain = extractEmailDomain(email);
   if (!domain) return { ok: false, reason: "invalid" };
-  if (isAllowedSignupEmail(email)) return { ok: true };
+
+  // Gmail aliases all deliver to one inbox; require Google-verified identity.
+  if (isGoogleMailDomain(domain)) {
+    return { ok: false, reason: "use_google_oauth" };
+  }
+
+  if (isMicrosoftMailDomain(domain)) {
+    const local = extractEmailLocalPart(email);
+    if (!local || isMicrosoftAliasLikeLocalPart(local)) {
+      return { ok: false, reason: "alias_not_allowed" };
+    }
+  }
+
+  if (isAllowedEmailProviderDomain(domain)) return { ok: true };
+  if (isAllowedEducationalDomain(domain)) return { ok: true };
   return { ok: false, reason: "not_allowed" };
+}
+
+/** True when the email may be used for email/password or magic-link sign-up. */
+export function isAllowedSignupEmail(email: string): boolean {
+  return checkSignupEmail(email).ok;
+}
+
+export function signupEmailDenialMessage(reason: SignupEmailDenyReason): string {
+  switch (reason) {
+    case "use_google_oauth":
+      return "Gmail addresses must sign in with Google. Please use the Continue with Google button.";
+    case "alias_not_allowed":
+      return "This Outlook/Hotmail address looks like an alias (plus tags or unusual dots). Please use your primary Microsoft email address.";
+    case "invalid":
+      return "Please enter a valid email address.";
+    case "not_allowed":
+    default:
+      return "Please use a major email provider (Outlook, iCloud, Proton, etc.) or a restricted educational address (e.g. .edu, .ac.jp, .ac.uk, .edu.au). Gmail requires Continue with Google. To request adding another email domain, contact contact@deniai.app.";
+  }
+}
+
+export function signupEmailDenialCode(reason: SignupEmailDenyReason): string {
+  switch (reason) {
+    case "use_google_oauth":
+      return "EMAIL_USE_GOOGLE_OAUTH";
+    case "alias_not_allowed":
+      return "EMAIL_ALIAS_NOT_ALLOWED";
+    case "invalid":
+      return "EMAIL_INVALID";
+    case "not_allowed":
+    default:
+      return "EMAIL_DOMAIN_NOT_ALLOWED";
+  }
 }
 
 /**

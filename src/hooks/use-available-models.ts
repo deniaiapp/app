@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import type { ModelOption } from "@/components/chat/chat-composer";
 import { authClient } from "@/lib/auth-client";
-import { models } from "@/lib/constants";
+import { getModelsForPlanTier } from "@/lib/constants";
 import { trpc } from "@/lib/trpc/react";
+import { liveUsageQueryOptions } from "@/lib/usage-query-options";
 
 type ProviderSetting = {
   provider: string;
@@ -14,14 +15,22 @@ export function useAvailableModels() {
   const session = authClient.useSession();
   const isAnonymous = Boolean(session.data?.user?.isAnonymous);
 
+  // Default to free until tier is known so free users never briefly see paid models.
+  // Share options with useUsageStatus so both hooks hit the same cached query.
+  const usageQuery = trpc.billing.usage.useQuery(undefined, {
+    ...liveUsageQueryOptions,
+    enabled: Boolean(session.data?.user) && !isAnonymous,
+  });
+  const planTier = isAnonymous ? "free" : (usageQuery.data?.tier ?? "free");
+
   const providersQuery = trpc.providers.getConfig.useQuery(undefined, {
     refetchOnWindowFocus: false,
     staleTime: 30000,
   });
 
   const availableModels = useMemo<ModelOption[]>(() => {
-    return isAnonymous ? models.filter((entry) => !entry.premium) : [...models];
-  }, [isAnonymous]);
+    return getModelsForPlanTier(planTier);
+  }, [planTier]);
 
   const providerSettings = useMemo(() => {
     return new Map<string, ProviderSetting>(
@@ -39,5 +48,6 @@ export function useAvailableModels() {
     providerKeys,
     providersQuery,
     isAnonymous,
+    planTier,
   };
 }

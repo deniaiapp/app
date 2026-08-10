@@ -9,11 +9,11 @@ import { AdSenseSlot } from "@/components/adsense-slot";
 import { ChatComposer, type ComposerMessage } from "@/components/chat/chat-composer";
 import { ProjectSelect } from "@/components/projects/project-select";
 import { env } from "@/env";
+import { useAvailableModels } from "@/hooks/use-available-models";
 import { useNewChat } from "@/hooks/use-new-chat";
 import {
   defaultModel,
   getPreferredReasoningEffort,
-  models,
   type ReasoningEffort,
 } from "@/lib/constants";
 import { trpc } from "@/lib/trpc/react";
@@ -66,6 +66,7 @@ export default function ChatHome() {
   const t = useExtracted();
   const { push } = useRouter();
   const startNewChat = useNewChat();
+  const { availableModels } = useAvailableModels();
   const [input, setInput] = useState("");
   const [model, setModel] = useState(defaultModel.value);
   const [webSearch, setWebSearch] = useState(false);
@@ -80,6 +81,12 @@ export default function ChatHome() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const projectsQuery = trpc.projects.list.useQuery();
+  const selectedModel = availableModels.find((entry) => entry.value === model);
+
+  // Fall back when the current selection is not allowed on this plan.
+  if (!selectedModel && availableModels.length > 0) {
+    setModel(availableModels[0].value);
+  }
 
   const handleSubmit = (
     message: ComposerMessage,
@@ -130,7 +137,7 @@ export default function ChatHome() {
 
   const handleModelChange = (value: string) => {
     setModel(value);
-    const nextModel = models.find((entry) => entry.value === value);
+    const nextModel = availableModels.find((entry) => entry.value === value);
     if (!nextModel?.supportsProMode) {
       setProMode(false);
     }
