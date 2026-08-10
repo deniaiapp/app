@@ -22,21 +22,22 @@ import { PasswordResetEmail, passwordResetEmailSubject } from "@/emails/password
 import { VerificationEmail, verificationEmailSubject } from "@/emails/verification-email";
 import { env } from "@/env";
 import { isEmailConfigured, sendEmail } from "@/lib/email";
-import { isAllowedSignupEmail } from "@/lib/email-domain-policy";
+import {
+  checkSignupEmail,
+  signupEmailDenialCode,
+  signupEmailDenialMessage,
+} from "@/lib/email-domain-policy";
 import { cancelPersonalSubscription, updateTeamSeatCount } from "@/lib/team-billing";
 
 const emailEnabled = isEmailConfigured();
 
-const EMAIL_DOMAIN_NOT_ALLOWED_MESSAGE =
-  "Please use a major email provider (Gmail, Outlook, iCloud, Proton, etc.) or a restricted educational address (e.g. .edu, .ac.jp, .ac.uk, .edu.au). To request adding another email domain, contact contact@deniai.app.";
-
 function assertAllowedSignupEmail(email: string) {
-  if (!isAllowedSignupEmail(email)) {
-    throw new APIError("BAD_REQUEST", {
-      message: EMAIL_DOMAIN_NOT_ALLOWED_MESSAGE,
-      code: "EMAIL_DOMAIN_NOT_ALLOWED",
-    });
-  }
+  const result = checkSignupEmail(email);
+  if (result.ok) return;
+  throw new APIError("BAD_REQUEST", {
+    message: signupEmailDenialMessage(result.reason),
+    code: signupEmailDenialCode(result.reason),
+  });
 }
 
 export const auth = betterAuth({

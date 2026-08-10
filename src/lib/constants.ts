@@ -121,6 +121,7 @@ export const models: readonly ModelDefinition[] = [
     author: "openai",
     description: "Fastest, most affordable GPT-5.6 model for high-volume tasks.",
     featured: true,
+    default: true,
     features: ["reasoning", "fast", "fastest"],
     efforts: ["none", "low", "medium", "high", "xhigh", "max"],
     supportsProMode: true,
@@ -132,7 +133,6 @@ export const models: readonly ModelDefinition[] = [
     author: "openai",
     description: "A new class of intelligence for coding and professional work.",
     featured: true,
-    default: true,
     features: ["smartest", "reasoning", "coding", "fast"],
     efforts: ["none", "low", "medium", "high", "xhigh"],
     tokenMultiplier: 1.5,
@@ -538,6 +538,31 @@ export const models: readonly ModelDefinition[] = [
 ];
 
 export const defaultModel = models.find((model) => model.default === true) ?? models[0];
+
+/**
+ * Models available on the Free plan (and guest sessions).
+ * Paid tiers (Plus / Pro / Max / Team) unlock the full model catalog.
+ */
+export const FREE_PLAN_MODEL_VALUES = [
+  "gpt-5.6-luna",
+  "claude-haiku-4.5",
+  "gemini-3.5-flash",
+] as const;
+
+export type FreePlanModelValue = (typeof FREE_PLAN_MODEL_VALUES)[number];
+
+const freePlanModelSet = new Set<string>(FREE_PLAN_MODEL_VALUES);
+
+export function isFreePlanModel(modelValue: string): boolean {
+  return freePlanModelSet.has(modelValue);
+}
+
+export function getModelsForPlanTier(tier: "free" | "plus" | "pro" | "max" | null | undefined) {
+  if (!tier || tier === "free") {
+    return models.filter((model) => isFreePlanModel(model.value));
+  }
+  return [...models];
+}
 
 // Google Analytics
 export const GA_ID = "G-B5H8G73JTN";
