@@ -9,7 +9,7 @@ const TurnstileCaptcha = dynamic(
 
 /**
  * Registers Cloudflare Turnstile for better-auth-ui forms
- * (sign-in, sign-up, forgot-password, set-password).
+ * (sign-in, sign-up, forgot-password, magic-link).
  */
 export const captchaPlugin = () =>
   coreCaptchaPlugin({

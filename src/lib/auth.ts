@@ -28,7 +28,7 @@ import { cancelPersonalSubscription, updateTeamSeatCount } from "@/lib/team-bill
 const emailEnabled = isEmailConfigured();
 
 const EMAIL_DOMAIN_NOT_ALLOWED_MESSAGE =
-  "Please use a major email provider (Gmail, Outlook, iCloud, Proton, etc.) or an educational address (.edu / .ac.*). To request adding another email domain, contact contact@deniai.app.";
+  "Please use a major email provider (Gmail, Outlook, iCloud, Proton, etc.) or a restricted educational address (e.g. .edu, .ac.jp, .ac.uk, .edu.au). To request adding another email domain, contact contact@deniai.app.";
 
 function assertAllowedSignupEmail(email: string) {
   if (!isAllowedSignupEmail(email)) {
@@ -146,6 +146,13 @@ export const auth = betterAuth({
     captcha({
       provider: "cloudflare-turnstile",
       secretKey: env.TURNSTILE_SECRET_KEY,
+      // Include defaults + magic-link request (not /magic-link/verify — email click).
+      endpoints: [
+        "/sign-up/email",
+        "/sign-in/email",
+        "/request-password-reset",
+        "/sign-in/magic-link",
+      ],
     }),
     bearer(),
     ...(emailEnabled

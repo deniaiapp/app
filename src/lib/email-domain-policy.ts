@@ -3,8 +3,9 @@
  *
  * Allowlist model:
  *  1. Known major consumer mail providers (exact domain match)
- *  2. Educational domains (.edu, .ac.*, .edu.*, .ed.jp, …) with
- *     spam-prone country codes excluded
+ *  2. Educational domains only under TLDs / SLDs with **restricted
+ *     registration** (real schools / universities), not open `.edu.<cc>`
+ *     namespaces that are routinely sold as throwaway mail
  *
  * OAuth (Google / GitHub) is not gated by this module — those identities
  * are already provider-verified. Apply only on email-based registration
@@ -103,76 +104,36 @@ export const ALLOWED_EMAIL_PROVIDERS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Country codes where `.edu.<cc>` / `.ac.<cc>` are frequently abused for
- * disposable / mass sign-ups. Pure US `.edu` (no country suffix) is always
- * allowed and is not affected by this list.
+ * Educational domain suffixes with restricted registration (institutions only).
  *
- * Keep this list focused on observed abuse rather than blocking every
- * developing-country academic domain.
+ * Match when `domain === suffix` or `domain.endsWith("." + suffix)`.
+ * Open / high-abuse namespaces (e.g. `.edu.kg`, bare `.ac` Ascension TLD,
+ * most `.edu.<cc>` without real eligibility checks) are intentionally omitted.
+ *
+ * Add a suffix here only when the registry limits names to real schools.
  */
-export const BLOCKED_EDU_COUNTRY_CODES: ReadonlySet<string> = new Set([
-  // Latin America (high volume of fake school domains in abuse feeds)
-  "co", // Colombia — e.g. *.edu.co spam
-  "br",
-  "mx",
-  "pe",
-  "ar",
-  "cl",
-  "ec",
-  "bo",
-  "py",
-  "uy",
-  "ve",
-  "do",
-  "gt",
-  "hn",
-  "sv",
-  "ni",
-  "cr",
-  "pa",
-  // South / Southeast Asia
-  "vn",
-  "ph",
-  "pk",
-  "in",
-  "bd",
-  "id",
-  "lk",
-  "np",
-  "mm",
-  "kh",
-  "la",
-  "my",
-  "th",
-  // Africa / Middle East (common throwaway edu patterns)
-  "ng",
-  "eg",
-  "ke",
-  "gh",
-  "et",
-  "tz",
-  "ug",
-  "za",
-  "dz",
-  "ma",
-  "tn",
-  "iq",
-  "ir",
-  "sy",
-  "af",
-  "sd",
-  "ye",
-  // Other high-abuse
-  "cn",
-  "ru",
-  "ua",
-  "tr",
-  "by",
-  "kz",
-]);
-
-/** Educational second-level labels we recognize (before country / as TLD). */
-const EDU_LABELS = new Set(["edu", "ac", "ed", "sch"]);
+export const ALLOWED_EDU_DOMAIN_SUFFIXES: readonly string[] = [
+  // United States — sponsored gTLD, eligibility-restricted
+  "edu",
+  // Japan — JPRS academic / school namespaces
+  "ac.jp",
+  "ed.jp",
+  // United Kingdom — JANET academic / school
+  "ac.uk",
+  "sch.uk",
+  // Australia — auDA education eligibility
+  "edu.au",
+  // New Zealand — academic
+  "ac.nz",
+  // South Korea — academic
+  "ac.kr",
+  // Taiwan — education
+  "edu.tw",
+  // Singapore — education
+  "edu.sg",
+  // Hong Kong — education
+  "edu.hk",
+];
 
 export function extractEmailDomain(email: string): string | null {
   const trimmed = email.trim().toLowerCase();
@@ -184,35 +145,24 @@ export function extractEmailDomain(email: string): string | null {
   return domain;
 }
 
+function domainMatchesSuffix(domain: string, suffix: string): boolean {
+  return domain === suffix || domain.endsWith(`.${suffix}`);
+}
+
 /**
- * Educational domain check.
- * - `school.edu`, `sub.school.edu` → allowed (US-style .edu TLD)
- * - `school.ac.jp`, `school.edu.au` → allowed unless country is blocked
- * - `school.ed.jp` → allowed (Japan K-12 style)
- * - `school.edu.co`, `school.edu.vn` → blocked via BLOCKED_EDU_COUNTRY_CODES
+ * Educational domain check (restricted-registration allowlist only).
+ * - `mit.edu`, `cs.stanford.edu` → allowed (US `.edu`)
+ * - `u-tokyo.ac.jp`, `school.ed.jp` → allowed
+ * - `ox.ac.uk`, `uni.edu.au` → allowed
+ * - `cmuk.edu.kg`, `foo.edu.co`, bare `something.ac` → denied
  */
 export function isAllowedEducationalDomain(domain: string): boolean {
   const d = domain.toLowerCase();
   const labels = d.split(".").filter(Boolean);
+  // Need at least school.edu or school.ac.jp
   if (labels.length < 2) return false;
 
-  const tld = labels[labels.length - 1]!;
-
-  // Pure academic TLD: example.edu
-  if (tld === "edu" || tld === "ac") {
-    return true;
-  }
-
-  // Two-part academic: example.ac.jp / example.edu.au / example.ed.jp / example.sch.uk
-  if (labels.length >= 3) {
-    const sld = labels[labels.length - 2]!;
-    const country = tld;
-    if (country.length === 2 && EDU_LABELS.has(sld)) {
-      return !BLOCKED_EDU_COUNTRY_CODES.has(country);
-    }
-  }
-
-  return false;
+  return ALLOWED_EDU_DOMAIN_SUFFIXES.some((suffix) => domainMatchesSuffix(d, suffix));
 }
 
 export function isAllowedEmailProviderDomain(domain: string): boolean {

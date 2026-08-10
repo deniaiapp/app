@@ -5,6 +5,7 @@ import {
   type MagicLinkAuthClient,
   useAuth,
   useAuthPlugin,
+  useFetchOptions,
   useSignInMagicLink,
 } from "@better-auth-ui/react";
 import { useIsMutating } from "@tanstack/react-query";
@@ -55,12 +56,16 @@ export function MagicLink({ className, socialLayout, socialPosition = "bottom" }
     Link,
   } = useAuth();
   const { localization: magicLinkLocalization } = useAuthPlugin(magicLinkPlugin);
+  const { fetchOptions, resetFetchOptions } = useFetchOptions();
 
   const [email, setEmail] = useState("");
 
   const { mutate: signInMagicLink, isPending: signInMagicLinkPending } = useSignInMagicLink(
     authClient as MagicLinkAuthClient,
     {
+      onError: () => {
+        resetFetchOptions();
+      },
       onSuccess: () => {
         setEmail("");
         toast.success(magicLinkLocalization.magicLinkSent);
@@ -76,13 +81,19 @@ export function MagicLink({ className, socialLayout, socialPosition = "bottom" }
   });
   const isPending = signInMutating + signUpMutating > 0;
 
+  const Captcha = plugins.find((plugin) => plugin.captchaComponent)?.captchaComponent;
+
   const [fieldErrors, setFieldErrors] = useState<{
     email?: string;
   }>({});
 
   const handleSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
-    signInMagicLink({ email, callbackURL: `${baseURL}${redirectTo}` });
+    signInMagicLink({
+      email,
+      callbackURL: `${baseURL}${redirectTo}`,
+      fetchOptions,
+    });
   };
 
   const showSeparator = socialProviders && socialProviders.length > 0;
@@ -144,6 +155,8 @@ export function MagicLink({ className, socialLayout, socialPosition = "bottom" }
 
                 <FieldError>{fieldErrors.email}</FieldError>
               </Field>
+
+              {Captcha && <div className="flex justify-center">{Captcha}</div>}
 
               <div className="flex flex-col gap-3">
                 <Button type="submit" disabled={isPending}>
