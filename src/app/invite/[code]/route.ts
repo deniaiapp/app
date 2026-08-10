@@ -2,12 +2,16 @@ import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { affiliateProfile } from "@/db/schema";
 import { db } from "@/db/drizzle";
+import { env } from "@/env";
 import { AFFILIATE_COOKIE_NAME, normalizeAffiliateCode } from "@/lib/affiliate";
 
-export async function GET(request: Request, { params }: { params: Promise<{ code: string }> }) {
+export async function GET(_request: Request, { params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
   const normalizedCode = normalizeAffiliateCode(code);
-  const destination = new URL("/auth/sign-up", request.url);
+  // Always redirect against the public app origin. In Docker, Next binds with
+  // HOSTNAME=0.0.0.0 so `request.url` can become http://0.0.0.0:3000 when the
+  // reverse proxy does not forward Host correctly — never use that for public URLs.
+  const destination = new URL("/auth/sign-up", env.NEXT_PUBLIC_BETTER_AUTH_URL);
 
   if (!normalizedCode) {
     destination.searchParams.set("referral", "invalid");
