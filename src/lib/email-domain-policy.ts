@@ -10,8 +10,8 @@
  * Extra anti-abuse rules on email-based registration:
  *  - Gmail / Googlemail must use Google OAuth (aliases share one inbox;
  *    password/magic-link sign-up cannot prove primary ownership).
- *  - Microsoft free mail rejects alias-like local parts (`+` tags,
- *    fragmented dots) used by bot farms.
+ *  - **All domains** reject alias-like local parts (`+` tags, fragmented
+ *    dots, random farm blobs) so bot farms cannot hop providers.
  *
  * OAuth (Google / GitHub) is not gated by this module — those identities
  * are already provider-verified. Apply only on email-based registration
@@ -33,6 +33,14 @@ export const MICROSOFT_MAIL_DOMAINS: ReadonlySet<string> = new Set([
   "live.com",
   "live.jp",
   "msn.com",
+]);
+
+/** Apple free consumer mail — same alias / plus-tag farm checks. */
+export const APPLE_MAIL_DOMAINS: ReadonlySet<string> = new Set([
+  "icloud.com",
+  "me.com",
+  "mac.com",
+  "icloud.com.jp",
 ]);
 
 /** Exact domains allowed for email/password and magic-link sign-up. */
@@ -202,22 +210,26 @@ export function isMicrosoftMailDomain(domain: string): boolean {
   return MICROSOFT_MAIL_DOMAINS.has(domain.toLowerCase());
 }
 
+export function isAppleMailDomain(domain: string): boolean {
+  return APPLE_MAIL_DOMAINS.has(domain.toLowerCase());
+}
+
 export function isAllowedEmailProviderDomain(domain: string): boolean {
   return ALLOWED_EMAIL_PROVIDERS.has(domain.toLowerCase());
 }
 
 /**
- * Microsoft free-mail alias / bot-farm local-part heuristics.
+ * Alias / bot-farm local-part heuristics for **any** email domain.
  *
  * Blocks:
- *  - plus addressing (`user+tag@outlook.com`)
+ *  - plus addressing (`user+tag@…`, `scented2check+f7qspz@icloud.com`)
  *  - fragmented dots (`e.l.adu.v.a.r.61.5@…`, `a.b.c.d@…`)
  *  - consecutive dots / empty segments
- *  - random alnum farm blobs (`muxjcx87394v@outlook.com`)
+ *  - random alnum farm blobs (`muxjcx87394v@…`)
  *
- * Allows normal names: `john.doe@outlook.com`, `jane_smith@hotmail.com`.
+ * Allows normal names: `john.doe@…`, `jane_smith@…`, `j.doe@…`.
  */
-export function isMicrosoftAliasLikeLocalPart(local: string): boolean {
+export function isAliasLikeLocalPart(local: string): boolean {
   const l = local.trim().toLowerCase();
   if (!l) return true;
 
@@ -246,6 +258,12 @@ export function isMicrosoftAliasLikeLocalPart(local: string): boolean {
   return false;
 }
 
+/** @deprecated Use {@link isAliasLikeLocalPart} */
+export const isFreeMailAliasLikeLocalPart = isAliasLikeLocalPart;
+
+/** @deprecated Use {@link isAliasLikeLocalPart} */
+export const isMicrosoftAliasLikeLocalPart = isAliasLikeLocalPart;
+
 export type SignupEmailDenyReason =
   | "invalid"
   | "not_allowed"
@@ -267,11 +285,12 @@ export function checkSignupEmail(email: string): SignupEmailPolicyResult {
     return { ok: false, reason: "use_google_oauth" };
   }
 
-  if (isMicrosoftMailDomain(domain)) {
-    const local = extractEmailLocalPart(email);
-    if (!local || isMicrosoftAliasLikeLocalPart(local)) {
-      return { ok: false, reason: "alias_not_allowed" };
-    }
+  const local = extractEmailLocalPart(email);
+  if (!local) return { ok: false, reason: "invalid" };
+
+  // Alias / farm local parts rejected on every domain (provider, edu, etc.).
+  if (isAliasLikeLocalPart(local)) {
+    return { ok: false, reason: "alias_not_allowed" };
   }
 
   if (isAllowedEmailProviderDomain(domain)) return { ok: true };
@@ -289,7 +308,7 @@ export function signupEmailDenialMessage(reason: SignupEmailDenyReason): string 
     case "use_google_oauth":
       return "Gmail addresses must sign in with Google. Please use the Continue with Google button.";
     case "alias_not_allowed":
-      return "This Outlook/Hotmail address looks like an alias (plus tags or unusual dots). Please use your primary Microsoft email address.";
+      return "This email looks like an alias (plus tags or unusual dots). Please use your primary email address without +tags.";
     case "invalid":
       return "Please enter a valid email address.";
     case "not_allowed":
