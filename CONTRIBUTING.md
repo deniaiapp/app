@@ -70,7 +70,7 @@ Required and optional variables are validated in `src/env.ts`. A starter list is
 - **AI:** `GOOGLE_GENERATIVE_AI_API_KEY`, `ANTHROPIC_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`
 - **Search / CAPTCHA:** `BRAVE_SEARCH_API_KEY`, Turnstile keys
 - **Stripe:** `STRIPE_SECRET_KEY` (required by validation); publishable + webhook for full billing
-- **Optional:** Resend, Upstash/KV Redis, UploadThing, AdSense, voids.top gateway
+- **Optional:** Cloudflare Email Sending, Upstash/KV Redis, UploadThing, AdSense, voids.top gateway
 
 Details: [SETUP.md](SETUP.md).
 

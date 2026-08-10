@@ -36,7 +36,13 @@ export const env = createEnv({
     VOIDS_API_KEY: z.string().min(1).optional(),
     BRAVE_SEARCH_API_KEY: z.string().min(1),
     TURNSTILE_SECRET_KEY: z.string().min(1),
-    RESEND_API_KEY: z.string().min(1).optional(),
+    /**
+     * Cloudflare Email Sending (optional). Both account id and API token are
+     * required to enable transactional email (magic link, verification, etc.).
+     * Token needs Email Sending: Edit permission.
+     */
+    CLOUDFLARE_ACCOUNT_ID: z.string().min(1).optional(),
+    CLOUDFLARE_API_TOKEN: z.string().min(1).optional(),
     UPSTASH_REDIS_REST_URL: z.url().optional(),
     UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
     KV_REST_API_URL: z.url().optional(),
@@ -80,7 +86,8 @@ export const env = createEnv({
     NEXT_PUBLIC_ADSENSE_CHAT_SLOT_ID: process.env.NEXT_PUBLIC_ADSENSE_CHAT_SLOT_ID,
     STRIPE_FLASH_OFFER_COUPON_ID: process.env.STRIPE_FLASH_OFFER_COUPON_ID,
     AFFILIATE_ADMIN_EMAILS: process.env.AFFILIATE_ADMIN_EMAILS,
-    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    CLOUDFLARE_ACCOUNT_ID: process.env.CLOUDFLARE_ACCOUNT_ID,
+    CLOUDFLARE_API_TOKEN: process.env.CLOUDFLARE_API_TOKEN,
     UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
     UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
     KV_REST_API_URL: process.env.KV_REST_API_URL,

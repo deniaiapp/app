@@ -1,5 +1,4 @@
 import { createElement } from "react";
-import { Resend } from "resend";
 import {
   AffiliateDiscountCouponEmail,
   affiliateDiscountCouponEmailSubject,
@@ -13,9 +12,8 @@ import {
   AffiliatePlusCouponEmail,
   affiliatePlusCouponEmailSubject,
 } from "@/emails/affiliate-plus-coupon-email";
-import { env } from "@/env";
 import { AFFILIATE_DISCOUNT_PERCENT } from "@/lib/affiliate-types";
-import { EMAIL_FROM } from "@/lib/constants";
+import { sendEmail } from "@/lib/email";
 
 export async function sendAffiliatePlusCouponEmail({
   to,
@@ -28,23 +26,11 @@ export async function sendAffiliatePlusCouponEmail({
   couponCode: string;
   note?: string | null;
 }) {
-  if (!env.RESEND_API_KEY) {
-    throw new Error("RESEND_API_KEY is required to send affiliate reward emails.");
-  }
-
-  const resend = new Resend(env.RESEND_API_KEY);
-  const result = await resend.emails.send({
-    from: EMAIL_FROM,
+  return sendEmail({
     to,
     subject: affiliatePlusCouponEmailSubject,
     react: createElement(AffiliatePlusCouponEmail, { name, couponCode, note }),
   });
-
-  if (result.error) {
-    throw new Error(result.error.message);
-  }
-
-  return result.data;
 }
 
 export async function sendAffiliateResetRewardEmail({
@@ -58,23 +44,11 @@ export async function sendAffiliateResetRewardEmail({
   quantity: number;
   status: AffiliateResetRewardEmailStatus;
 }) {
-  if (!env.RESEND_API_KEY) {
-    throw new Error("RESEND_API_KEY is required to send affiliate reward emails.");
-  }
-
-  const resend = new Resend(env.RESEND_API_KEY);
-  const result = await resend.emails.send({
-    from: EMAIL_FROM,
+  return sendEmail({
     to,
     subject: affiliateResetRewardEmailSubject(status),
     react: createElement(AffiliateResetRewardEmail, { name, quantity, status }),
   });
-
-  if (result.error) {
-    throw new Error(result.error.message);
-  }
-
-  return result.data;
 }
 
 export async function sendAffiliateDiscountCouponEmail({
@@ -88,13 +62,7 @@ export async function sendAffiliateDiscountCouponEmail({
   couponCode: string;
   note?: string | null;
 }) {
-  if (!env.RESEND_API_KEY) {
-    throw new Error("RESEND_API_KEY is required to send affiliate reward emails.");
-  }
-
-  const resend = new Resend(env.RESEND_API_KEY);
-  const result = await resend.emails.send({
-    from: EMAIL_FROM,
+  return sendEmail({
     to,
     subject: affiliateDiscountCouponEmailSubject(AFFILIATE_DISCOUNT_PERCENT),
     react: createElement(AffiliateDiscountCouponEmail, {
@@ -104,10 +72,4 @@ export async function sendAffiliateDiscountCouponEmail({
       note,
     }),
   });
-
-  if (result.error) {
-    throw new Error(result.error.message);
-  }
-
-  return result.data;
 }
