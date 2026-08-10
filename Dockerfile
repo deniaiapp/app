@@ -125,7 +125,9 @@ FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 
 # Dokploy / Traefik reach the container on this port.
-# HOSTNAME=0.0.0.0 is required so the proxy can connect.
+# HOSTNAME=0.0.0.0 is only the listen bind address (not the public site URL).
+# Never set NEXT_PUBLIC_BETTER_AUTH_URL to http://0.0.0.0:3000 — use the real
+# public origin (e.g. https://deniai.app) at build time.
 ENV PORT=3000 \
   HOSTNAME=0.0.0.0 \
   NEXT_TELEMETRY_DISABLED=1 \

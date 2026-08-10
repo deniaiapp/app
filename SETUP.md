@@ -310,6 +310,7 @@ Any host that can run a Next.js standalone Node server (Railway, Render, Fly.io,
 | ----------------------------- | ------------------------------------------------------------- |
 | Env validation errors on boot | Missing keys in `src/env.ts`; empty optional strings are OK   |
 | OAuth redirect mismatch       | Callback URLs must match `NEXT_PUBLIC_BETTER_AUTH_URL`        |
+| Affiliate link is `0.0.0.0`   | Set `NEXT_PUBLIC_BETTER_AUTH_URL` to the **public** HTTPS origin (not Docker `HOSTNAME=0.0.0.0`). Rebuild so `NEXT_PUBLIC_*` is re-inlined. `/invite/*` redirects use that origin. |
 | DB migrate fails              | Correct `DATABASE_URL`; use `db:migrate:dev` for local        |
 | Stripe checkout broken        | Publishable key + webhook secret; Stripe CLI for local        |
 | Search / browse tools fail    | Valid `BRAVE_SEARCH_API_KEY`                                  |
