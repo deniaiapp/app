@@ -34,7 +34,7 @@ Optional:
 
 - Stripe: `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_FLASH_OFFER_COUPON_ID`
 - voids.top: `VOIDS_MODE=true|1` routes platform OpenAI + Anthropic via voids; when enabled `VOIDS_API_KEY` is required; optional `VOIDS_BASE_URL`
-- Email: `RESEND_API_KEY`
+- Email (Cloudflare Email Sending): `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`
 - Rate limit: `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` or `KV_REST_API_URL` / `KV_REST_API_TOKEN`
 - Uploads: `UPLOADTHING_TOKEN`
 - Client: `NEXT_PUBLIC_BILLING_DISABLED`, AdSense (`NEXT_PUBLIC_ADSENSE_*`)

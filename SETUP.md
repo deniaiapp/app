@@ -82,8 +82,11 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_your-stripe-publishable-key
 STRIPE_WEBHOOK_SECRET=whsec_your-webhook-secret
 # STRIPE_FLASH_OFFER_COUPON_ID=  # optional promo coupon
 
-# Email (optional — magic link / org invites)
-RESEND_API_KEY=re_your-resend-key
+# Email — Cloudflare Email Sending (optional — magic link / verification / org invites)
+# Onboard deniai.app (or your domain) under Email Service → Email Sending first.
+# API token needs Email Sending: Edit. Both vars required to enable email features.
+CLOUDFLARE_ACCOUNT_ID=your-cloudflare-account-id
+CLOUDFLARE_API_TOKEN=your-cloudflare-api-token
 
 # Affiliate administration (optional; comma-separated server-side admin emails)
 # AFFILIATE_ADMIN_EMAILS=you@example.com
@@ -115,6 +118,8 @@ Notes:
 - Optional voids.top mode: set `VOIDS_MODE=true` (or `1`) to send **platform** (non-BYOK) OpenAI and Anthropic traffic through the OpenAI-compatible voids.top gateway. When enabled, **`VOIDS_API_KEY` is required** (voids returns `401 invalid apikey` without it). Optional `VOIDS_BASE_URL` (default `https://capi.voids.top/v2`). When `VOIDS_MODE` is off, OpenAI uses OpenRouter and Anthropic uses `ANTHROPIC_API_KEY`.
 - Affiliate administration: set `AFFILIATE_ADMIN_EMAILS` to a comma-separated list of account emails that can approve reset rewards and send manual affiliate coupon emails. The address is read only on the server.
 - New 30% OFF affiliate coupon rewards remain pending until an admin enters a Stripe coupon or promotion code and sends the email from the affiliate settings page.
+- **Email (Cloudflare Email Sending):** requires a Workers Paid plan and the sending domain (e.g. `deniai.app`) onboarded under **Email Service → Email Sending** in the Cloudflare dashboard (DNS/SPF/DKIM managed there). Create an API token with **Email Sending: Edit**, then set `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN`. From address defaults to `Deni AI <noreply@deniai.app>` (`EMAIL_FROM` in `src/lib/constants.ts`). When either env var is missing, magic link / verification / invite emails are disabled.
+
 
 #### Generate `BETTER_AUTH_SECRET`
 

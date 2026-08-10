@@ -13,7 +13,6 @@ import {
 } from "better-auth/plugins";
 import { twoFactor } from "better-auth/plugins/two-factor";
 import { createElement } from "react";
-import { Resend } from "resend";
 import { db } from "@/db/drizzle";
 import * as schema from "@/db/schema";
 import { MagicLinkEmail, magicLinkEmailSubject } from "@/emails/magic-link-email";
@@ -22,11 +21,11 @@ import { orgInvitationEmailSubject } from "@/emails/org-invitation-email-subject
 import { PasswordResetEmail, passwordResetEmailSubject } from "@/emails/password-reset-email";
 import { VerificationEmail, verificationEmailSubject } from "@/emails/verification-email";
 import { env } from "@/env";
-import { EMAIL_FROM } from "@/lib/constants";
+import { isEmailConfigured, sendEmail } from "@/lib/email";
 import { isAllowedSignupEmail } from "@/lib/email-domain-policy";
 import { cancelPersonalSubscription, updateTeamSeatCount } from "@/lib/team-billing";
 
-const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
+const emailEnabled = isEmailConfigured();
 
 const EMAIL_DOMAIN_NOT_ALLOWED_MESSAGE =
   "Please use a major email provider (Gmail, Outlook, iCloud, Proton, etc.) or an educational address (.edu / .ac.*). To request adding another email domain, contact contact@deniai.app.";
@@ -78,11 +77,10 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: !!resend,
-    sendResetPassword: resend
+    requireEmailVerification: emailEnabled,
+    sendResetPassword: emailEnabled
       ? async ({ user, url }) => {
-          await resend.emails.send({
-            from: EMAIL_FROM,
+          await sendEmail({
             to: user.email,
             subject: passwordResetEmailSubject,
             react: createElement(PasswordResetEmail, {
@@ -93,11 +91,10 @@ export const auth = betterAuth({
         }
       : undefined,
   },
-  emailVerification: resend
+  emailVerification: emailEnabled
     ? {
         sendVerificationEmail: async ({ user, url }) => {
-          await resend.emails.send({
-            from: EMAIL_FROM,
+          await sendEmail({
             to: user.email,
             subject: verificationEmailSubject,
             react: createElement(VerificationEmail, {
@@ -131,11 +128,10 @@ export const auth = betterAuth({
           await updateTeamSeatCount(organization.id);
         },
       },
-      sendInvitationEmail: resend
+      sendInvitationEmail: emailEnabled
         ? async (data) => {
             const url = `${env.NEXT_PUBLIC_BETTER_AUTH_URL}/settings/team?invitationId=${data.id}`;
-            await resend.emails.send({
-              from: EMAIL_FROM,
+            await sendEmail({
               to: data.email,
               subject: orgInvitationEmailSubject(data.organization.name),
               react: createElement(OrgInvitationEmail, {
@@ -152,12 +148,11 @@ export const auth = betterAuth({
       secretKey: env.TURNSTILE_SECRET_KEY,
     }),
     bearer(),
-    ...(resend
+    ...(emailEnabled
       ? [
           magicLink({
             sendMagicLink: async ({ email, url }) => {
-              await resend.emails.send({
-                from: EMAIL_FROM,
+              await sendEmail({
                 to: email,
                 subject: magicLinkEmailSubject,
                 react: createElement(MagicLinkEmail, {
