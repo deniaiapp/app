@@ -1,6 +1,5 @@
 "use client";
 
-import type ts from "typescript";
 import * as React from "react";
 import { AlertCircleIcon } from "lucide-react";
 import { startTransition, useEffect, useReducer, useRef } from "react";
@@ -97,14 +96,6 @@ const resolvePreviewSource = (rawCode: string, t: PreviewTranslator) => {
 
   return `export default function Preview() { return (${source}); }`;
 };
-
-const formatDiagnostics = (typescript: typeof ts, diagnostics: readonly ts.Diagnostic[]) =>
-  diagnostics
-    .flatMap((diagnostic) => {
-      const message = typescript.flattenDiagnosticMessageText(diagnostic.messageText, "\n");
-      return message ? [message] : [];
-    })
-    .join("\n");
 
 const createPreviewDocument = ({
   previewId,
@@ -299,25 +290,19 @@ return module.exports.default ?? exports.default ?? module.exports;\`,
 </html>`;
 
 const evaluatePreview = async (rawCode: string, t: PreviewTranslator) => {
-  const typescript = await import("typescript");
+  // TypeScript 7 no longer ships the classic compiler API (transpileModule).
+  // Sucrase is a lightweight browser-friendly TS/TSX → JS transform for previews.
+  const { transform } = await import("sucrase");
   const source = resolvePreviewSource(rawCode, t);
-  const transpiled = typescript.transpileModule(source, {
-    compilerOptions: {
-      esModuleInterop: true,
-      jsx: typescript.JsxEmit.React,
-      module: typescript.ModuleKind.CommonJS,
-      target: typescript.ScriptTarget.ES2020,
-    },
-    reportDiagnostics: true,
-  });
 
-  const diagnostics = transpiled.diagnostics?.filter(
-    (diagnostic: { category: number }) =>
-      diagnostic.category === typescript.DiagnosticCategory.Error,
-  );
-
-  if (diagnostics && diagnostics.length > 0) {
-    throw new Error(formatDiagnostics(typescript, diagnostics));
+  let transpiledCode: string;
+  try {
+    transpiledCode = transform(source, {
+      transforms: ["typescript", "jsx", "imports"],
+      production: true,
+    }).code;
+  } catch (error) {
+    throw new Error(error instanceof Error ? error.message : String(error));
   }
 
   const hash = await sha256Hex(rawCode);
@@ -327,7 +312,7 @@ const evaluatePreview = async (rawCode: string, t: PreviewTranslator) => {
     resetKey,
     srcDoc: createPreviewDocument({
       previewId: resetKey,
-      transpiledCode: transpiled.outputText,
+      transpiledCode,
       unsupportedImportsMessage: t("unsupportedImports", { imports: "{imports}" }),
       exportComponentError: t("exportComponentError"),
     }).replaceAll("{{unknownError}}", t("unknownError")),
