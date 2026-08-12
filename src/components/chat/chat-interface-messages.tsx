@@ -29,6 +29,7 @@ import { AssistantMessage } from "@/components/chat/assistant-message";
 import type { ModelOption } from "@/components/chat/chat-composer";
 import type { GroupedMessage } from "@/hooks/use-chat-branches";
 import type { ReasoningEffort } from "@/lib/constants";
+import { toDisplayChatRequestError } from "@/lib/chat-request-error";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface RequestBody {
@@ -105,7 +106,7 @@ export function ChatInterfaceMessages({
             const fileParts = message.parts.filter(isFilePart);
             const textParts = message.parts.filter(isTextPart);
             return (
-              <div key={renderKey}>
+              <div className="chat-message-group" key={renderKey}>
                 {message.role === "user" && (
                   <Message from="user">
                     <MessageContent>
@@ -159,6 +160,7 @@ export function ChatInterfaceMessages({
             messageIndexMap.get(group.messages[group.messages.length - 1]) ?? -1;
           return (
             <MessageBranch
+              className="chat-message-group"
               key={`branch-${group.groupId}`}
               defaultBranch={group.messages.length - 1}
             >
@@ -218,9 +220,7 @@ export function ChatInterfaceMessages({
             </CardHeader>
             <CardContent>
               <div className="text-sm break-words">
-                {typeof error === "string"
-                  ? error
-                  : error?.message || t("An unexpected error occurred.")}
+                {toDisplayChatRequestError(error, t("An unexpected error occurred."))}
               </div>
             </CardContent>
           </Card>

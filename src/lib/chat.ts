@@ -41,6 +41,25 @@ export async function getChatById(id: string, userId: string) {
   return chat;
 }
 
+/**
+ * Load only the fields needed before starting a generation.
+ *
+ * The message history is already supplied by the client request, so reading
+ * the JSONB transcript here only adds database decoding and transfer cost.
+ */
+export async function getChatGenerationContextById(id: string, userId: string) {
+  const [chat] = await db
+    .select({
+      id: chats.id,
+      title: chats.title,
+      projectId: chats.projectId,
+    })
+    .from(chats)
+    .where(and(eq(chats.id, id), eq(chats.uid, userId)))
+    .limit(1);
+  return chat;
+}
+
 type ChatUpdateOptions = {
   expectedGenerationId?: string | null;
   nextGenerationId?: string | null;

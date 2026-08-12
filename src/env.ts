@@ -55,16 +55,14 @@ export const env = createEnv({
      * Must be the real public URL (e.g. https://deniai.app) — never the Docker
      * bind address (0.0.0.0) or an internal container hostname.
      */
-    NEXT_PUBLIC_BETTER_AUTH_URL: z
-      .url()
-      .refine((value) => {
-        try {
-          const host = new URL(value).hostname;
-          return host !== "0.0.0.0" && host !== "::" && host !== "[::]";
-        } catch {
-          return false;
-        }
-      }, "NEXT_PUBLIC_BETTER_AUTH_URL must be a public origin (not 0.0.0.0)"),
+    NEXT_PUBLIC_BETTER_AUTH_URL: z.url().refine((value) => {
+      try {
+        const host = new URL(value).hostname;
+        return host !== "0.0.0.0" && host !== "::" && host !== "[::]";
+      } catch {
+        return false;
+      }
+    }, "NEXT_PUBLIC_BETTER_AUTH_URL must be a public origin (not 0.0.0.0)"),
     NEXT_PUBLIC_BILLING_DISABLED: z.string().min(1).optional(),
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().min(1).optional(),
     NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().min(1),

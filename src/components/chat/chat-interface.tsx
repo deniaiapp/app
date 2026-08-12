@@ -39,6 +39,7 @@ const ArtifactPreviewPanel = dynamic(
 interface ChatInterfaceProps {
   id: string;
   initialMessages?: UIMessage[];
+  initialTitle?: string | null;
   initialProjectId?: string | null;
   initialProjectName?: string | null;
 }
@@ -135,6 +136,7 @@ function handleFocusComposer() {
 export function ChatInterface({
   id,
   initialMessages = [],
+  initialTitle = null,
   initialProjectId = null,
   initialProjectName = null,
 }: ChatInterfaceProps) {
@@ -203,7 +205,10 @@ export function ChatInterface({
   const lastMessage = messages.at(-1);
   const isWaitingForResponse =
     status !== "streaming" && status !== "submitted" && isPendingMessage(lastMessage);
-  const chatQuery = trpc.chat.getChat.useQuery(
+  // Only poll the generation marker. Fetch the full transcript once the
+  // server clears the pending generation, instead of transferring JSONB every
+  // second while waiting for a response.
+  const chatStatusQuery = trpc.chat.getChatStatus.useQuery(
     { id },
     {
       enabled: isWaitingForResponse,
@@ -230,37 +235,71 @@ export function ChatInterface({
     onMessageSent: () => utils.chat.getChats.invalidate(),
   });
 
+  const lastRecoveredStatusRef = useRef<number | null>(null);
+
   useEffect(() => {
-    const chat = chatQuery.data?.[0];
-    if (!chat?.messages) {
+    const statusUpdatedAt = chatStatusQuery.data?.updated_at?.getTime() ?? null;
+
+    if (
+      !isWaitingForResponse ||
+      !chatStatusQuery.isSuccess ||
+      chatStatusQuery.data?.activeGenerationId ||
+      statusUpdatedAt === null ||
+      lastRecoveredStatusRef.current === statusUpdatedAt
+    ) {
       return;
     }
 
-    const serverMessages = chat.messages as UIMessage[];
+    lastRecoveredStatusRef.current = statusUpdatedAt;
+    let cancelled = false;
 
-    // Polling can race the first /api/chat persist. Never clobber optimistic
-    // local state with an empty/shorter server snapshot — that made the first
-    // user bubble vanish while the assistant reply still streamed.
-    setMessages((current) => {
-      if (status === "streaming" || status === "submitted") {
-        return current;
-      }
-      if (serverMessages.length === 0 && current.length > 0) {
-        return current;
-      }
-      if (serverMessages.length < current.length) {
-        return current;
-      }
+    void utils.chat.getChatPage
+      .fetch({ id })
+      .then((chat) => {
+        if (cancelled || !chat?.messages) {
+          return;
+        }
 
-      const localUserCount = current.filter((message) => message.role === "user").length;
-      const serverUserCount = serverMessages.filter((message) => message.role === "user").length;
-      if (localUserCount > serverUserCount) {
-        return current;
-      }
+        const serverMessages = chat.messages as UIMessage[];
 
-      return serverMessages;
-    });
-  }, [chatQuery.data, setMessages, status]);
+        // The status query can race the final /api/chat persist. Never clobber
+        // optimistic local state with an empty/shorter server snapshot.
+        setMessages((current) => {
+          if (serverMessages.length === 0 && current.length > 0) {
+            return current;
+          }
+          if (serverMessages.length < current.length) {
+            return current;
+          }
+
+          const localUserCount = current.filter((message) => message.role === "user").length;
+          const serverUserCount = serverMessages.filter(
+            (message) => message.role === "user",
+          ).length;
+          if (localUserCount > serverUserCount) {
+            return current;
+          }
+
+          return serverMessages;
+        });
+      })
+      .catch(() => {
+        if (!cancelled) {
+          lastRecoveredStatusRef.current = null;
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    chatStatusQuery.data,
+    chatStatusQuery.isSuccess,
+    id,
+    isWaitingForResponse,
+    setMessages,
+    utils,
+  ]);
 
   useEffect(() => {
     const previousStatus = previousStatusRef.current;
@@ -392,8 +431,8 @@ export function ChatInterface({
       <ArtifactPreviewPanel />
       <div className="flex h-full flex-1 min-h-0 flex-col w-full max-w-3xl mx-auto p-4 overflow-hidden">
         <ChatInterfaceHeader
-          id={id}
           messages={messages}
+          initialTitle={initialTitle}
           initialProjectId={initialProjectId}
           initialProjectName={initialProjectName}
         />

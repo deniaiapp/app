@@ -18,7 +18,7 @@ import { auth } from "@/lib/auth";
 import {
   clearChatGenerationState,
   generateTitle,
-  getChatById,
+  getChatGenerationContextById,
   isChatGenerationActive,
   updateChat,
 } from "@/lib/chat";
@@ -44,46 +44,21 @@ import {
   type TokenUsageBreakdown,
 } from "@/lib/token-weighting";
 import { checkRateLimit } from "@/lib/rate-limit";
+import {
+  extractChatRequestErrorText,
+  GENERIC_CHAT_REQUEST_ERROR,
+  isContextOverflowMessage,
+} from "@/lib/chat-request-error";
 import { addOpenRouterCacheControl, ChatRouteError, resolveChatModelContext } from "./_lib/model";
 import { buildChatSystemPrompt } from "./_lib/prompt";
 import { ChatRequestSchema, setPendingState } from "./_lib/schema";
 
-function getErrorMessage(error: unknown): string | undefined {
-  if (typeof error === "string") {
-    return error;
-  }
-
-  if (error && typeof error === "object") {
-    const message = "message" in error ? error.message : undefined;
-    if (typeof message === "string" && message.trim()) {
-      return message;
-    }
-
-    const cause = "cause" in error ? error.cause : undefined;
-    if (cause) {
-      const causeMessage = getErrorMessage(cause);
-      if (causeMessage) {
-        return causeMessage;
-      }
-    }
-  }
-
-  return undefined;
-}
-
 function formatChatStreamError(error: unknown, modelId: string): string {
-  const rawMessage = getErrorMessage(error) ?? "An unexpected error occurred.";
-  const normalizedMessage = rawMessage.toLowerCase();
-  const isContextOverflow =
-    normalizedMessage.includes("context window") ||
-    normalizedMessage.includes("maximum context length") ||
-    normalizedMessage.includes("model_context_window_exceeded") ||
-    normalizedMessage.includes("prompt is too long") ||
-    normalizedMessage.includes("too many input tokens") ||
-    normalizedMessage.includes("input is too long");
+  console.error("Chat request error", error);
 
-  if (!isContextOverflow) {
-    return rawMessage;
+  const rawMessage = extractChatRequestErrorText(error);
+  if (!rawMessage || !isContextOverflowMessage(rawMessage)) {
+    return GENERIC_CHAT_REQUEST_ERROR;
   }
 
   const modelName = getModelDefinition(modelId)?.name ?? modelId;
@@ -157,19 +132,24 @@ const TOKEN_RECONCILE_OVERFLOW_BUFFER = 256;
 
 export async function POST(req: Request) {
   const headersList = await headers();
-  const session = await auth.api.getSession({ headers: headersList });
-  const userId = session?.session?.userId;
-  const isAnonymous = Boolean(session?.user?.isAnonymous);
-
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const sessionPromise = auth.api.getSession({ headers: headersList });
 
   let body: unknown;
   try {
     body = await req.json();
   } catch {
+    // The auth lookup started in parallel with body parsing. Attach a handler
+    // before returning so a rejected lookup cannot become an unhandled promise.
+    void sessionPromise.catch(() => undefined);
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+
+  const session = await sessionPromise;
+  const userId = session?.session?.userId;
+  const isAnonymous = Boolean(session?.user?.isAnonymous);
+
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const rateCheck = await checkRateLimit({
@@ -205,14 +185,18 @@ export async function POST(req: Request) {
     additionalInstruction,
   } = parsedBody.data;
 
-  const chat = await getChatById(id, userId);
+  const validatedMessagesPromise = safeValidateUIMessages<UIMessage>({
+    messages: rawMessages,
+  });
+
+  const [chat, validatedMessages] = await Promise.all([
+    getChatGenerationContextById(id, userId),
+    validatedMessagesPromise,
+  ]);
+
   if (!chat) {
     return NextResponse.json({ error: "Chat not found" }, { status: 404 });
   }
-
-  const validatedMessages = await safeValidateUIMessages<UIMessage>({
-    messages: rawMessages,
-  });
 
   if (!validatedMessages.success) {
     return NextResponse.json({ error: "Invalid messages payload" }, { status: 400 });
@@ -238,7 +222,8 @@ export async function POST(req: Request) {
     if (error instanceof ChatRouteError) {
       return NextResponse.json(error.body, { status: error.status });
     }
-    throw error;
+    console.error("Chat request error", error);
+    return NextResponse.json({ error: GENERIC_CHAT_REQUEST_ERROR }, { status: 500 });
   }
 
   const { model, providerOptions, usageCategory, usageUnit, useByok, usesOpenRouter } =
@@ -538,7 +523,7 @@ export async function POST(req: Request) {
     // Nothing streamed, so there is no reconciliation left to wait for.
     await flushMaxModeUsage();
     clearGenerationLock();
-    throw new Error(formatChatStreamError(error, baseModel));
+    return NextResponse.json({ error: formatChatStreamError(error, baseModel) }, { status: 500 });
   }
 
   // Throttle JSONB writes during streaming. Each write serializes the full
