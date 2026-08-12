@@ -120,7 +120,6 @@ Notes:
 - New 30% OFF affiliate coupon rewards remain pending until an admin enters a Stripe coupon or promotion code and sends the email from the affiliate settings page.
 - **Email (Cloudflare Email Sending):** requires a Workers Paid plan and the sending domain (e.g. `deniai.app`) onboarded under **Email Service → Email Sending** in the Cloudflare dashboard (DNS/SPF/DKIM managed there). Create an API token with **Email Sending: Edit**, then set `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN`. From address defaults to `Deni AI <noreply@deniai.app>` (`EMAIL_FROM` in `src/lib/constants.ts`). When either env var is missing, magic link / verification / invite emails are disabled.
 
-
 #### Generate `BETTER_AUTH_SECRET`
 
 The secret must be **exactly 32 characters** (Zod `length(32)`):
@@ -306,12 +305,12 @@ Any host that can run a Next.js standalone Node server (Railway, Render, Fly.io,
 
 ## Troubleshooting
 
-| Issue                         | What to check                                                 |
-| ----------------------------- | ------------------------------------------------------------- |
-| Env validation errors on boot | Missing keys in `src/env.ts`; empty optional strings are OK   |
-| OAuth redirect mismatch       | Callback URLs must match `NEXT_PUBLIC_BETTER_AUTH_URL`        |
+| Issue                         | What to check                                                                                                                                                                      |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Env validation errors on boot | Missing keys in `src/env.ts`; empty optional strings are OK                                                                                                                        |
+| OAuth redirect mismatch       | Callback URLs must match `NEXT_PUBLIC_BETTER_AUTH_URL`                                                                                                                             |
 | Affiliate link is `0.0.0.0`   | Set `NEXT_PUBLIC_BETTER_AUTH_URL` to the **public** HTTPS origin (not Docker `HOSTNAME=0.0.0.0`). Rebuild so `NEXT_PUBLIC_*` is re-inlined. `/invite/*` redirects use that origin. |
-| DB migrate fails              | Correct `DATABASE_URL`; use `db:migrate:dev` for local        |
-| Stripe checkout broken        | Publishable key + webhook secret; Stripe CLI for local        |
-| Search / browse tools fail    | Valid `BRAVE_SEARCH_API_KEY`                                  |
-| Docker build env issues       | Pass `NEXT_PUBLIC_*` as build args; see `Dockerfile` comments |
+| DB migrate fails              | Correct `DATABASE_URL`; use `db:migrate:dev` for local                                                                                                                             |
+| Stripe checkout broken        | Publishable key + webhook secret; Stripe CLI for local                                                                                                                             |
+| Search / browse tools fail    | Valid `BRAVE_SEARCH_API_KEY`                                                                                                                                                       |
+| Docker build env issues       | Pass `NEXT_PUBLIC_*` as build args; see `Dockerfile` comments                                                                                                                      |

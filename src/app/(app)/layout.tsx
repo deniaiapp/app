@@ -17,7 +17,7 @@ function AppContentFallback() {
 async function RequireAuth({ children }: { children: React.ReactNode }) {
   const session = await getSession();
   if (!session?.session) {
-    redirect("/auth/sign-in");
+    redirect("/auth/sign-in?redirectTo=/chat");
   }
   return children;
 }

@@ -109,6 +109,7 @@ function ChatPane({ id, isActive }: { id: string; isActive: boolean }) {
       <ChatInterface
         id={id}
         initialMessages={page.messages as UIMessage[]}
+        initialTitle={page.title}
         initialProjectId={page.projectId}
         initialProjectName={page.projectName ?? null}
       />
@@ -183,8 +184,13 @@ export function ChatRouteHost({ children }: { children: ReactNode }) {
   }
 
   return (
-    <Suspense fallback={<ChatInterfaceSkeleton />}>
-      <ChatRouteHostInner />
-    </Suspense>
+    <>
+      {/* Keep layout RequireAuth mounted so unauthenticated / expired sessions
+          still redirect. The page itself is null; this slot is the auth gate. */}
+      <div hidden>{children}</div>
+      <Suspense fallback={<ChatInterfaceSkeleton />}>
+        <ChatRouteHostInner />
+      </Suspense>
+    </>
   );
 }

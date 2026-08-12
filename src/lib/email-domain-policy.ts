@@ -19,10 +19,7 @@
  */
 
 /** Google consumer mail — email/password and magic-link sign-up forbidden. */
-export const GOOGLE_MAIL_DOMAINS: ReadonlySet<string> = new Set([
-  "gmail.com",
-  "googlemail.com",
-]);
+export const GOOGLE_MAIL_DOMAINS: ReadonlySet<string> = new Set(["gmail.com", "googlemail.com"]);
 
 /** Microsoft free consumer mail — alias-like local parts rejected. */
 export const MICROSOFT_MAIL_DOMAINS: ReadonlySet<string> = new Set([

@@ -1,14 +1,19 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AffiliateSessionClaim } from "@/components/affiliate/affiliate-session-claim";
 import { ChatRouteHost } from "@/components/chat/chat-route-host";
-import { ChatSearch } from "@/components/chat/chat-search";
 import { TwoFactorBanner } from "@/components/two-factor-banner";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { useNewChat } from "@/hooks/use-new-chat";
+
+const ChatSearch = dynamic(
+  () => import("@/components/chat/chat-search").then((mod) => mod.ChatSearch),
+  { loading: () => null },
+);
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   // Track which pathname the dialog was opened for so navigation closes it
@@ -55,7 +60,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
       <AffiliateSessionClaim />
-      <ChatSearch open={isChatSearchOpen} onOpenChange={setIsChatSearchOpen} />
+      {isChatSearchOpen ? <ChatSearch open onOpenChange={setIsChatSearchOpen} /> : null}
       <AppSidebar onOpenChatSearch={() => setIsChatSearchOpen(true)} />
       <SidebarInset>
         <TwoFactorBanner />

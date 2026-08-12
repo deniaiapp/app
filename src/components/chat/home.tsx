@@ -11,11 +11,7 @@ import { ProjectSelect } from "@/components/projects/project-select";
 import { env } from "@/env";
 import { useAvailableModels } from "@/hooks/use-available-models";
 import { useNewChat } from "@/hooks/use-new-chat";
-import {
-  defaultModel,
-  getPreferredReasoningEffort,
-  type ReasoningEffort,
-} from "@/lib/constants";
+import { defaultModel, getPreferredReasoningEffort, type ReasoningEffort } from "@/lib/constants";
 import { trpc } from "@/lib/trpc/react";
 
 // Storage key for passing initial message data to chat page

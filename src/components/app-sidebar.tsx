@@ -2,6 +2,7 @@
 
 import { FolderClosed, MessageSquare, Plus } from "lucide-react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
 import { useExtracted } from "next-intl";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -36,12 +37,23 @@ import {
 } from "@/components/ui/sidebar";
 import { Spinner } from "@/components/ui/spinner";
 import { AccountMenu } from "@/components/account-menu";
-import { AppSidebarChatList, type ChatListItem } from "@/components/app-sidebar-chat-list";
+import type { ChatListItem } from "@/components/app-sidebar-chat-list";
 import { normalizeTags } from "@/components/app-sidebar-utils";
 import DeniAIIcon from "@/components/deni-ai-icon";
 import { isCheckoutSettingsRoute } from "@/lib/settings-routes";
 import { trpc } from "@/lib/trpc/react";
 import { useNewChat } from "@/hooks/use-new-chat";
+
+const AppSidebarChatList = dynamic(
+  () => import("@/components/app-sidebar-chat-list").then((mod) => mod.AppSidebarChatList),
+  {
+    loading: () => (
+      <div className="flex items-center justify-center py-8">
+        <Spinner className="size-5 text-muted-foreground" />
+      </div>
+    ),
+  },
+);
 
 const KONAMI_SEQUENCE = [
   "arrowup",

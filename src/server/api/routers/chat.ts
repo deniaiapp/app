@@ -100,6 +100,25 @@ export const chatRouter = router({
       return loadChatPage(ctx.db, ctx.userId, input.id);
     }),
   /**
+   * Lightweight generation status for recovering a pending assistant message.
+   * Do not poll the full chat row: messages are stored in JSONB and can be
+   * substantially larger than the status needed by the client.
+   */
+  getChatStatus: protectedProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .query(async ({ ctx, input }) => {
+      const [status] = await ctx.db
+        .select({
+          activeGenerationId: chats.activeGenerationId,
+          updated_at: chats.updated_at,
+        })
+        .from(chats)
+        .where(and(eq(chats.id, input.id), eq(chats.uid, ctx.userId)))
+        .limit(1);
+
+      return status ?? null;
+    }),
+  /**
    * Upsert used when the client navigates to /chat/<uuid> before the row exists
    * (new chat flow). Returns the page payload so the host can paint immediately.
    */

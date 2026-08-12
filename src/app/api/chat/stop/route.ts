@@ -2,7 +2,11 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
-import { getChatById, removePendingAssistantMessage, stopChatGenerationState } from "@/lib/chat";
+import {
+  getChatGenerationContextById,
+  removePendingAssistantMessage,
+  stopChatGenerationState,
+} from "@/lib/chat";
 import { stopChatGeneration } from "@/lib/chat-generation";
 
 export async function POST(req: Request) {
@@ -31,7 +35,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const chat = await getChatById(parsedBody.data.id, userId);
+  const chat = await getChatGenerationContextById(parsedBody.data.id, userId);
   if (!chat) {
     return NextResponse.json({ error: "Chat not found" }, { status: 404 });
   }

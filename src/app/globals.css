@@ -394,6 +394,12 @@
 }
 
 @layer utilities {
+  /* Keep long chat transcripts cheap to lay out and paint. */
+  .chat-message-group {
+    content-visibility: auto;
+    contain-intrinsic-size: 0 120px;
+  }
+
   .animate-fade-in {
     animation: fadeIn 0.2s ease-out both;
   }
