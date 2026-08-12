@@ -5,7 +5,6 @@ import { FolderKanban } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useExtracted } from "next-intl";
 import { Badge } from "@/components/ui/badge";
-import { trpc } from "@/lib/trpc/react";
 
 const ChatExportMenu = dynamic(
   () => import("@/components/chat/chat-export-menu").then((mod) => mod.ChatExportMenu),
@@ -13,24 +12,19 @@ const ChatExportMenu = dynamic(
 );
 
 export interface ChatInterfaceHeaderProps {
-  id: string;
   messages: UIMessage[];
+  initialTitle?: string | null;
   initialProjectId?: string | null;
   initialProjectName?: string | null;
 }
 
 export function ChatInterfaceHeader({
-  id,
   messages,
+  initialTitle,
   initialProjectId,
   initialProjectName,
 }: ChatInterfaceHeaderProps) {
   const t = useExtracted();
-  const chatTitleQuery = trpc.chat.getChat.useQuery(
-    { id },
-    { staleTime: Number.POSITIVE_INFINITY, refetchOnMount: false, refetchOnWindowFocus: false },
-  );
-  const chatTitle = chatTitleQuery.data?.[0]?.title ?? null;
 
   return (
     <div className="mb-3 flex items-center gap-2 min-h-7">
@@ -43,7 +37,7 @@ export function ChatInterfaceHeader({
       ) : null}
       {messages.length > 0 ? (
         <div className="ml-auto">
-          <ChatExportMenu messages={messages} chatTitle={chatTitle ?? null} />
+          <ChatExportMenu messages={messages} chatTitle={initialTitle ?? null} />
         </div>
       ) : null}
     </div>
