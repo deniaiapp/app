@@ -32,6 +32,7 @@ import { isTrialEligibleForCustomer } from "@/lib/billing-trials";
 import { escapeStripeSearchValue } from "@/lib/stripe-search";
 import { stripe } from "@/lib/stripe";
 import { customCheckoutRequestOptions } from "@/lib/stripe-checkout";
+import { checkoutSessionExpand, summarizeCheckoutSession } from "@/lib/stripe-checkout-receipt";
 import { getSubscriptionPeriodEndDate } from "@/lib/stripe-subscriptions";
 import { getUsageSummary } from "@/lib/usage";
 import { type ProtectedContext, protectedProcedure, router } from "../trpc";
@@ -271,7 +272,8 @@ async function syncSubscription(ctx: ProtectedContext, userId: string) {
     updates.priceId = price?.id;
     updates.planId = plan?.id ?? billingRecord.planId;
     updates.cancelAt = subscription.cancel_at;
-    updates.status = status;
+    updates.status =
+      subscription.cancel_at_period_end || subscription.cancel_at ? "canceled" : status;
     updates.mode = deriveModeFromPrice(price);
     updates.currentPeriodEnd = getSubscriptionPeriodEndDate(subscription);
   }
@@ -635,7 +637,7 @@ export const billingRouter = router({
     .query(async ({ ctx, input }) => {
       const session = await stripe.checkout.sessions.retrieve(
         input.sessionId,
-        {},
+        { expand: [...checkoutSessionExpand] },
         customCheckoutRequestOptions,
       );
 
@@ -646,16 +648,7 @@ export const billingRouter = router({
         });
       }
 
-      return {
-        sessionId: session.id,
-        clientSecret: session.client_secret,
-        status: session.status,
-        paymentStatus: session.payment_status,
-        amountTotal: session.amount_total,
-        currency: session.currency,
-        mode: session.mode,
-        planId: session.metadata?.planId ?? null,
-      };
+      return summarizeCheckoutSession(session);
     }),
   confirmCheckout: billingEnabledProcedure
     .input(

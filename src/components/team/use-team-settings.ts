@@ -9,7 +9,7 @@ import { authClient } from "@/lib/auth-client";
 import { useBillingPlanCopy } from "@/lib/billing-plan-copy";
 import { trpc } from "@/lib/trpc/react";
 import { isInvitation, isMember, type Member, type Organization } from "./team-types";
-import { escapeCsvCell, parseTokenLimit } from "./team-utils";
+import { createTeamSlug, escapeCsvCell, parseTokenLimit } from "./team-utils";
 
 export function useTeamSettings() {
   const t = useExtracted();
@@ -28,6 +28,7 @@ export function useTeamSettings() {
   const [isInviting, setIsInviting] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<Member | null>(null);
   const [isRemovingMember, setIsRemovingMember] = useState(false);
+  const [shredOpen, setShredOpen] = useState(false);
   const currentUserId = session.data?.user?.id ?? null;
 
   const { data: organizationsData, isLoading: organizationsLoading } = useQuery({
@@ -123,39 +124,40 @@ export function useTeamSettings() {
     if (!newOrgName.trim()) return;
     setIsCreatingOrg(true);
     try {
-      const slug = newOrgName
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "");
       const result = await authClient.organization.create({
         name: newOrgName.trim(),
-        slug,
+        slug: createTeamSlug(newOrgName),
       });
+      if (result.error) {
+        toast.error(result.error.message || t("Failed to create organization"));
+        return;
+      }
       if (result.data) {
-        const orgs = await queryClient.fetchQuery({
-          queryKey: ["team", "organizations", currentUserId],
-          queryFn: async () => {
-            const listResult = await authClient.organization.list({});
-            return (listResult.data ?? []) as Organization[];
+        const created = result.data as Organization;
+        queryClient.setQueryData<Organization[]>(
+          ["team", "organizations", currentUserId],
+          (current) => {
+            const list = current ?? [];
+            if (list.some((org) => org.id === created.id)) {
+              return list;
+            }
+            return [...list, created];
           },
+        );
+        await selectOrg(created);
+        await queryClient.invalidateQueries({
+          queryKey: ["team", "organizations", currentUserId],
         });
-        const newOrg = orgs.find((o) => o.id === result.data?.id);
-        if (newOrg) {
-          await selectOrg(newOrg);
-        }
         toast.success(t("Organization created"));
+        setIsCreateDialogOpen(false);
+        setNewOrgName("");
       }
     } catch (error) {
       console.error("Failed to create org", error);
       toast.error(t("Failed to create organization"));
+    } finally {
       setIsCreatingOrg(false);
-      setIsCreateDialogOpen(false);
-      setNewOrgName("");
-      return;
     }
-    setIsCreatingOrg(false);
-    setIsCreateDialogOpen(false);
-    setNewOrgName("");
   }
 
   async function handleInvite() {
@@ -250,15 +252,28 @@ export function useTeamSettings() {
   }
 
   async function handleCancel() {
-    if (!activeOrg) return;
-    try {
-      await cancelSub.mutateAsync({ organizationId: activeOrg.id });
-      toast.success(t("Subscription will end at period end."));
-      utils.organization.teamBillingStatus.invalidate();
-    } catch (error) {
-      console.error("Failed to cancel", error);
-      toast.error(t("Failed to cancel subscription"));
+    setShredOpen(true);
+  }
+
+  async function confirmCancel() {
+    if (!activeOrg) {
+      throw new Error(t("Failed to cancel subscription"));
     }
+    const result = await cancelSub.mutateAsync({ organizationId: activeOrg.id });
+    utils.organization.teamBillingStatus.setData({ organizationId: activeOrg.id }, (current) =>
+      current
+        ? {
+            ...current,
+            status: result.status ?? "canceled",
+            cancelAt: result.cancelAt ?? current.cancelAt,
+            currentPeriodEnd: result.currentPeriodEnd ?? current.currentPeriodEnd,
+          }
+        : current,
+    );
+    await Promise.all([
+      utils.organization.teamBillingStatus.invalidate({ organizationId: activeOrg.id }),
+      utils.billing.status.invalidate(),
+    ]);
   }
 
   async function handleResume() {
@@ -474,6 +489,9 @@ export function useTeamSettings() {
     handleSubscribe,
     handleManage,
     handleCancel,
+    confirmCancel,
+    shredOpen,
+    setShredOpen,
     handleResume,
     handleTeamMaxModeToggle,
     updateMemberPolicy,

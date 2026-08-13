@@ -1,56 +1,26 @@
 "use client";
 
-import {
-  BillingAddressElement,
-  CheckoutElementsProvider,
-  CurrencySelectorElement,
-  PaymentElement,
-  useCheckout,
-} from "@stripe/react-stripe-js/checkout";
-import type { StripeCheckoutValue } from "@stripe/react-stripe-js/checkout";
+import { CheckoutElementsProvider, useCheckout } from "@stripe/react-stripe-js/checkout";
 import type { Appearance, Stripe } from "@stripe/stripe-js";
-import { ArrowLeft, Clock, ReceiptText, ShieldCheck, Sparkles, Tag, X } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useExtracted, useLocale } from "next-intl";
-import { useTheme } from "next-themes";
+import { useExtracted } from "next-intl";
 import { startTransition, useEffect, useReducer, useState } from "react";
 import { toast } from "sonner";
 import type { BillingPlanId, ClientPlan, IndividualPlanId, TeamPlanId } from "@/lib/billing";
 import { findPlanById, getPlanTier } from "@/lib/billing";
-import { useBillingPlanCopy } from "@/lib/billing-plan-copy";
-import { formatMinorCurrency } from "@/lib/currency";
 import { stripeJsPromise } from "@/lib/stripe-js";
 import { makeTRPCClient } from "@/lib/trpc/client";
-import { useFormatPriceParts } from "@/lib/use-format-price-parts";
-import { PlanHighlights } from "./plan-highlights";
-import { Badge } from "../ui/badge";
+import { type CheckoutSessionSummary as ReceiptCheckoutSessionSummary } from "@/lib/stripe-checkout-receipt";
+import { CheckoutReceiptForm, CheckoutReceiptFormPreview } from "./checkout-receipt-form";
+import { SubscriptionShredder } from "./subscription-shredder";
+import { SubscriptionReceipt, type SubscriptionReceiptData } from "./subscription-receipt";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
-import { Input } from "../ui/input";
 import { Spinner } from "../ui/spinner";
 
-type CheckoutSessionSummary = {
-  sessionId: string;
-  clientSecret: string | null;
-  status: "open" | "complete" | "expired";
-  paymentStatus: string | null;
-  amountTotal: number | null;
-  currency: string | null;
-  mode: string;
-  planId: string | null;
-};
-
-const checkoutOfferDateFormatter = new Intl.DateTimeFormat(undefined, {
-  month: "short",
-  day: "numeric",
-  hour: "numeric",
-  minute: "2-digit",
-});
-
-function getCheckoutDateFormatter() {
-  return checkoutOfferDateFormatter;
-}
+type CheckoutSessionSummary = ReceiptCheckoutSessionSummary;
 
 type BillingCheckoutProps = {
   scope: "billing";
@@ -138,24 +108,19 @@ function useTierLabelValue() {
   };
 }
 
-function getStripeCheckoutAppearance(theme: string | undefined): Appearance {
-  const isDark = theme === "dark";
-  const backgroundColor = isDark ? "#1a1a1a" : "#ffffff";
-  const foregroundColor = isDark ? "#fafafa" : "#171717";
-  const mutedColor = isDark ? "#a3a3a3" : "#737373";
-
+function getStripeCheckoutAppearance(): Appearance {
   return {
-    theme: isDark ? "night" : "stripe",
+    theme: "night",
     inputs: "spaced",
     labels: "above",
     variables: {
-      borderRadius: "8px",
-      colorBackground: backgroundColor,
-      colorDanger: isDark ? "#f87171" : "#dc2626",
-      colorPrimary: foregroundColor,
-      colorText: foregroundColor,
-      colorTextPlaceholder: mutedColor,
-      colorTextSecondary: mutedColor,
+      borderRadius: "10px",
+      colorBackground: "#111111",
+      colorDanger: "#f87171",
+      colorPrimary: "#fafafa",
+      colorText: "#f5f5f5",
+      colorTextPlaceholder: "#8a8a8a",
+      colorTextSecondary: "#a3a3a3",
       fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
       fontSizeBase: "14px",
       fontWeightMedium: "500",
@@ -220,377 +185,78 @@ function getPlanIntervalValue(planId: BillingPlanId | null | undefined) {
   return planId.endsWith("_yearly") ? "yearly" : "monthly";
 }
 
-function calculateYearlySavingsPercent(
-  yearlyPlan: ClientPlan | null | undefined,
-  monthlyPlan: ClientPlan | null | undefined,
-) {
-  if (
-    !yearlyPlan?.amount ||
-    !monthlyPlan?.amount ||
-    yearlyPlan.currency !== monthlyPlan.currency ||
-    monthlyPlan.amount <= 0
-  ) {
-    return 0;
-  }
-
-  return Math.max(
-    0,
-    Math.round(((monthlyPlan.amount * 12 - yearlyPlan.amount) / (monthlyPlan.amount * 12)) * 100),
-  );
-}
-
-function CheckoutAssurancePanel({
-  isRecurring,
-  hasTrial,
-  interval,
-}: {
-  isRecurring: boolean;
-  hasTrial: boolean;
-  interval: "monthly" | "yearly" | "lifetime" | null;
-}) {
+function usePlanDescription() {
   const t = useExtracted();
 
-  const items = [
-    {
-      icon: ShieldCheck,
-      label: t("Secure payment"),
-      description: t("Payment details are handled by Stripe and are not stored by Deni AI."),
-    },
-    {
-      icon: Sparkles,
-      label: hasTrial ? t("Trial starts first") : t("Access updates after checkout"),
-      description: hasTrial
-        ? t("Your upgraded limits are available during the trial.")
-        : t("Your plan and usage limits refresh after checkout completes."),
-    },
-    {
-      icon: isRecurring ? Clock : ReceiptText,
-      label: isRecurring ? t("Manage anytime") : t("No renewal"),
-      description: isRecurring
-        ? t("You can change or cancel from the billing page after subscribing.")
-        : t("This purchase does not create a recurring subscription."),
-    },
-  ];
-
-  return (
-    <div className="rounded-lg border border-border/80 bg-muted/30 p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-sm font-medium">{t("Before you complete checkout")}</div>
-        {interval === "yearly" && (
-          <div className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
-            {t("Yearly value")}
-          </div>
-        )}
-      </div>
-      <div className="mt-4 space-y-3">
-        {items.map((item) => {
-          const Icon = item.icon;
-          return (
-            <div key={item.label} className="flex gap-3">
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background">
-                <Icon className="size-4 text-muted-foreground" />
-              </div>
-              <div>
-                <div className="text-sm font-medium leading-snug">{item.label}</div>
-                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                  {item.description}
-                </p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
+  return (planId: BillingPlanId | string | null | undefined) => {
+    const interval = getPlanIntervalValue(planId as BillingPlanId | null | undefined);
+    if (interval === "yearly") {
+      return t("Annual subscription");
+    }
+    if (interval === "lifetime") {
+      return t("Lifetime access");
+    }
+    return t("Monthly subscription");
+  };
 }
 
-function CheckoutSummary({
-  checkout,
-  planId,
-  plan,
-  monthlyPlan,
-}: {
-  checkout: StripeCheckoutValue;
-  planId: BillingPlanId | null;
-  plan: ClientPlan | null;
-  monthlyPlan: ClientPlan | null;
-}) {
-  const t = useExtracted();
-  const planCopy = useBillingPlanCopy(planId);
-  const tierLabel = useTierLabel()(planId);
-  const formatPriceParts = useFormatPriceParts();
-  const interval = getPlanIntervalValue(planId);
-  const offerEndsAt = plan?.limitedTimeOfferEndsAt ? new Date(plan.limitedTimeOfferEndsAt) : null;
-  const offerEndsLabel =
-    offerEndsAt && !Number.isNaN(offerEndsAt.getTime())
-      ? getCheckoutDateFormatter().format(offerEndsAt)
-      : null;
-  const priceParts = formatPriceParts(checkout.total.total.minorUnitsAmount, checkout.currency);
-  const monthlyEquivalent =
-    interval === "yearly"
-      ? formatMinorCurrency(
-          Math.round(checkout.total.total.minorUnitsAmount / 12),
-          checkout.currency,
-          {
-            currencyDisplay: "code",
-            maximumFractionDigits: 0,
-          },
-        )
-      : null;
-  const savingsPercent =
-    interval === "yearly" ? calculateYearlySavingsPercent(plan, monthlyPlan) : 0;
-
-  return (
-    <Card className="not-first:border-border/80 bg-card/80 shadow-sm backdrop-blur-sm">
-      <CardHeader className="space-y-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <div className="text-[11px] font-semibold tracking-[0.22em] text-muted-foreground uppercase">
-              {tierLabel}
-            </div>
-            {plan?.trialDays ? (
-              <Badge className="border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-300">
-                {t("{days}-day free trial", { days: plan.trialDays.toString() })}
-              </Badge>
-            ) : interval === "yearly" && savingsPercent > 0 ? (
-              <Badge className="border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
-                {t("Save {percent}%", { percent: savingsPercent.toString() })}
-              </Badge>
-            ) : interval === "lifetime" ? (
-              <Badge variant="secondary" className="text-xs">
-                {t("Buy once")}
-              </Badge>
-            ) : null}
-            {offerEndsLabel && (
-              <Badge variant="outline" className="text-xs">
-                {t("24-hour offer")}
-              </Badge>
-            )}
-          </div>
-          <CardTitle className="text-2xl">
-            {interval === "yearly"
-              ? t("Yearly")
-              : interval === "lifetime"
-                ? t("Lifetime")
-                : t("Monthly")}
-          </CardTitle>
-          {planCopy?.tagline ? (
-            <CardDescription className="text-sm">{planCopy.tagline}</CardDescription>
-          ) : null}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        {checkout.currencyOptions && checkout.currencyOptions.length > 1 && (
-          <div className="space-y-2">
-            <div className="text-sm font-medium">{t("Choose currency")}</div>
-            <div className="rounded-lg border border-border bg-background px-3 py-2">
-              <CurrencySelectorElement />
-            </div>
-          </div>
-        )}
-
-        <div className="rounded-2xl border border-border/80 bg-muted/50 p-5">
-          <div className="text-sm font-medium text-muted-foreground">{t("Due today")}</div>
-          <div className="mt-2 flex items-start gap-2">
-            <span className="pt-2 text-[11px] font-semibold tracking-[0.22em] text-muted-foreground uppercase">
-              {priceParts.currency}
-            </span>
-            <span className="text-4xl font-semibold tracking-tight">{priceParts.amount}</span>
-          </div>
-          {interval === "yearly" && monthlyEquivalent && (
-            <div className="mt-3 space-y-1">
-              <div className="text-sm font-medium">
-                {t("{amount}/month when billed yearly", { amount: monthlyEquivalent })}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {t("One yearly payment of {price}", { price: checkout.total.total.amount })}
-              </div>
-            </div>
-          )}
-          {interval === "lifetime" && (
-            <div className="mt-3 text-sm font-medium">{t("One-time purchase")}</div>
-          )}
-          {offerEndsLabel && (
-            <div className="mt-3 text-xs text-muted-foreground">
-              {t("24-hour offer ends {date}", { date: offerEndsLabel })}
-            </div>
-          )}
-          {checkout.recurring && (
-            <div className="mt-3 text-sm text-muted-foreground">
-              {t("Next renewal: {amount}/{interval}", {
-                amount: checkout.recurring.dueNext.total.amount,
-                interval: checkout.recurring.interval === "year" ? t("year") : t("month"),
-              })}
-            </div>
-          )}
-        </div>
-
-        {planCopy ? (
-          <div className="rounded-2xl border border-border/80 bg-background/70 p-5">
-            <PlanHighlights items={planCopy.highlights} />
-          </div>
-        ) : null}
-      </CardContent>
-    </Card>
-  );
+function emptyReceiptAmounts(): Pick<
+  CheckoutSessionSummary,
+  | "amountSubtotal"
+  | "amountTax"
+  | "amountDiscount"
+  | "paymentMethodBrand"
+  | "paymentMethodLast4"
+  | "paidAt"
+> {
+  return {
+    amountSubtotal: null,
+    amountTax: null,
+    amountDiscount: null,
+    paymentMethodBrand: null,
+    paymentMethodLast4: null,
+    paidAt: null,
+  };
 }
 
-function PromotionCodeSection({ checkout }: { checkout: StripeCheckoutValue }) {
+function useReceiptCopy() {
   const t = useExtracted();
-  const [promotionCode, setPromotionCode] = useState("");
-  const [promotionError, setPromotionError] = useState<string | null>(null);
-  const [isApplyingPromotion, setIsApplyingPromotion] = useState(false);
-  const [isRemovingPromotion, setIsRemovingPromotion] = useState(false);
-  const appliedDiscount =
-    checkout.discountAmounts?.find((discount) => discount.promotionCode) ?? null;
-
-  async function handleApplyPromotionCode() {
-    const code = promotionCode.trim();
-    if (!code || isApplyingPromotion || isRemovingPromotion) {
-      return;
-    }
-
-    setPromotionError(null);
-    setIsApplyingPromotion(true);
-
-    try {
-      const result = await checkout.applyPromotionCode(code);
-
-      if (result.type === "error") {
-        const message =
-          result.error.code === "invalidCode"
-            ? t("This coupon code is invalid or unavailable.")
-            : result.error.message;
-        setPromotionError(message);
-        toast.error(message);
-        setIsApplyingPromotion(false);
-        return;
-      }
-
-      setPromotionCode("");
-      setIsApplyingPromotion(false);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t("Unable to apply coupon code.");
-      setPromotionError(message);
-      toast.error(message);
-      setIsApplyingPromotion(false);
-    }
-  }
-
-  async function handleRemovePromotionCode() {
-    if (!appliedDiscount || isApplyingPromotion || isRemovingPromotion) {
-      return;
-    }
-
-    setPromotionError(null);
-    setIsRemovingPromotion(true);
-
-    try {
-      const result = await checkout.removePromotionCode();
-
-      if (result.type === "error") {
-        setPromotionError(result.error.message);
-        toast.error(result.error.message);
-      } else {
-        setPromotionCode("");
-      }
-      setIsRemovingPromotion(false);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t("Unable to remove coupon code.");
-      setPromotionError(message);
-      toast.error(message);
-      setIsRemovingPromotion(false);
-    }
-  }
+  const getPlanDescription = usePlanDescription();
+  const getTierLabel = useTierLabel();
 
   return (
-    <div className="space-y-3 rounded-2xl shadow-sm">
-      <div className="space-y-1">
-        <div className="text-sm font-medium">{t("Coupon code")}</div>
-        <div className="text-sm text-muted-foreground">
-          {t("Apply a Stripe promotion code before completing checkout.")}
-        </div>
-      </div>
-
-      {appliedDiscount ? (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-card px-3 py-2.5">
-          <div className="flex min-w-0 items-center gap-2">
-            <Tag className="size-4 text-muted-foreground" />
-            <div className="min-w-0">
-              <div className="truncate text-sm font-medium">{appliedDiscount.promotionCode}</div>
-              <div className="text-xs text-muted-foreground">
-                {t("Discount applied: {amount}", { amount: appliedDiscount.amount })}
-              </div>
-            </div>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-8 rounded-full px-3"
-            disabled={isRemovingPromotion}
-            onClick={handleRemovePromotionCode}
-          >
-            {isRemovingPromotion ? <Spinner className="size-4" /> : <X className="size-4" />}
-            {t("Remove")}
-          </Button>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <Input
-            value={promotionCode}
-            onChange={(event) => {
-              setPromotionCode(event.target.value);
-              if (promotionError) {
-                setPromotionError(null);
-              }
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                void handleApplyPromotionCode();
-              }
-            }}
-            placeholder={t("Enter coupon code")}
-            autoComplete="off"
-            disabled={isApplyingPromotion}
-            className="bg-background/80"
-          />
-          <Button
-            type="button"
-            variant="outline"
-            disabled={isApplyingPromotion || promotionCode.trim().length === 0}
-            onClick={handleApplyPromotionCode}
-          >
-            {isApplyingPromotion && <Spinner className="size-4" />}
-            {t("Apply")}
-          </Button>
-        </div>
-      )}
-
-      {promotionError && <p className="text-sm text-destructive">{promotionError}</p>}
-    </div>
-  );
+    planId: BillingPlanId | string | null | undefined,
+    homeHref: string,
+    homeLabel: string,
+  ) => {
+    const tierLabel = getTierLabel(planId);
+    const planTitle =
+      getPlanTier(planId) === "team" ? tierLabel : t("{tier} plan", { tier: tierLabel });
+    const planDescription = getPlanDescription(planId);
+    return {
+      planTitle,
+      planDescription,
+      planLineLabel: planTitle,
+      homeHref,
+      homeLabel,
+    };
+  };
 }
 
 function CheckoutForm({
-  planLabel,
   backHref,
   returnLabel,
   returnUrl,
   appearance,
   planId,
   plan,
-  monthlyPlan,
 }: {
-  planLabel: string;
   backHref: string;
   returnLabel: string;
   returnUrl: string;
   appearance: Appearance;
   planId: BillingPlanId | null;
   plan: ClientPlan | null;
-  monthlyPlan: ClientPlan | null;
 }) {
   const t = useExtracted();
   const { replace } = useRouter();
@@ -598,6 +264,8 @@ function CheckoutForm({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const checkout = checkoutState.type === "success" ? checkoutState.checkout : null;
+  const receiptHomeLabel = t("Home");
+  const receiptCopy = useReceiptCopy()(planId, backHref, receiptHomeLabel);
 
   useEffect(() => {
     if (!checkout) {
@@ -634,31 +302,26 @@ function CheckoutForm({
   const activeCheckout = checkoutState.checkout;
 
   if (activeCheckout.status.type === "complete") {
-    return (
-      <Card className="border-border/80">
-        <CardHeader>
-          <div className="inline-flex w-fit items-center gap-2 rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
-            <ShieldCheck className="size-3.5" />
-            {t("Checkout complete")}
-          </div>
-          <CardTitle className="mt-3 text-xl">{planLabel}</CardTitle>
-          <CardDescription>
-            {activeCheckout.recurring
-              ? t("Your subscription is active. You can return to billing at any time.")
-              : t("Your payment is complete. You can return to billing at any time.")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="rounded-xl bg-muted/60 p-4">
-            <div className="text-sm text-muted-foreground">{t("Due today")}</div>
-            <div className="mt-1 text-2xl font-semibold">{activeCheckout.total.total.amount}</div>
-          </div>
-          <Button asChild className="w-full">
-            <Link href={backHref}>{returnLabel}</Link>
-          </Button>
-        </CardContent>
-      </Card>
-    );
+    const savedCard = activeCheckout.savedPaymentMethods?.[0]?.card;
+    const receipt: SubscriptionReceiptData = {
+      sessionId: activeCheckout.id,
+      ...receiptCopy,
+      amountTotal: activeCheckout.total.total.minorUnitsAmount,
+      amountSubtotal: activeCheckout.total.subtotal.minorUnitsAmount,
+      amountTax:
+        activeCheckout.total.taxExclusive.minorUnitsAmount ||
+        activeCheckout.total.taxInclusive.minorUnitsAmount,
+      amountDiscount:
+        activeCheckout.total.discount.minorUnitsAmount > 0
+          ? activeCheckout.total.discount.minorUnitsAmount
+          : null,
+      currency: activeCheckout.currency,
+      paymentMethodBrand: savedCard?.brand ?? null,
+      paymentMethodLast4: savedCard?.last4 ?? null,
+      paidAt: new Date().toISOString(),
+    };
+
+    return <SubscriptionReceipt data={receipt} />;
   }
 
   async function handleConfirm() {
@@ -695,143 +358,123 @@ function CheckoutForm({
   }
 
   return (
-    <div className="grid gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,24rem)] lg:items-start">
-      <div className="space-y-10">
-        <PromotionCodeSection checkout={activeCheckout} />
-
-        <section className="space-y-4">
-          <div className="space-y-1.5">
-            <h2 className="text-sm font-medium">{t("Payment method")}</h2>
-            <p className="text-sm text-muted-foreground">
-              {t("Enter your card details to complete checkout.")}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-border bg-card p-5">
-            <PaymentElement
-              options={{
-                fields: {
-                  billingDetails: {
-                    address: "never",
-                    email: "never",
-                    name: "never",
-                    phone: "never",
-                  },
-                },
-                layout: {
-                  type: "tabs",
-                  defaultCollapsed: false,
-                  paymentMethodLogoPosition: "end",
-                  radios: "never",
-                  spacedAccordionItems: false,
-                },
-              }}
-            />
-          </div>
-        </section>
-
-        <section className="space-y-4">
-          <div className="space-y-1.5">
-            <h2 className="text-sm font-medium">{t("Billing address")}</h2>
-            <p className="text-sm text-muted-foreground">
-              {t("Use the billing address associated with this card.")}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-border bg-card p-5">
-            <BillingAddressElement
-              options={{
-                display: {
-                  name: "full",
-                },
-              }}
-            />
-          </div>
-        </section>
-      </div>
-
-      <div className="lg:sticky lg:top-6 space-y-6">
-        <CheckoutSummary
-          checkout={activeCheckout}
-          planId={planId}
-          plan={plan}
-          monthlyPlan={monthlyPlan}
-        />
-        {submitError && <p className="text-sm text-destructive">{submitError}</p>}
-        <Button
-          className="h-auto min-h-12 w-full flex-col gap-1 rounded-full py-3 text-sm font-medium"
-          disabled={isSubmitting || !activeCheckout.canConfirm}
-          onClick={handleConfirm}
-        >
-          {isSubmitting && <Spinner className="size-4" />}
-          <span>
-            {activeCheckout.recurring
-              ? plan?.trialDays
-                ? t("Start {days}-day trial", { days: plan.trialDays.toString() })
-                : t("Start subscription")
-              : t("Complete payment")}
-          </span>
-          <span className="text-[11px] font-normal text-current/80">
-            {activeCheckout.recurring ? t("Cancel anytime") : t("Pay once. Keep access.")}
-          </span>
-        </Button>
-        <CheckoutAssurancePanel
-          isRecurring={Boolean(activeCheckout.recurring)}
-          hasTrial={Boolean(plan?.trialDays)}
-          interval={getPlanIntervalValue(planId)}
-        />
-      </div>
-    </div>
+    <CheckoutReceiptForm
+      checkout={activeCheckout}
+      confirmHint={activeCheckout.recurring ? t("Cancel anytime") : t("Pay once. Keep access.")}
+      confirmLabel={
+        activeCheckout.recurring
+          ? plan?.trialDays
+            ? t("Start {days}-day trial", { days: plan.trialDays.toString() })
+            : t("Start subscription")
+          : t("Complete payment")
+      }
+      homeHref={backHref}
+      homeLabel={receiptHomeLabel}
+      isSubmitting={isSubmitting}
+      onConfirm={() => {
+        void handleConfirm();
+      }}
+      planDescription={receiptCopy.planDescription}
+      planTitle={receiptCopy.planTitle}
+      submitError={submitError}
+    />
   );
 }
 
 function ServerSessionComplete({
   session,
-  planLabel,
+  planId,
   backHref,
-  returnLabel,
 }: {
   session: CheckoutSessionSummary;
-  planLabel: string;
+  planId: BillingPlanId | null;
   backHref: string;
-  returnLabel: string;
 }) {
   const t = useExtracted();
-  const locale = useLocale();
+  const receiptCopy = useReceiptCopy()(planId ?? session.planId, backHref, t("Home"));
 
   return (
-    <Card className="border-border/80">
-      <CardHeader>
-        <div className="inline-flex w-fit items-center gap-2 rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
-          <ShieldCheck className="size-3.5" />
-          {t("Checkout complete")}
-        </div>
-        <CardTitle className="mt-3 text-xl">{planLabel}</CardTitle>
-        <CardDescription>
-          {session.mode === "subscription"
-            ? t("Your subscription is active. You can return to billing at any time.")
-            : t("Your payment is complete. You can return to billing at any time.")}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {session.amountTotal !== null && session.currency && (
-          <div className="rounded-xl bg-muted/60 p-4">
-            <div className="text-sm text-muted-foreground">{t("Due today")}</div>
-            <div className="mt-1 text-2xl font-semibold">
-              {formatMinorCurrency(session.amountTotal, session.currency, undefined, locale)}
-            </div>
-          </div>
-        )}
-        <Button asChild className="w-full">
-          <Link href={backHref}>{returnLabel}</Link>
-        </Button>
-      </CardContent>
-    </Card>
+    <SubscriptionReceipt
+      data={{
+        sessionId: session.sessionId,
+        ...receiptCopy,
+        amountTotal: session.amountTotal ?? 0,
+        amountSubtotal: session.amountSubtotal,
+        amountTax: session.amountTax,
+        amountDiscount: session.amountDiscount,
+        currency: session.currency ?? "usd",
+        paymentMethodBrand: session.paymentMethodBrand,
+        paymentMethodLast4: session.paymentMethodLast4,
+        paidAt: session.paidAt,
+      }}
+    />
+  );
+}
+
+function PreviewSubscriptionReceipt({
+  planId,
+  backHref,
+}: {
+  planId: BillingPlanId | null;
+  backHref: string;
+}) {
+  const t = useExtracted();
+  const receiptCopy = useReceiptCopy()(planId ?? "pro_yearly", backHref, t("Home"));
+
+  return (
+    <SubscriptionReceipt
+      data={{
+        sessionId: "cs_preview_deni2048",
+        ...receiptCopy,
+        amountTotal: 23040,
+        amountSubtotal: 19200,
+        amountTax: 3840,
+        amountDiscount: null,
+        currency: "usd",
+        paymentMethodBrand: "visa",
+        paymentMethodLast4: "4242",
+        paidAt: new Date().toISOString(),
+      }}
+    />
+  );
+}
+
+function PreviewSubscriptionShred({
+  planId,
+  backHref,
+}: {
+  planId: BillingPlanId | null;
+  backHref: string;
+}) {
+  const t = useExtracted();
+  const [playId, setPlayId] = useState(0);
+  const receiptCopy = useReceiptCopy()(planId ?? "pro_yearly", backHref, t("Home"));
+
+  return (
+    <SubscriptionShredder
+      data={{
+        sessionId: "cs_preview_shred2048",
+        ...receiptCopy,
+        amountTotal: 23040,
+        amountSubtotal: 19200,
+        amountTax: 3840,
+        amountDiscount: null,
+        currency: "usd",
+        paymentMethodBrand: "visa",
+        paymentMethodLast4: "4242",
+        paidAt: new Date().toISOString(),
+      }}
+      key={playId}
+      onClose={() => setPlayId((current) => current + 1)}
+      onConfirm={() => new Promise((resolve) => window.setTimeout(resolve, 400))}
+      open
+    />
   );
 }
 
 export function StripeCheckoutPage(props: StripeCheckoutPageProps) {
   const t = useExtracted();
   const { replace } = useRouter();
-  const { resolvedTheme } = useTheme();
   const trpcClient = makeTRPCClient();
   const { planId, scope, sessionId } = props;
   const organizationId = props.scope === "team" ? props.organizationId : null;
@@ -846,17 +489,17 @@ export function StripeCheckoutPage(props: StripeCheckoutPageProps) {
     return candidate ? (findPlanById(candidate)?.id ?? null) : null;
   })();
   const planLabel = usePlanLabel()(resolvedPlanId ?? session?.planId ?? planId);
+  const receiptCopy = useReceiptCopy()(
+    resolvedPlanId ?? session?.planId ?? planId ?? "pro_yearly",
+    scope === "billing" ? "/settings/billing" : "/settings/team",
+    t("Home"),
+  );
   const selectedPlan = availablePlans.find((plan) => plan.id === resolvedPlanId) ?? null;
-  const monthlyPlan = (() => {
-    if (!resolvedPlanId || !resolvedPlanId.endsWith("_yearly")) {
-      return null;
-    }
+  const checkoutAppearance = getStripeCheckoutAppearance();
 
-    const monthlyPlanId = resolvedPlanId.replace("_yearly", "_monthly") as BillingPlanId;
-    return availablePlans.find((plan) => plan.id === monthlyPlanId) ?? null;
-  })();
-  const checkoutAppearance = getStripeCheckoutAppearance(resolvedTheme);
-
+  const isReceiptPreview = sessionId === "preview";
+  const isCheckoutPreview = sessionId === "preview-form";
+  const isShredPreview = sessionId === "preview-shred";
   const backHref = scope === "billing" ? "/settings/billing" : "/settings/team";
   const returnLabel = scope === "billing" ? t("Return to billing") : t("Return to team billing");
   const returnUrl =
@@ -872,6 +515,10 @@ export function StripeCheckoutPage(props: StripeCheckoutPageProps) {
     let cancelled = false;
 
     async function bootstrap() {
+      if (isReceiptPreview || isCheckoutPreview || isShredPreview) {
+        return;
+      }
+
       dispatchBootstrap({ type: "start" });
 
       if (!stripeJsPromise) {
@@ -950,6 +597,7 @@ export function StripeCheckoutPage(props: StripeCheckoutPageProps) {
         currency: null,
         mode: "subscription",
         planId,
+        ...emptyReceiptAmounts(),
       };
 
       const nextHref =
@@ -979,22 +627,57 @@ export function StripeCheckoutPage(props: StripeCheckoutPageProps) {
     return () => {
       cancelled = true;
     };
-  }, [organizationId, planId, replace, scope, sessionId, t, trpcClient]);
+  }, [
+    isCheckoutPreview,
+    isReceiptPreview,
+    isShredPreview,
+    organizationId,
+    planId,
+    replace,
+    scope,
+    sessionId,
+    t,
+    trpcClient,
+  ]);
+
+  if (isCheckoutPreview) {
+    return (
+      <CheckoutReceiptFormPreview
+        homeHref={backHref}
+        homeLabel={t("Home")}
+        planDescription={receiptCopy.planDescription}
+        planTitle={receiptCopy.planTitle}
+      />
+    );
+  }
+
+  if (isReceiptPreview) {
+    return <PreviewSubscriptionReceipt backHref={backHref} planId={planId} />;
+  }
+
+  if (isShredPreview) {
+    return <PreviewSubscriptionShred backHref={backHref} planId={planId} />;
+  }
+
+  const showCheckoutHeader =
+    session?.status !== "complete" && !session?.clientSecret && !isBootstrapping;
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
-      <div className="bg-background flex items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="text-sm text-muted-foreground">{t("Checkout")}</div>
-          <h1 className="text-2xl font-semibold tracking-tight">{planLabel}</h1>
+      {showCheckoutHeader ? (
+        <div className="bg-background flex items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="text-sm text-muted-foreground">{t("Checkout")}</div>
+            <h1 className="text-2xl font-semibold tracking-tight">{planLabel}</h1>
+          </div>
+          <Button asChild variant="ghost" size="sm">
+            <Link href={backHref}>
+              <ArrowLeft className="size-4" />
+              {returnLabel}
+            </Link>
+          </Button>
         </div>
-        <Button asChild variant="ghost" size="sm">
-          <Link href={backHref}>
-            <ArrowLeft className="size-4" />
-            {returnLabel}
-          </Link>
-        </Button>
-      </div>
+      ) : null}
 
       {isBootstrapping ? (
         <div className="flex min-h-[40vh] items-center justify-center">
@@ -1013,12 +696,7 @@ export function StripeCheckoutPage(props: StripeCheckoutPageProps) {
           </CardContent>
         </Card>
       ) : session?.status === "complete" ? (
-        <ServerSessionComplete
-          session={session}
-          planLabel={planLabel}
-          backHref={backHref}
-          returnLabel={returnLabel}
-        />
+        <ServerSessionComplete session={session} planId={resolvedPlanId} backHref={backHref} />
       ) : session?.status === "expired" ? (
         <Card className="border-destructive/40">
           <CardHeader>
@@ -1046,14 +724,12 @@ export function StripeCheckoutPage(props: StripeCheckoutPageProps) {
           }}
         >
           <CheckoutForm
-            planLabel={planLabel}
             backHref={backHref}
             returnLabel={returnLabel}
             returnUrl={returnUrl}
             appearance={checkoutAppearance}
             planId={resolvedPlanId}
             plan={selectedPlan}
-            monthlyPlan={monthlyPlan}
           />
         </CheckoutElementsProvider>
       ) : (

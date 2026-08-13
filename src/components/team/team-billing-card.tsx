@@ -19,6 +19,7 @@ type BillingStatus = {
   status?: string | null;
   memberCount?: number | null;
   currentPeriodEnd?: Date | string | null;
+  cancelAt?: number | null;
 };
 
 export function TeamBillingCard({
@@ -57,8 +58,10 @@ export function TeamBillingCard({
   const t = useExtracted();
   const hasActivePlan =
     billingStatus?.status &&
-    ["active", "trialing", "past_due", "incomplete", "unpaid"].includes(billingStatus.status);
-  const isCanceled = billingStatus?.status === "canceled";
+    ["active", "trialing", "past_due", "incomplete", "unpaid", "canceled"].includes(
+      billingStatus.status,
+    );
+  const isCanceled = Boolean(billingStatus?.cancelAt) || billingStatus?.status === "canceled";
 
   return (
     <Card>
@@ -90,9 +93,11 @@ export function TeamBillingCard({
                   {isCanceled && (
                     <Badge variant="secondary">
                       {t("Cancels")}{" "}
-                      {billingStatus?.currentPeriodEnd
-                        ? monthDayFormatter.format(new Date(billingStatus.currentPeriodEnd))
-                        : ""}
+                      {billingStatus?.cancelAt
+                        ? monthDayFormatter.format(new Date(billingStatus.cancelAt * 1000))
+                        : billingStatus?.currentPeriodEnd
+                          ? monthDayFormatter.format(new Date(billingStatus.currentPeriodEnd))
+                          : ""}
                     </Badge>
                   )}
                   {hasActivePlan && !isCanceled && <Badge className="ml-1.5">{t("Active")}</Badge>}

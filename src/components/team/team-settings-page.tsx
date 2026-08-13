@@ -23,6 +23,9 @@ import { TeamOrgHeader } from "./team-org-header";
 import { TeamPendingInvitations } from "./team-pending-invitations";
 import { TeamRemoveMemberDialog } from "./team-remove-member-dialog";
 import { useTeamSettings } from "./use-team-settings";
+import { SubscriptionShredder } from "@/components/billing/subscription-shredder";
+import { useBillingReceiptCopy } from "@/components/billing/billing-utils";
+import type { SubscriptionReceiptData } from "@/components/billing/subscription-receipt";
 
 function TeamSettingsContent() {
   const {
@@ -70,6 +73,9 @@ function TeamSettingsContent() {
     handleSubscribe,
     handleManage,
     handleCancel,
+    confirmCancel,
+    shredOpen,
+    setShredOpen,
     handleResume,
     handleTeamMaxModeToggle,
     updateMemberPolicy,
@@ -78,6 +84,9 @@ function TeamSettingsContent() {
     handleMemberLimitChange,
     handleExportMaxModeCsv,
   } = useTeamSettings();
+  const getReceiptCopy = useBillingReceiptCopy();
+  const teamPlanId = teamBillingQuery.data?.planId ?? "pro_team_monthly";
+  const teamPlan = teamPlanId.endsWith("yearly") ? yearlyPlan : monthlyPlan;
 
   if (isLoading) {
     return (
@@ -146,7 +155,7 @@ function TeamSettingsContent() {
           teamTrialDays={teamTrialDays}
           checkoutPending={createTeamCheckout.isPending}
           checkoutPlanId={createTeamCheckout.variables?.planId}
-          cancelPending={cancelSub.isPending}
+          cancelPending={cancelSub.isPending || shredOpen}
           resumePending={resumeSub.isPending}
           onSubscribe={handleSubscribe}
           onManage={handleManage}
@@ -211,6 +220,26 @@ function TeamSettingsContent() {
         }}
         onConfirm={handleRemoveMember}
         isRemoving={isRemovingMember}
+      />
+
+      <SubscriptionShredder
+        data={
+          {
+            sessionId: activeOrg?.id ?? "team-cancel",
+            ...getReceiptCopy(teamPlanId, "/settings/team", t("Home")),
+            amountTotal: teamPlan?.amount ?? 0,
+            amountSubtotal: teamPlan?.amount ?? null,
+            amountTax: null,
+            amountDiscount: null,
+            currency: teamPlan?.currency ?? "usd",
+            paymentMethodBrand: null,
+            paymentMethodLast4: null,
+            paidAt: teamBillingQuery.data?.currentPeriodEnd ?? new Date().toISOString(),
+          } satisfies SubscriptionReceiptData
+        }
+        onClose={() => setShredOpen(false)}
+        onConfirm={confirmCancel}
+        open={shredOpen}
       />
     </SettingsPageShell>
   );

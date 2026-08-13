@@ -16,7 +16,13 @@ import { BillingCurrentPlanCard } from "./billing-current-plan-card";
 import { BillingMaxModeCard } from "./billing-max-mode-card";
 import { BillingPlansSection } from "./billing-plans-section";
 import { BillingUsageSection } from "./billing-usage-section";
-import { ACTIVE_STATUSES, calculateYearlySavingsPercent } from "./billing-utils";
+import {
+  ACTIVE_STATUSES,
+  calculateYearlySavingsPercent,
+  useBillingReceiptCopy,
+} from "./billing-utils";
+import { SubscriptionShredder } from "./subscription-shredder";
+import type { SubscriptionReceiptData } from "./subscription-receipt";
 import { Card, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Spinner } from "../ui/spinner";
 
@@ -130,13 +136,14 @@ function BillingPageContent() {
     changePlanPendingRef.current = changePlan.isPending;
   }, [changePlan.isPending]);
 
+  const [shredOpen, setShredOpen] = useState(false);
+  const getReceiptCopy = useBillingReceiptCopy();
+
   const cancel = trpc.billing.cancelSubscription.useMutation({
     onSuccess: async () => {
-      toast.success(t("Subscription will end at period end."));
       await utils.billing.status.invalidate();
       await utils.billing.usage.invalidate();
     },
-    onError: (error) => toast.error(error.message),
   });
 
   const resume = trpc.billing.resumeSubscription.useMutation({
@@ -252,10 +259,10 @@ function BillingPageContent() {
         stripeCustomerId={statusQuery.data?.stripeCustomerId}
         hasActiveSubscription={hasActiveSubscription}
         portalPending={portal.isPending}
-        cancelPending={cancel.isPending}
+        cancelPending={cancel.isPending || shredOpen}
         resumePending={resume.isPending}
         onPortal={() => portal.mutate()}
-        onCancel={() => cancel.mutate()}
+        onCancel={() => setShredOpen(true)}
         onResume={() => resume.mutate()}
       />
 
@@ -326,6 +333,28 @@ function BillingPageContent() {
           changePlanPendingRef.current = true;
           changePlan.mutate({ planId });
         }}
+      />
+
+      <SubscriptionShredder
+        data={
+          {
+            sessionId: statusQuery.data?.stripeCustomerId ?? activePlanId ?? "cancel",
+            ...getReceiptCopy(activePlanId, "/settings/billing", t("Home")),
+            amountTotal: currentPlan?.amount ?? 0,
+            amountSubtotal: currentPlan?.amount ?? null,
+            amountTax: null,
+            amountDiscount: null,
+            currency: currentPlan?.currency ?? "usd",
+            paymentMethodBrand: null,
+            paymentMethodLast4: null,
+            paidAt: statusQuery.data?.currentPeriodEnd ?? new Date().toISOString(),
+          } satisfies SubscriptionReceiptData
+        }
+        onClose={() => setShredOpen(false)}
+        onConfirm={async () => {
+          await cancel.mutateAsync();
+        }}
+        open={shredOpen}
       />
     </SettingsPageShell>
   );
