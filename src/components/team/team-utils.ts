@@ -47,3 +47,16 @@ export function escapeCsvCell(value: string | number | null | undefined) {
   const text = value === null || value === undefined ? "" : String(value);
   return `"${text.replaceAll('"', '""')}"`;
 }
+
+export function createTeamSlug(name: string) {
+  const suffix = crypto.randomUUID().replaceAll("-", "").slice(0, 8);
+  const base = name
+    .normalize("NFKD")
+    .toLowerCase()
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 40);
+
+  return base ? `${base}-${suffix}` : `team-${suffix}`;
+}

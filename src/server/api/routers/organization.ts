@@ -22,6 +22,7 @@ import { isTrialEligibleForCustomer } from "@/lib/billing-trials";
 import { escapeStripeSearchValue } from "@/lib/stripe-search";
 import { stripe } from "@/lib/stripe";
 import { customCheckoutRequestOptions } from "@/lib/stripe-checkout";
+import { checkoutSessionExpand, summarizeCheckoutSession } from "@/lib/stripe-checkout-receipt";
 import { getSubscriptionPeriodEndDate } from "@/lib/stripe-subscriptions";
 import { getOrgMemberCount, updateTeamSeatCount } from "@/lib/team-billing";
 import { getUsageLimitConfig } from "@/lib/usage";
@@ -286,7 +287,8 @@ async function syncTeamSubscription(ctx: ProtectedContext, userId: string, organ
     updates.priceId = price?.id;
     updates.planId = plan?.id ?? billingRecord.planId;
     updates.cancelAt = subscription.cancel_at;
-    updates.status = status;
+    updates.status =
+      subscription.cancel_at_period_end || subscription.cancel_at ? "canceled" : status;
     updates.mode = deriveModeFromPrice(price);
     updates.currentPeriodEnd = getSubscriptionPeriodEndDate(subscription);
   }
@@ -805,7 +807,7 @@ export const organizationRouter = router({
 
       const session = await stripe.checkout.sessions.retrieve(
         input.sessionId,
-        {},
+        { expand: [...checkoutSessionExpand] },
         customCheckoutRequestOptions,
       );
 
@@ -823,16 +825,7 @@ export const organizationRouter = router({
         });
       }
 
-      return {
-        sessionId: session.id,
-        clientSecret: session.client_secret,
-        status: session.status,
-        paymentStatus: session.payment_status,
-        amountTotal: session.amount_total,
-        currency: session.currency,
-        mode: session.mode,
-        planId: session.metadata?.planId ?? null,
-      };
+      return summarizeCheckoutSession(session);
     }),
 
   createTeamPortalSession: billingEnabledProcedure
@@ -953,6 +946,7 @@ export const organizationRouter = router({
 
       const updates: Partial<BillingRecord> = {
         status: canceled.cancel_at_period_end ? "canceled" : canceled.status,
+        cancelAt: canceled.cancel_at ?? null,
         currentPeriodEnd:
           getSubscriptionPeriodEndDate(canceled) ?? subscriptionState.currentPeriodEnd,
       };
@@ -979,6 +973,7 @@ export const organizationRouter = router({
       return {
         planId: saved.planId ?? null,
         status: saved.status ?? null,
+        cancelAt: saved.cancelAt ?? null,
         currentPeriodEnd: saved.currentPeriodEnd ?? null,
       };
     }),
