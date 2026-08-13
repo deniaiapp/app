@@ -4,7 +4,15 @@ import { Check, Home, LoaderCircle, RotateCcw } from "lucide-react";
 import { useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { useExtracted, useLocale } from "next-intl";
-import { useEffect, useId, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type TransitionEvent,
+} from "react";
 import DeniAIIcon from "@/components/deni-ai-icon";
 import { formatMinorCurrency } from "@/lib/currency";
 import { formatPaymentMethodLabel, formatReceiptOrderId } from "@/lib/stripe-checkout-receipt";
@@ -28,6 +36,9 @@ export type SubscriptionReceiptData = {
 };
 
 type ReceiptPhase = "processing" | "printing" | "complete";
+
+const PRINT_START_MS = 480;
+const PRINT_MS = 2000;
 
 const PAPER = "#f4f1ea";
 const PAPER_INK = "#1a1a1a";
@@ -149,12 +160,16 @@ export function ReceiptPaper({
 
   return (
     <div
-      className="relative origin-top z-1000 pt-8 shadow-[0_18px_28px_-20px_rgba(0,0,0,0.45)]"
+      className="relative z-1000 origin-top pt-8 shadow-[0_16px_28px_-10px_rgba(0,0,0,0.38)]"
       style={{
         backgroundColor: PAPER,
         color: PAPER_INK,
       }}
     >
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 z-20 h-14 bg-gradient-to-b from-black/40 via-black/14 to-transparent"
+      />
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 opacity-40 mix-blend-multiply"
@@ -314,15 +329,35 @@ function SubscriptionReceiptStage({
   money,
   orderId,
   paidAtLabel,
+  onPlayingChange,
 }: {
   data: SubscriptionReceiptData;
   money: (amount: number) => string;
   orderId: string;
   paidAtLabel: string;
+  onPlayingChange: (playing: boolean) => void;
 }) {
   const shouldReduceMotion = useReducedMotion();
+  const paperRef = useRef<HTMLDivElement>(null);
+  const [paperHeight, setPaperHeight] = useState(0);
   const [phase, setPhase] = useState<ReceiptPhase>(shouldReduceMotion ? "complete" : "processing");
   const isPrinting = phase !== "processing";
+
+  useLayoutEffect(() => {
+    const node = paperRef.current;
+    if (!node) {
+      return;
+    }
+
+    const update = () => {
+      setPaperHeight(node.getBoundingClientRect().height);
+    };
+    update();
+
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (shouldReduceMotion) {
@@ -331,13 +366,29 @@ function SubscriptionReceiptStage({
     }
 
     setPhase("processing");
-    const printTimer = window.setTimeout(() => setPhase("printing"), 720);
-    const doneTimer = window.setTimeout(() => setPhase("complete"), 3180);
+    const printTimer = window.setTimeout(() => setPhase("printing"), PRINT_START_MS);
+    const fallbackTimer = window.setTimeout(
+      () => setPhase((current) => (current === "printing" ? "complete" : current)),
+      PRINT_START_MS + PRINT_MS + 80,
+    );
     return () => {
       window.clearTimeout(printTimer);
-      window.clearTimeout(doneTimer);
+      window.clearTimeout(fallbackTimer);
     };
   }, [shouldReduceMotion]);
+
+  useEffect(() => {
+    onPlayingChange(phase !== "complete");
+  }, [onPlayingChange, phase]);
+
+  function handlePrintTransitionEnd(event: TransitionEvent<HTMLDivElement>) {
+    if (event.target !== event.currentTarget || event.propertyName !== "max-height") {
+      return;
+    }
+    if (phase === "printing") {
+      setPhase("complete");
+    }
+  }
 
   return (
     <div className="relative mx-auto w-full max-w-[min(24rem,100%)]">
@@ -347,18 +398,21 @@ function SubscriptionReceiptStage({
         outlet={
           <div
             className="relative z-50 mx-5 -mt-2 overflow-hidden"
+            onTransitionEnd={handlePrintTransitionEnd}
             style={{
-              maxHeight: isPrinting || shouldReduceMotion ? 760 : 0,
+              maxHeight: isPrinting || shouldReduceMotion ? paperHeight : 0,
               transition: shouldReduceMotion
                 ? "max-height 0ms linear"
-                : "max-height 2.15s cubic-bezier(0.22, 0.12, 0.18, 1)",
+                : `max-height ${PRINT_MS}ms cubic-bezier(0.22, 0.12, 0.18, 1)`,
             }}
           >
             <div
               aria-hidden="true"
               className="pointer-events-none absolute inset-x-0 top-0 z-10 h-7 bg-gradient-to-b from-[#171717] to-transparent"
             />
-            <ReceiptPaper data={data} money={money} orderId={orderId} paidAtLabel={paidAtLabel} />
+            <div ref={paperRef}>
+              <ReceiptPaper data={data} money={money} orderId={orderId} paidAtLabel={paidAtLabel} />
+            </div>
           </div>
         }
         planDescription={data.planDescription}
@@ -376,6 +430,7 @@ export function SubscriptionReceipt({ data }: { data: SubscriptionReceiptData })
   const locale = useLocale();
   const replayLabelId = useId();
   const [playId, setPlayId] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(true);
   const orderId = formatReceiptOrderId(data.sessionId);
   const paidAtLabel = formatReceiptDate(data.paidAt, locale);
   const money = (amount: number) => formatMinorCurrency(amount, data.currency, undefined, locale);
@@ -385,8 +440,12 @@ export function SubscriptionReceipt({ data }: { data: SubscriptionReceiptData })
       <div className="mb-4 flex justify-end">
         <button
           aria-labelledby={replayLabelId}
-          className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background/80 px-3 py-1.5 text-xs text-muted-foreground shadow-xs backdrop-blur-sm transition-colors hover:bg-accent hover:text-accent-foreground"
-          onClick={() => setPlayId((current) => current + 1)}
+          className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background/80 px-3 py-1.5 text-xs text-muted-foreground shadow-xs backdrop-blur-sm transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+          disabled={isAnimating}
+          onClick={() => {
+            setIsAnimating(true);
+            setPlayId((current) => current + 1);
+          }}
           type="button"
         >
           <RotateCcw className="size-3.5" />
@@ -398,6 +457,7 @@ export function SubscriptionReceipt({ data }: { data: SubscriptionReceiptData })
         data={data}
         key={playId}
         money={money}
+        onPlayingChange={setIsAnimating}
         orderId={orderId}
         paidAtLabel={paidAtLabel}
       />

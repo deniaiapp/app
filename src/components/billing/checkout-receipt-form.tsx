@@ -6,10 +6,10 @@ import {
   PaymentElement,
 } from "@stripe/react-stripe-js/checkout";
 import type { StripeCheckoutValue } from "@stripe/react-stripe-js/checkout";
-import type { StripeAddressElementChangeEvent } from "@stripe/stripe-js";
+import type { StripeAddressElementChangeEvent, StripePaymentElement } from "@stripe/stripe-js";
 import { ChevronDown, LoaderCircle, Tag, X } from "lucide-react";
 import { useExtracted, useLocale } from "next-intl";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { formatCardBrand, formatPaymentMethodLabel } from "@/lib/stripe-checkout-receipt";
@@ -200,6 +200,37 @@ const PAYMENT_TYPE_LABELS: Record<string, string> = {
   paypal: "PayPal",
 };
 
+function readCardBrand(event: unknown): string | null {
+  if (!event || typeof event !== "object") {
+    return null;
+  }
+
+  const record = event as Record<string, unknown>;
+  const details = record.details;
+  const candidates = [
+    record.brand,
+    Array.isArray(record.brands) ? record.brands : null,
+    details && typeof details === "object" ? (details as { brand?: unknown }).brand : null,
+    details && typeof details === "object" ? (details as { brands?: unknown }).brands : null,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate && candidate !== "unknown") {
+      return candidate;
+    }
+    if (Array.isArray(candidate)) {
+      const brand = candidate.find(
+        (item) => typeof item === "string" && item && item !== "unknown",
+      );
+      if (typeof brand === "string") {
+        return brand;
+      }
+    }
+  }
+
+  return null;
+}
+
 function formatPaymentTypeLabel(type: string) {
   if (type === "card") {
     return null;
@@ -369,6 +400,64 @@ export function CheckoutReceiptForm({
     (paymentComplete ? t("Card") : t("Add a payment method"));
   const addressSummary = formatAddressSummary(addressValue, locale, t("Add a billing address"));
 
+  useEffect(() => {
+    let cancelled = false;
+    let attached: StripePaymentElement | null = null;
+
+    const handleBrandEvent = (event: unknown) => {
+      const brand = readCardBrand(event);
+      if (brand) {
+        setCardBrand(brand);
+      }
+    };
+
+    function asBrandEmitter(element: StripePaymentElement) {
+      return element as StripePaymentElement & {
+        on: (event: string, handler: (event: unknown) => void) => void;
+        off: (event: string, handler: (event: unknown) => void) => void;
+      };
+    }
+
+    function attach() {
+      const element = checkout.getPaymentElement?.() ?? null;
+      if (!element || cancelled) {
+        return Boolean(element);
+      }
+      attached = element;
+      const emitter = asBrandEmitter(element);
+      emitter.on("carddetailschange", handleBrandEvent);
+      emitter.on("change", handleBrandEvent);
+      return true;
+    }
+
+    if (attach()) {
+      return () => {
+        cancelled = true;
+        if (attached) {
+          const emitter = asBrandEmitter(attached);
+          emitter.off("carddetailschange", handleBrandEvent);
+          emitter.off("change", handleBrandEvent);
+        }
+      };
+    }
+
+    const interval = window.setInterval(() => {
+      if (attach()) {
+        window.clearInterval(interval);
+      }
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      if (attached) {
+        const emitter = asBrandEmitter(attached);
+        emitter.off("carddetailschange", handleBrandEvent);
+        emitter.off("change", handleBrandEvent);
+      }
+    };
+  }, [checkout]);
+
   return (
     <div className="mx-auto w-full max-w-xl overflow-x-clip px-4 py-6 sm:px-3 sm:py-10">
       <div className="mx-auto flex w-full max-w-[min(24rem,100%)] flex-col gap-3">
@@ -381,25 +470,29 @@ export function CheckoutReceiptForm({
           <PaymentElement
             onChange={(event) => {
               const savedMethodId = event.value.payment_method?.id ?? null;
+              const type = event.value.type;
               setPaymentComplete(event.complete);
-              setPaymentType(event.value.type);
+              setPaymentType(type);
               setSelectedSavedMethodId(savedMethodId);
-              if (event.value.type !== "card" || savedMethodId) {
+              if (savedMethodId) {
                 setCardBrand(
-                  savedMethodId
-                    ? (checkout.savedPaymentMethods?.find((method) => method.id === savedMethodId)
-                        ?.card.brand ?? null)
-                    : null,
+                  checkout.savedPaymentMethods?.find((method) => method.id === savedMethodId)?.card
+                    .brand ?? null,
                 );
-              }
-              if (event.complete) {
-                setPaymentOpen(false);
+              } else if (type !== "card" && type !== "link") {
+                setCardBrand(null);
               }
             }}
             onReady={(element) => {
-              element.on("carddetailschange", (event) => {
-                const brand = event.details?.brands?.find((item) => item !== "unknown") ?? null;
-                setCardBrand(brand);
+              (
+                element as StripePaymentElement & {
+                  on: (event: string, handler: (event: unknown) => void) => void;
+                }
+              ).on("carddetailschange", (event: unknown) => {
+                const brand = readCardBrand(event);
+                if (brand) {
+                  setCardBrand(brand);
+                }
               });
             }}
             options={{
