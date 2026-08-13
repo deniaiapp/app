@@ -99,6 +99,30 @@ export function usePlanIntervalLabel() {
   };
 }
 
+export function useBillingReceiptCopy() {
+  const t = useExtracted();
+  const getTierLabel = useTierLabel();
+
+  return (planId: string | null | undefined, homeHref: string, homeLabel: string) => {
+    const tierLabel = planId ? getTierLabel(planId) : t("Checkout");
+    const planTitle =
+      getPlanTier(planId) === "team" ? t("Pro for Teams") : t("{tier} plan", { tier: tierLabel });
+    const planDescription = planId?.endsWith("_yearly")
+      ? t("Annual subscription")
+      : planId?.endsWith("_lifetime")
+        ? t("Lifetime access")
+        : t("Monthly subscription");
+
+    return {
+      planTitle,
+      planDescription,
+      planLineLabel: planTitle,
+      homeHref,
+      homeLabel,
+    };
+  };
+}
+
 export function useTierLabel() {
   const t = useExtracted();
 

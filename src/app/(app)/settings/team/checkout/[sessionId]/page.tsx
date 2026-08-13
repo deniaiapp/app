@@ -7,9 +7,9 @@ import { isTeamPlanId } from "@/lib/billing";
 
 function TeamCheckoutSessionContent() {
   const params = useParams<{ sessionId: string }>();
-  const { get } = useSearchParams();
-  const organizationId = get("organizationId");
-  const rawPlanId = get("planId");
+  const searchParams = useSearchParams();
+  const organizationId = searchParams.get("organizationId");
+  const rawPlanId = searchParams.get("planId");
   const planId = isTeamPlanId(rawPlanId) ? rawPlanId : null;
   const sessionId = typeof params.sessionId === "string" ? params.sessionId : null;
 
