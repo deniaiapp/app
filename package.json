@@ -39,7 +39,7 @@
     "@deni-ai/disposable-email-domains": "workspace:*",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/utilities": "^3.2.2",
-    "@icons-pack/react-simple-icons": "13.13.0",
+    "@icons-pack/react-simple-icons": "13.15.1",
     "@marsidev/react-turnstile": "^1.6.0",
     "@neondatabase/serverless": "^1.1.0",
     "@next/third-parties": "^16.3.0",
