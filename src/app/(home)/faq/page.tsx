@@ -135,7 +135,7 @@ export default function FaqPage() {
         {
           question: t("Where can I learn good multi-model habits?"),
           answer: t(
-            "Read the AI Guides section. It covers model selection, answer verification, multi-model workflows, prompt patterns, privacy habits, and study practices that keep you in control of the final result.",
+            "Read the Blog and the AI Guides. The guides cover model selection, verification, prompt patterns, privacy, and study. The blog covers dated notes such as ChatGPT vs Claude vs Gemini, when not to use AI, and how to review generated code.",
           ),
         },
       ],
@@ -202,7 +202,7 @@ export default function FaqPage() {
             <h2 className="text-xl font-semibold tracking-tight">{t("Still need help?")}</h2>
             <p className="mt-3 text-sm leading-7 text-muted-foreground">
               {t(
-                "If your question is not covered here, contact us or read the longer guides on model choice, verification, and multi-model workflows.",
+                "If your question is not covered here, contact us or read the blog and the longer guides on model choice, verification, and multi-model workflows.",
               )}
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
@@ -211,6 +211,13 @@ export default function FaqPage() {
                 className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-secondary"
               >
                 {t("Contact")}
+                <ArrowRight className="size-4" />
+              </Link>
+              <Link
+                href="/blog"
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-secondary"
+              >
+                {t("Blog")}
                 <ArrowRight className="size-4" />
               </Link>
               <Link

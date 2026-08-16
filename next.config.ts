@@ -97,6 +97,14 @@ const nextConfig: NextConfig = {
         headers: marketingCacheHeaders,
       },
       {
+        source: "/blog",
+        headers: marketingCacheHeaders,
+      },
+      {
+        source: "/blog/:path*",
+        headers: marketingCacheHeaders,
+      },
+      {
         source: "/models",
         headers: marketingCacheHeaders,
       },
