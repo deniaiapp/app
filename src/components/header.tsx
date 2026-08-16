@@ -10,6 +10,7 @@ import {
   Laptop,
   Mail,
   Menu,
+  Newspaper,
   Shield,
   Sparkles,
 } from "lucide-react";
@@ -129,6 +130,12 @@ export default function Header() {
     {
       title: t("Learn"),
       links: [
+        {
+          href: "/blog",
+          icon: Newspaper,
+          title: t("Blog"),
+          description: t("Dated notes from the team."),
+        },
         {
           href: "/guides",
           icon: BookOpen,

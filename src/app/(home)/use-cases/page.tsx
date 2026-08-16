@@ -250,6 +250,12 @@ export default function UseCasesPage() {
             <LoginButton />
             <div className="flex flex-wrap justify-center gap-3">
               <Button variant="outline" asChild>
+                <Link href="/blog">
+                  {t("Blog")}
+                  <ArrowRight className="size-4" />
+                </Link>
+              </Button>
+              <Button asChild variant="outline">
                 <Link href="/guides">
                   {t("AI Guides")}
                   <ArrowRight className="size-4" />
