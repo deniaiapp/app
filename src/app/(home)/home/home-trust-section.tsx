@@ -6,10 +6,9 @@ import {
   BrainCircuit,
   CheckCircle2,
   CircleHelp,
-  ClipboardCheck,
   KeyRound,
+  Newspaper,
   ShieldCheck,
-  Sparkles,
 } from "lucide-react";
 import { useExtracted } from "next-intl";
 
@@ -42,19 +41,17 @@ export function HomeTrustSection() {
 
   const resources = [
     {
-      href: "/guides/model-selection",
-      icon: Sparkles,
-      title: t("How to choose an AI model for real work"),
-      description: t(
-        "A practical selection workflow based on task type, risk, and failure modes instead of brand hype.",
-      ),
+      href: "/blog/chatgpt-vs-claude-vs-gemini",
+      icon: Newspaper,
+      title: t("ChatGPT vs Claude vs Gemini: how we pick for daily work"),
+      description: t("A practical comparison based on task failure modes, not brand loyalty."),
     },
     {
-      href: "/guides/verify-ai-answers",
-      icon: ClipboardCheck,
-      title: t("How to verify AI answers before you rely on them"),
+      href: "/guides",
+      icon: BookOpenText,
+      title: t("Practical AI guides for everyday decisions"),
       description: t(
-        "A short review routine for facts, numbers, code, citations, and recommendations.",
+        "Evergreen methods for model choice, verification, prompt patterns, study, and privacy.",
       ),
     },
     {
@@ -113,7 +110,7 @@ export function HomeTrustSection() {
             </h2>
             <p className="mt-5 text-sm leading-7 text-muted-foreground">
               {t(
-                "Deni AI publishes original guides for model selection, answer verification, multi-model workflows, study practice, and privacy. These pages are meant to help even if you use another tool.",
+                "Deni AI publishes a public blog and original guides for model selection, answer verification, multi-model workflows, study practice, and privacy. These pages are meant to help even if you use another tool.",
               )}
             </p>
           </div>
@@ -137,7 +134,10 @@ export function HomeTrustSection() {
             })}
           </div>
 
-          <div className="mt-8">
+          <div className="mt-8 flex flex-wrap gap-5">
+            <Link href="/blog" className="text-sm font-medium underline-offset-4 hover:underline">
+              {t("Browse the blog")}
+            </Link>
             <Link href="/guides" className="text-sm font-medium underline-offset-4 hover:underline">
               {t("Browse all AI guides")}
             </Link>

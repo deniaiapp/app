@@ -17,6 +17,7 @@ Deni AI is a multi-model AI chat app for people who want strong model choice wit
 - **Affiliate referrals** — shareable invite links, QR codes, milestone reset credits, and selectable paid-plan rewards (three resets or a manually sent 30% OFF coupon)
 - **Auth** — Google / GitHub OAuth, magic link, anonymous guest, passkeys, and 2FA (better-auth)
 - **i18n** — English and Japanese (`next-intl`)
+- **Public guides & blog** — original articles on model choice, verification, and practical AI use, available without an account
 - **PWA** — installable progressive web app assets and service worker
 
 ## Tech stack

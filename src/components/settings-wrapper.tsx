@@ -48,6 +48,8 @@ export default function SettingsWrapper({ children }: { children: React.ReactNod
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join(" ") || "";
 
+  const blogAdminQuery = trpc.blog.canManage.useQuery();
+
   const settingsTabs = [
     {
       label: t("Appearance"),
@@ -64,6 +66,15 @@ export default function SettingsWrapper({ children }: { children: React.ReactNod
       value: "affiliate",
       href: "/settings/affiliate",
     },
+    ...(blogAdminQuery.data
+      ? [
+          {
+            label: t("Blog"),
+            value: "blog",
+            href: "/settings/blog",
+          },
+        ]
+      : []),
     {
       label: t("Team"),
       value: "team",

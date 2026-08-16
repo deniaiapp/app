@@ -92,7 +92,7 @@ async function HomeJsonLd() {
           acceptedAnswer: {
             "@type": "Answer",
             text: t(
-              "The AI Guides section covers model selection, answer verification, multi-model workflows, prompt patterns, study practice, and privacy habits.",
+              "The Blog and AI Guides cover model selection, answer verification, bilingual writing, when not to use AI, and practical multi-model habits.",
             ),
           },
         },
