@@ -1,7 +1,6 @@
 "use client";
 
 import type { VariantProps } from "class-variance-authority";
-import { useRouter } from "next/navigation";
 import { useExtracted } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -20,7 +19,6 @@ export function GuestSignInButton({
   variant = "outline",
 }: GuestSignInButtonProps) {
   const t = useExtracted();
-  const { push, refresh } = useRouter();
   const { data: session, isPending } = authClient.useSession();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -32,9 +30,17 @@ export function GuestSignInButton({
     if (isPending || isSubmitting) return;
     setIsSubmitting(true);
     try {
-      await authClient.signIn.anonymous();
-      push("/chat");
-      refresh();
+      const { data, error } = await authClient.signIn.anonymous();
+      if (error || !data) {
+        toast.error(error?.message || t("Failed to sign in as guest. Please try again."));
+        setIsSubmitting(false);
+        return;
+      }
+
+      // A /chat prefetch made before sign-in can contain the unauthenticated
+      // redirect. Use a document navigation so that cached RSC redirects are
+      // not reused after the anonymous session cookie has been set.
+      window.location.assign("/chat");
     } catch (error) {
       const message =
         error instanceof Error && error.message
