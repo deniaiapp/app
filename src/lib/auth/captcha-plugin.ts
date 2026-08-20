@@ -1,5 +1,5 @@
 import dynamic from "next/dynamic";
-import { captchaPlugin as coreCaptchaPlugin } from "@better-auth-ui/react/plugins";
+import { captchaPlugin as coreCaptchaPlugin } from "@better-auth-ui/react/plugins/captcha";
 
 // Defer Turnstile script/package until an auth form actually mounts the captcha
 const TurnstileCaptcha = dynamic(

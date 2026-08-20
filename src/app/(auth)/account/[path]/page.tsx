@@ -1,4 +1,4 @@
-import { ensureSession } from "@better-auth-ui/react/server";
+import { ensureSessionServer } from "@better-auth-ui/core/server";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { connection } from "next/server";
 import { headers } from "next/headers";
@@ -35,7 +35,7 @@ async function AccountPageContent({ params }: { params: Promise<{ path: string }
   const requestHeaders = await headers();
   const queryClient = getQueryClient();
 
-  const session = await ensureSession(queryClient, auth, {
+  const session = await ensureSessionServer(queryClient, auth, {
     headers: requestHeaders,
   });
 

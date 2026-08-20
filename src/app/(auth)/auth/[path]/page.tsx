@@ -1,5 +1,5 @@
 import { viewPaths } from "@better-auth-ui/core";
-import { magicLinkPlugin } from "@better-auth-ui/core/plugins";
+import { magicLinkPlugin } from "@better-auth-ui/core/plugins/magic-link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { Auth } from "@/components/auth/auth";

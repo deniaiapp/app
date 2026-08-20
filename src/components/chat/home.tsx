@@ -31,6 +31,7 @@ export type InitialMessageData = {
   imageMode: boolean;
   reasoningEffort: ReasoningEffort;
   proMode: boolean;
+  fastMode: boolean;
   deepResearch: boolean;
   projectId: string | null;
 };
@@ -72,6 +73,7 @@ export default function ChatHome() {
     getPreferredReasoningEffort(defaultModel.efforts),
   );
   const [proMode, setProMode] = useState(false);
+  const [fastMode, setFastMode] = useState(false);
   const [deepResearch, setDeepResearch] = useState(false);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -93,6 +95,7 @@ export default function ChatHome() {
       imageMode: boolean;
       reasoningEffort: ReasoningEffort;
       proMode: boolean;
+      fastMode: boolean;
       deepResearch: boolean;
     },
   ) => {
@@ -117,6 +120,7 @@ export default function ChatHome() {
         imageMode: options.imageMode,
         reasoningEffort: options.reasoningEffort,
         proMode: options.proMode,
+        fastMode: options.fastMode,
         deepResearch: options.deepResearch,
         projectId,
       };
@@ -136,6 +140,9 @@ export default function ChatHome() {
     const nextModel = availableModels.find((entry) => entry.value === value);
     if (!nextModel?.supportsProMode) {
       setProMode(false);
+    }
+    if (!nextModel?.supportsFastMode) {
+      setFastMode(false);
     }
     const nextEfforts = nextModel?.efforts;
     if (!nextEfforts) {
@@ -235,6 +242,8 @@ export default function ChatHome() {
             onReasoningEffortChange={setReasoningEffort}
             proMode={proMode}
             onProModeChange={setProMode}
+            fastMode={fastMode}
+            onFastModeChange={setFastMode}
             deepResearch={deepResearch}
             onDeepResearchChange={setDeepResearch}
           />

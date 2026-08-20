@@ -1,13 +1,9 @@
 "use client";
 
 import { authMutationKeys } from "@better-auth-ui/core";
-import {
-  type MagicLinkAuthClient,
-  useAuth,
-  useAuthPlugin,
-  useFetchOptions,
-  useSignInMagicLink,
-} from "@better-auth-ui/react";
+import type { MagicLinkAuthClient } from "@better-auth-ui/core/plugins/magic-link";
+import { useAuth, useAuthPlugin, useFetchOptions } from "@better-auth-ui/react";
+import { useSignInMagicLink } from "@better-auth-ui/react/plugins/magic-link";
 import { useIsMutating } from "@tanstack/react-query";
 import { type SyntheticEvent, useState } from "react";
 import { toast } from "sonner";

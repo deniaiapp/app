@@ -1,14 +1,14 @@
 "use client";
 
-import { getProviderName } from "@better-auth-ui/core";
+import { getProviderName, type AuthSocialProvider } from "@better-auth-ui/core";
 import {
-  providerIcons,
+  renderProviderIcon,
   useAccountInfo,
   useAuth,
   useLinkSocial,
   useUnlinkAccount,
 } from "@better-auth-ui/react";
-import type { Account, SocialProvider } from "better-auth";
+import type { Account } from "better-auth";
 import { Link2, Link2Off, Plug } from "lucide-react";
 import { toast } from "sonner";
 
@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 
 export type LinkedAccountProps = {
   account?: Account;
-  provider: SocialProvider;
+  provider: AuthSocialProvider | string;
 };
 
 /**
@@ -37,7 +37,8 @@ export function LinkedAccount({ account, provider }: LinkedAccountProps) {
   const { authClient, baseURL, localization } = useAuth();
 
   const { data: accountInfo, isPending: isLoadingInfo } = useAccountInfo(authClient, {
-    query: { accountId: account?.accountId },
+    query: account ? { accountId: account.accountId } : { useAccountCookie: true },
+    enabled: !!account,
   });
 
   const { mutate: linkSocial, isPending: isLinking } = useLinkSocial(authClient);
@@ -46,12 +47,15 @@ export function LinkedAccount({ account, provider }: LinkedAccountProps) {
     onSuccess: () => toast.success(localization.settings.accountUnlinked),
   });
 
-  const ProviderIcon = providerIcons[provider];
   const providerName = getProviderName(provider);
+  const providerIcon = renderProviderIcon(provider, {
+    className: cn("size-4.5", !account && "opacity-50"),
+  });
+  const accountData = accountInfo?.data as { login?: unknown; username?: unknown } | undefined;
 
   const displayName =
-    accountInfo?.data?.login ||
-    accountInfo?.data?.username ||
+    (typeof accountData?.login === "string" ? accountData.login : undefined) ||
+    (typeof accountData?.username === "string" ? accountData.username : undefined) ||
     accountInfo?.user?.email ||
     accountInfo?.user?.name ||
     account?.accountId;
@@ -60,8 +64,8 @@ export function LinkedAccount({ account, provider }: LinkedAccountProps) {
     <Card className="bg-transparent border-0 ring-0 shadow-none">
       <CardContent className="flex items-center justify-between gap-3">
         <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted">
-          {ProviderIcon ? (
-            <ProviderIcon className={cn("size-4.5", !account && "opacity-50")} />
+          {providerIcon ? (
+            providerIcon
           ) : (
             <Plug className={cn("size-4.5", !account && "opacity-50")} />
           )}
@@ -86,7 +90,7 @@ export function LinkedAccount({ account, provider }: LinkedAccountProps) {
             className="ml-auto shrink-0"
             variant="outline"
             size="sm"
-            onClick={() => unlinkAccount({ providerId: account.providerId })}
+            onClick={() => unlinkAccount({ accountId: account.accountId })}
             disabled={isUnlinking}
             aria-label={localization.settings.unlinkProvider.replace("{{provider}}", providerName)}
           >

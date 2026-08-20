@@ -13,10 +13,12 @@ import {
   SearchIcon,
   Sparkle,
   StarIcon,
+  TriangleAlert,
 } from "lucide-react";
-import { useExtracted } from "next-intl";
+import { useExtracted, useLocale } from "next-intl";
 import { useState } from "react";
 import Openai from "@/components/openai";
+import { formatModelDeprecationDate } from "@/lib/constants";
 import { translateModelDescription, useModelDescriptionCopy } from "@/lib/model-description-copy";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -153,10 +155,27 @@ function ModelPickerItem({
   modelDescriptionCopy: Record<string, string>;
 }) {
   const t = useExtracted();
+  const locale = useLocale();
   const description =
     "description" in model
       ? translateModelDescription(model, modelDescriptionCopy)
       : getModelDescription(model.value, modelDescriptionLabels);
+  const deprecation = model.deprecation;
+  const deprecationDate = deprecation ? formatModelDeprecationDate(deprecation.date, locale) : null;
+  const deprecationWarning = deprecationDate
+    ? deprecation?.tentative
+      ? t("This model is not expected to retire before {date}.", { date: deprecationDate })
+      : deprecation?.kind === "retirement"
+        ? t("This model is scheduled to retire on {date}.", { date: deprecationDate })
+        : t("This model is scheduled to be shut down on {date}.", { date: deprecationDate })
+    : null;
+  const deprecationLabel = deprecationDate
+    ? deprecation?.tentative
+      ? t("Earliest retirement {date}", { date: deprecationDate })
+      : deprecation?.kind === "retirement"
+        ? t("Retires {date}", { date: deprecationDate })
+        : t("Shutdown {date}", { date: deprecationDate })
+    : null;
   const highlightFeatures = model.features.filter((f) => f.includes("est"));
   const regularFeatures = model.features.filter((f) => !f.includes("est"));
 
@@ -174,6 +193,17 @@ function ModelPickerItem({
           <ModelIcon model={model} />
         </span>
         <span>{model.name}</span>
+        {deprecationWarning && deprecationLabel && (
+          <Badge
+            variant="secondary"
+            className="bg-orange-500/15 text-orange-700 dark:text-orange-400 text-[10px] leading-none py-0.5 h-auto"
+            title={deprecationWarning}
+            aria-label={deprecationWarning}
+          >
+            <TriangleAlert className="size-3" aria-hidden="true" />
+            {deprecationLabel}
+          </Badge>
+        )}
         {"tokenMultiplier" in model &&
           typeof model.tokenMultiplier === "number" &&
           model.tokenMultiplier > 1 && (
@@ -254,6 +284,7 @@ export function ChatComposerModelPicker({
   showByokBadge = false,
 }: ChatComposerModelPickerProps) {
   const t = useExtracted();
+  const locale = useLocale();
   const modelDescriptionLabels: ModelDescriptionLabels = {
     xaiMostIntelligentModel: t("xAI's most intelligent model"),
     fastAndEfficientModel: t("Fast and efficient model"),
@@ -271,6 +302,23 @@ export function ChatComposerModelPicker({
   const providerLabels: ProviderLabels = {
     featured: t("Featured"),
   };
+  const selectedModelDeprecation = selectedModel?.deprecation;
+  const selectedModelDeprecationDate = selectedModelDeprecation
+    ? formatModelDeprecationDate(selectedModelDeprecation.date, locale)
+    : null;
+  const selectedModelDeprecationWarning = selectedModelDeprecationDate
+    ? selectedModelDeprecation?.tentative
+      ? t("This model is not expected to retire before {date}.", {
+          date: selectedModelDeprecationDate,
+        })
+      : selectedModelDeprecation?.kind === "retirement"
+        ? t("This model is scheduled to retire on {date}.", {
+            date: selectedModelDeprecationDate,
+          })
+        : t("This model is scheduled to be shut down on {date}.", {
+            date: selectedModelDeprecationDate,
+          })
+    : null;
   const [modelPopoverOpen, setModelPopoverOpen] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<string>("featured");
   const [legacyModelsOpen, setLegacyModelsOpen] = useState(false);
@@ -354,6 +402,16 @@ export function ChatComposerModelPicker({
           <span className="max-w-30 truncate text-sm">
             {selectedModel?.name ?? t("Select model")}
           </span>
+          {selectedModelDeprecationWarning && (
+            <Badge
+              variant="secondary"
+              className="bg-orange-500/15 text-orange-700 dark:text-orange-400 text-[10px] leading-none px-1 py-0.5 h-auto"
+              title={selectedModelDeprecationWarning}
+              aria-label={selectedModelDeprecationWarning}
+            >
+              <TriangleAlert className="size-3" aria-hidden="true" />
+            </Badge>
+          )}
           {showByokBadge && (
             <Badge
               variant="secondary"
