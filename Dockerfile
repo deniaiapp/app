@@ -133,7 +133,7 @@ RUN set -eux; \
 # ---------------------------------------------------------------------------
 # Runtime (Next.js standalone + Node)
 # ---------------------------------------------------------------------------
-FROM node:22-bookworm-slim AS runner
+FROM node:24-bookworm-slim AS runner
 WORKDIR /app
 
 # Dokploy / Traefik reach the container on this port.
