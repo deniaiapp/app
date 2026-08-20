@@ -1,6 +1,6 @@
 "use client";
 
-import type { CaptchaRenderProps } from "@better-auth-ui/react/plugins";
+import type { CaptchaRenderProps } from "@better-auth-ui/react/plugins/captcha";
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { useLocale } from "next-intl";
 import { useTheme } from "next-themes";

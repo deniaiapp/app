@@ -47,6 +47,7 @@ interface RequestBody {
   webSearch: boolean;
   reasoningEffort: ReasoningEffort;
   proMode?: boolean;
+  fastMode?: boolean;
   video: boolean;
   image: boolean;
   id: string;

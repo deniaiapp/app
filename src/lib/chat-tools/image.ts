@@ -7,7 +7,7 @@ import { imageToolInputSchema } from "./types";
 export function createImageTool() {
   return tool({
     description:
-      "Generate images with Nano Banana, Nano Banana 2, Nano Banana Pro, or Imagen 4 Fast. Provide a vivid visual prompt and optional settings.",
+      "Generate images with Nano Banana. Provide a vivid visual prompt and optional settings.",
     inputSchema: imageToolInputSchema,
     execute: async (
       { prompt, model: requestedModel, aspectRatio, resolution, numberOfImages },

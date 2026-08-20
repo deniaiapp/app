@@ -93,15 +93,18 @@ function estimateTokenReservation({
   systemPrompt,
   modelId,
   proMode = false,
+  fastMode = false,
 }: {
   modelMessages: unknown;
   systemPrompt: string;
   modelId: string;
   proMode?: boolean;
+  fastMode?: boolean;
 }) {
   const estimatedPromptTokens = estimatePromptInputTokens({ modelMessages, systemPrompt });
   const effectiveMultiplier = getEffectiveTokenMultiplier(modelId, estimatedPromptTokens, {
     proMode,
+    fastMode,
   });
   const isLongContext =
     supportsOpenAILongContextPricing(modelId) &&
@@ -177,6 +180,7 @@ export async function POST(req: Request) {
     webSearch = true,
     reasoningEffort = "high",
     proMode: requestedProMode = false,
+    fastMode: requestedFastMode = false,
     video: videoMode = false,
     image: imageMode = false,
     deepResearch = false,
@@ -216,6 +220,7 @@ export async function POST(req: Request) {
         baseModel,
         reasoningEffort,
         proMode: requestedProMode,
+        fastMode: requestedFastMode,
       }),
     ]);
   } catch (error) {
@@ -229,11 +234,17 @@ export async function POST(req: Request) {
   const { model, providerOptions, usageCategory, usageUnit, useByok, usesOpenRouter } =
     modelContext;
 
-  // Pro mode: BYOK OpenAI or OpenRouter platform OpenAI (not voids.top).
+  // Pro / Fast: BYOK OpenAI or OpenRouter platform OpenAI (not voids.top).
   const modelDef = getModelDefinition(baseModel);
   const proMode = Boolean(
     requestedProMode &&
     modelDef?.supportsProMode &&
+    modelDef.author === "openai" &&
+    (useByok || usesOpenRouter),
+  );
+  const fastMode = Boolean(
+    requestedFastMode &&
+    modelDef?.supportsFastMode &&
     modelDef.author === "openai" &&
     (useByok || usesOpenRouter),
   );
@@ -484,6 +495,7 @@ export async function POST(req: Request) {
         systemPrompt,
         modelId: baseModel,
         proMode,
+        fastMode,
       });
       const consumed = await consumeUsage({
         userId,
@@ -511,7 +523,7 @@ export async function POST(req: Request) {
         const { weighted, breakdown } = computeWeightedUsageFromLanguageModelUsage(totalUsage);
         const inputTokens = getUsageInputTokens(totalUsage, breakdown);
         finalUsageAmount = Math.ceil(
-          weighted * getEffectiveTokenMultiplier(baseModel, inputTokens, { proMode }),
+          weighted * getEffectiveTokenMultiplier(baseModel, inputTokens, { proMode, fastMode }),
         );
       },
       providerOptions,

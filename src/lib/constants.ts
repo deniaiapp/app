@@ -64,6 +64,12 @@ export type Models = {
   };
 };
 
+export type ModelDeprecation = {
+  date: string;
+  kind: "retirement" | "shutdown";
+  tentative?: boolean;
+};
+
 export type ModelDefinition = {
   name: string;
   value: string;
@@ -89,7 +95,33 @@ export type ModelDefinition = {
    * {@link OPENAI_PRO_MODE_MULTIPLIER} on top of the base token multiplier.
    */
   supportsProMode?: boolean;
+  /**
+   * When true, the model supports OpenAI Fast mode (`service_tier: "fast"`,
+   * formerly Priority Processing). Enabling Fast multiplies usage by
+   * {@link OPENAI_FAST_MODE_MULTIPLIER} on top of the base token multiplier.
+   */
+  supportsFastMode?: boolean;
+  /**
+   * Provider lifecycle details from an upcoming deprecation or retirement notice.
+   * The date is stored as an ISO calendar date (`YYYY-MM-DD`). A tentative date
+   * is the provider's earliest stated retirement date, not a confirmed shutdown.
+   */
+  deprecation?: ModelDeprecation;
 };
+
+export function formatModelDeprecationDate(date: string, locale: string): string {
+  const parsedDate = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return date;
+  }
+
+  return new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+    year: "numeric",
+  }).format(parsedDate);
+}
 
 export const models: readonly ModelDefinition[] = [
   {
@@ -100,8 +132,9 @@ export const models: readonly ModelDefinition[] = [
     featured: true,
     features: ["smartest", "reasoning", "coding", "fast"],
     efforts: ["none", "low", "medium", "high", "xhigh", "max"],
-    tokenMultiplier: 1.5,
+    tokenMultiplier: 2,
     supportsProMode: true,
+    supportsFastMode: true,
     contextWindow: 1_050_000,
   },
   {
@@ -110,9 +143,11 @@ export const models: readonly ModelDefinition[] = [
     author: "openai",
     description: "Balanced GPT-5.6 model for everyday work at half the cost of Sol.",
     featured: true,
+    tokenMultiplier: 1.5,
     features: ["reasoning", "smart", "coding", "fast"],
     efforts: ["none", "low", "medium", "high", "xhigh", "max"],
     supportsProMode: true,
+    supportsFastMode: true,
     contextWindow: 1_050_000,
   },
   {
@@ -125,6 +160,7 @@ export const models: readonly ModelDefinition[] = [
     features: ["reasoning", "fast", "fastest"],
     efforts: ["none", "low", "medium", "high", "xhigh", "max"],
     supportsProMode: true,
+    supportsFastMode: true,
     contextWindow: 1_050_000,
   },
   {
@@ -132,7 +168,6 @@ export const models: readonly ModelDefinition[] = [
     value: "gpt-5.5",
     author: "openai",
     description: "A new class of intelligence for coding and professional work.",
-    featured: true,
     features: ["smartest", "reasoning", "coding", "fast"],
     efforts: ["none", "low", "medium", "high", "xhigh"],
     tokenMultiplier: 1.5,
@@ -143,7 +178,6 @@ export const models: readonly ModelDefinition[] = [
     value: "gpt-5.4",
     author: "openai",
     description: "A more affordable model for coding and professional work.",
-    featured: true,
     features: ["reasoning", "smart", "fast"],
     efforts: ["none", "low", "medium", "high", "xhigh"],
     contextWindow: 1_000_000,
@@ -153,7 +187,6 @@ export const models: readonly ModelDefinition[] = [
     value: "gpt-5.4-mini",
     author: "openai",
     description: "Our strongest mini model yet for coding, computer use, and subagents.",
-    featured: true,
     features: ["coding", "reasoning", "fast"],
     efforts: ["none", "low", "medium", "high", "xhigh"],
     contextWindow: 400_000,
@@ -176,15 +209,6 @@ export const models: readonly ModelDefinition[] = [
     efforts: ["low", "medium", "high", "xhigh"],
   },
   {
-    name: "GPT-5.2 Codex",
-    value: "gpt-5.2-codex",
-    author: "openai",
-    description: "For complex coding tasks",
-    features: ["coding", "reasoning", "fast"],
-    default: false,
-    efforts: ["low", "medium", "high", "xhigh"],
-  },
-  {
     name: "GPT-5.2",
     value: "gpt-5.2",
     author: "openai",
@@ -194,37 +218,11 @@ export const models: readonly ModelDefinition[] = [
     efforts: ["none", "low", "medium", "high", "xhigh"],
   },
   {
-    name: "GPT-5.1 Codex",
-    value: "gpt-5.1-codex",
-    author: "openai",
-    description: "For complex coding tasks",
-    features: ["coding", "reasoning", "fast"],
-    default: false,
-    efforts: ["low", "medium", "high"],
-  },
-  {
-    name: "GPT-5.1 Codex Max",
-    value: "gpt-5.1-codex-max",
-    author: "openai",
-    description: "A version of GPT-5.1-Codex optimized for long-running tasks.",
-    features: ["coding", "reasoning", "fast"],
-    default: false,
-    efforts: ["none", "medium", "high", "xhigh"],
-  },
-  {
-    name: "GPT-5.1 Codex mini",
-    value: "gpt-5.1-codex-mini",
-    author: "openai",
-    description: "For quick coding tasks",
-    features: ["coding", "reasoning", "fast"],
-    default: false,
-    efforts: ["low", "medium", "high"],
-  },
-  {
     name: "GPT-5",
     value: "gpt-5",
     author: "openai",
     description: "Flagship model for coding, reasoning, and agentic tasks across domains.",
+    deprecation: { date: "2026-12-11", kind: "shutdown" },
     features: ["smart", "reasoning", "fast"],
     default: false,
     efforts: ["minimal", "low", "medium", "high"],
@@ -234,6 +232,7 @@ export const models: readonly ModelDefinition[] = [
     value: "gpt-5-mini",
     author: "openai",
     description: "Faster, more affordable GPT-5 for well-defined tasks.",
+    deprecation: { date: "2026-12-11", kind: "shutdown" },
     features: ["reasoning", "fast"],
     default: false,
     efforts: ["medium"],
@@ -243,6 +242,7 @@ export const models: readonly ModelDefinition[] = [
     value: "gpt-5-nano",
     author: "openai",
     description: "Fastest, most cost-efficient GPT-5 model.",
+    deprecation: { date: "2026-12-11", kind: "shutdown" },
     features: ["reasoning", "fast"],
     default: false,
     efforts: ["medium"],
@@ -261,6 +261,7 @@ export const models: readonly ModelDefinition[] = [
     value: "gpt-4o",
     author: "openai",
     description: "Fast, intelligent, flexible GPT model.",
+    deprecation: { date: "2026-10-23", kind: "shutdown" },
     features: ["fast"],
     default: false,
     efforts: false,
@@ -310,16 +311,6 @@ export const models: readonly ModelDefinition[] = [
     tokenMultiplier: 3,
   },
   {
-    name: "Gemini 3 Pro",
-    value: "gemini-3-pro-preview",
-    author: "google",
-    description: "Best for complex tasks",
-    default: false,
-    features: ["smart", "reasoning"],
-    efforts: ["low", "high"],
-    tokenMultiplier: 3,
-  },
-  {
     name: "Gemini 3.7 Flash",
     value: "gemini-3.7-flash",
     author: "google",
@@ -334,7 +325,6 @@ export const models: readonly ModelDefinition[] = [
     value: "gemini-3.6-flash",
     author: "google",
     description: "Best for everyday tasks",
-    featured: true,
     features: ["reasoning", "fast"],
     efforts: ["low", "medium", "high"],
     contextWindow: 1_000_000,
@@ -344,7 +334,6 @@ export const models: readonly ModelDefinition[] = [
     value: "gemini-3.5-flash",
     author: "google",
     description: "Best for everyday tasks",
-    featured: true,
     features: ["reasoning", "fast"],
     efforts: ["minimal", "low", "medium", "high"],
   },
@@ -354,14 +343,6 @@ export const models: readonly ModelDefinition[] = [
     author: "google",
     description: "Best for everyday tasks",
     default: false,
-    features: ["reasoning", "fast"],
-    efforts: ["minimal", "low", "medium", "high"],
-  },
-  {
-    name: "Gemini 3.1 Flash Lite",
-    value: "gemini-3.1-flash-lite-preview",
-    author: "google",
-    description: "Best for high volume tasks",
     features: ["reasoning", "fast"],
     efforts: ["minimal", "low", "medium", "high"],
   },
@@ -415,7 +396,6 @@ export const models: readonly ModelDefinition[] = [
     author: "anthropic",
     description: "All-around professional model",
     premium: true,
-    featured: true,
     features: ["reasoning", "smart"],
     efforts: ["low", "medium", "high", "max"],
     contextWindow: 1_000_000,
@@ -438,7 +418,6 @@ export const models: readonly ModelDefinition[] = [
     author: "anthropic",
     description: "Hybrid reasoning model",
     premium: true,
-    featured: true,
     features: ["reasoning", "smart", "fast"],
     efforts: ["low", "medium", "high"],
     contextWindow: 1_000_000,
@@ -474,38 +453,6 @@ export const models: readonly ModelDefinition[] = [
     tokenMultiplier: 3,
   },
   {
-    name: "Claude Opus 4.1",
-    value: "claude-opus-4.1",
-    author: "anthropic",
-    description: "Legacy professional model",
-    premium: true,
-    default: false,
-    features: ["reasoning", "smart"],
-    efforts: ["low", "medium", "high"],
-    tokenMultiplier: 3,
-  },
-  {
-    name: "Claude Opus 4",
-    value: "claude-opus-4",
-    author: "anthropic",
-    description: "Legacy professional model",
-    premium: true,
-    default: false,
-    features: ["reasoning", "smart"],
-    efforts: ["low", "medium", "high"],
-    tokenMultiplier: 3,
-  },
-  {
-    name: "Claude Sonnet 4",
-    value: "claude-sonnet-4",
-    author: "anthropic",
-    description: "Hybrid reasoning model",
-    premium: true,
-    default: false,
-    features: ["reasoning", "smart"],
-    efforts: ["low", "medium", "high"],
-  },
-  {
     name: "Grok 4.5",
     value: "grok-4.5",
     author: "xai",
@@ -520,7 +467,6 @@ export const models: readonly ModelDefinition[] = [
     value: "grok-4.3",
     author: "xai",
     description: "Strong all-around Grok model for reasoning, coding, and everyday agentic work.",
-    featured: true,
     features: ["reasoning", "smart", "coding", "fast"],
     efforts: ["low", "high"],
     contextWindow: 1_000_000,
@@ -530,7 +476,6 @@ export const models: readonly ModelDefinition[] = [
     value: "grok-4.20",
     author: "xai",
     description: "Long-context Grok model for research, tool use, and multi-step tasks.",
-    featured: true,
     features: ["reasoning", "smart", "fast"],
     efforts: ["low", "high"],
     contextWindow: 2_000_000,
@@ -540,7 +485,6 @@ export const models: readonly ModelDefinition[] = [
     value: "grok-4.20-multi-agent",
     author: "xai",
     description: "Multi-agent Grok 4.20 for deep research with coordinated tool use.",
-    featured: true,
     features: ["reasoning", "smart"],
     efforts: false,
     contextWindow: 2_000_000,
@@ -550,7 +494,6 @@ export const models: readonly ModelDefinition[] = [
     value: "grok-build-0.1",
     author: "xai",
     description: "Fast coding model for agentic software engineering and Grok Build workflows.",
-    featured: true,
     features: ["coding", "reasoning", "fast"],
     efforts: false,
     contextWindow: 256_000,
@@ -621,6 +564,12 @@ const OPENAI_LONG_CONTEXT_MIN_WINDOW = 1_000_000;
  */
 export const OPENAI_PRO_MODE_MULTIPLIER = 3;
 
+/**
+ * OpenAI Fast mode (`service_tier: "fast"`) multiplies billed usage by this
+ * factor on top of the model's base token multiplier (API Fast pricing: 2×).
+ */
+export const OPENAI_FAST_MODE_MULTIPLIER = 2;
+
 export function supportsOpenAILongContextPricing(modelId: string): boolean {
   const model = getModelDefinition(modelId);
   if (!model || model.author !== "openai") {
@@ -631,6 +580,10 @@ export function supportsOpenAILongContextPricing(modelId: string): boolean {
 
 export function supportsModelProMode(modelId: string): boolean {
   return Boolean(getModelDefinition(modelId)?.supportsProMode);
+}
+
+export function supportsModelFastMode(modelId: string): boolean {
+  return Boolean(getModelDefinition(modelId)?.supportsFastMode);
 }
 
 /**
@@ -649,12 +602,13 @@ export function getOpenAILongContextMultiplier(modelId: string, inputTokens: num
 
 export type EffectiveTokenMultiplierOptions = {
   proMode?: boolean;
+  fastMode?: boolean;
 };
 
 /**
- * Combines the static model token multiplier with optional Pro-mode 3× and
- * OpenAI long-context 2× pricing when `inputTokens` is provided and exceeds
- * the threshold.
+ * Combines the static model token multiplier with optional Pro-mode 3×,
+ * Fast-mode 2×, and OpenAI long-context 2× pricing when `inputTokens` is
+ * provided and exceeds the threshold.
  */
 export function getEffectiveTokenMultiplier(
   modelId: string,
@@ -664,11 +618,13 @@ export function getEffectiveTokenMultiplier(
   const base = getModelTokenMultiplier(modelId);
   const proMultiplier =
     options?.proMode && supportsModelProMode(modelId) ? OPENAI_PRO_MODE_MULTIPLIER : 1;
-  const withPro = base * proMultiplier;
+  const fastMultiplier =
+    options?.fastMode && supportsModelFastMode(modelId) ? OPENAI_FAST_MODE_MULTIPLIER : 1;
+  const withModes = base * proMultiplier * fastMultiplier;
   if (typeof inputTokens !== "number") {
-    return withPro;
+    return withModes;
   }
-  return withPro * getOpenAILongContextMultiplier(modelId, inputTokens);
+  return withModes * getOpenAILongContextMultiplier(modelId, inputTokens);
 }
 
 // Transactional emails are rendered with react-email components under

@@ -11,6 +11,7 @@ export const ChatRequestSchema = z.object({
   webSearch: z.boolean().optional(),
   reasoningEffort: z.enum(["none", "minimal", "low", "medium", "high", "xhigh", "max"]).optional(),
   proMode: z.boolean().optional(),
+  fastMode: z.boolean().optional(),
   video: z.boolean().optional(),
   image: z.boolean().optional(),
   deepResearch: z.boolean().optional(),
