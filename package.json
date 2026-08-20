@@ -12,7 +12,7 @@
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "format": "oxfmt --write",
-    "typecheck": "tsgo --noEmit",
+    "typecheck": "tsc --noEmit",
     "auth:generate": "auth generate --output src/db/schema/auth-schema.ts --yes",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "bun run --env-file=.env.production drizzle-kit migrate",

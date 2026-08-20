@@ -20,6 +20,7 @@ import {
   useState,
 } from "react";
 import { Streamdown, type PluginConfig } from "streamdown";
+import { streamdownLinkSafety } from "@/components/chat/streamdown-link-safety";
 import { lazyMermaid } from "@/components/chat/streamdown-mermaid-plugin";
 import { streamdownRemarkPlugins } from "@/components/chat/streamdown-remark-plugins";
 
@@ -207,7 +208,11 @@ export const ReasoningContent = memo(({ className, children, ...props }: Reasoni
     )}
     {...props}
   >
-    <Streamdown plugins={streamdownPlugins} remarkPlugins={streamdownRemarkPlugins}>
+    <Streamdown
+      plugins={streamdownPlugins}
+      remarkPlugins={streamdownRemarkPlugins}
+      linkSafety={streamdownLinkSafety}
+    >
       {children}
     </Streamdown>
   </CollapsibleContent>

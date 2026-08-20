@@ -1,4 +1,4 @@
-export const appVersion = "7.7";
+export const appVersion = "7.7.1";
 export const appCodename = "Stellar Shield";
 export const appDate = "2026-08-21";
 
