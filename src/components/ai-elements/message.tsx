@@ -13,9 +13,10 @@ import { math } from "@streamdown/math";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { createContext, memo, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { Streamdown, type PluginConfig } from "streamdown";
+import { streamdownLinkSafety } from "@/components/chat/streamdown-link-safety";
 import { lazyMermaid } from "@/components/chat/streamdown-mermaid-plugin";
-import { streamdownRemarkPlugins } from "@/components/chat/streamdown-remark-plugins";
 import { streamdownOverrideComponents } from "@/components/chat/streamdown-overrides";
+import { streamdownRemarkPlugins } from "@/components/chat/streamdown-remark-plugins";
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"];
@@ -288,6 +289,7 @@ export const MessageResponse = memo(
       plugins={streamdownPlugins}
       components={streamdownOverrideComponents}
       remarkPlugins={streamdownRemarkPlugins}
+      linkSafety={streamdownLinkSafety}
       {...props}
     />
   ),
