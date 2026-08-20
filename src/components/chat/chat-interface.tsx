@@ -153,6 +153,7 @@ export function ChatInterface({
     getPreferredReasoningEffort(defaultModel.efforts),
   );
   const [proMode, setProMode] = useState(false);
+  const [fastMode, setFastMode] = useState(false);
   const [deepResearch, setDeepResearch] = useState(false);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const utils = trpc.useUtils();
@@ -178,6 +179,7 @@ export function ChatInterface({
     webSearch,
     reasoningEffort,
     proMode,
+    fastMode,
     deepResearch,
     video: videoMode,
     image: imageMode,
@@ -231,6 +233,7 @@ export function ChatInterface({
     setImageMode,
     setReasoningEffort,
     setProMode,
+    setFastMode,
     setDeepResearch,
     onMessageSent: () => utils.chat.getChats.invalidate(),
   });
@@ -328,6 +331,7 @@ export function ChatInterface({
       imageMode: boolean;
       reasoningEffort: ReasoningEffort;
       proMode: boolean;
+      fastMode: boolean;
       deepResearch: boolean;
     },
   ) => {
@@ -367,6 +371,7 @@ export function ChatInterface({
               webSearch: options.webSearch,
               reasoningEffort: options.reasoningEffort,
               proMode: options.proMode,
+              fastMode: options.fastMode,
               deepResearch: options.deepResearch,
               video: options.videoMode,
               image: options.imageMode,
@@ -392,6 +397,9 @@ export function ChatInterface({
     const nextEfforts = nextModel?.efforts;
     if (!nextModel?.supportsProMode) {
       setProMode(false);
+    }
+    if (!nextModel?.supportsFastMode) {
+      setFastMode(false);
     }
     if (!nextEfforts) {
       return;
@@ -494,6 +502,8 @@ export function ChatInterface({
           onReasoningEffortChange={setReasoningEffort}
           proMode={proMode}
           onProModeChange={setProMode}
+          fastMode={fastMode}
+          onFastModeChange={setFastMode}
           deepResearch={deepResearch}
           onDeepResearchChange={setDeepResearch}
           showByokBadge={isByokActive}

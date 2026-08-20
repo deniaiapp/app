@@ -45,6 +45,8 @@ type ResolveChatModelContextParams = {
   reasoningEffort: "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
   /** GPT-5.6 Pro reasoning mode (`reasoning.mode: "pro"`). */
   proMode?: boolean;
+  /** OpenAI Fast mode (`service_tier: "fast"`). */
+  fastMode?: boolean;
 };
 
 type ChatProviderOptions = NonNullable<Parameters<typeof streamText>[0]["providerOptions"]>;
@@ -113,6 +115,7 @@ export async function resolveChatModelContext({
   baseModel,
   reasoningEffort,
   proMode = false,
+  fastMode = false,
 }: ResolveChatModelContextParams): Promise<ResolvedChatModelContext> {
   const selectedModel = models.find((model) => model.value === baseModel);
 
@@ -174,10 +177,17 @@ export async function resolveChatModelContext({
     !usesVoids &&
     (providerId === "openai" || providerId === "google" || providerId === "xai");
   // Pro: BYOK OpenAI uses reasoning.mode; OpenRouter uses `*-pro` slug.
-  // voids.top has neither, so Pro is disabled on the voids path.
+  // Fast: BYOK OpenAI uses service_tier; OpenRouter uses top-level service_tier.
+  // voids.top has neither, so Pro and Fast are disabled on the voids path.
   const useProMode = Boolean(
     proMode &&
     selectedModel.supportsProMode &&
+    providerId === "openai" &&
+    (useByok || usesOpenRouter),
+  );
+  const useFastMode = Boolean(
+    fastMode &&
+    selectedModel.supportsFastMode &&
     providerId === "openai" &&
     (useByok || usesOpenRouter),
   );
@@ -263,6 +273,8 @@ export async function resolveChatModelContext({
       : undefined;
   const openaiReasoningMode =
     providerId === "openai" && useProMode && useByok ? ("pro" as const) : undefined;
+  const openaiServiceTier =
+    providerId === "openai" && useFastMode && useByok ? ("fast" as const) : undefined;
   // Anthropic-native options only apply on BYOK Anthropic (or direct Anthropic SDK).
   // voids.top is OpenAI-compatible and does not accept Anthropic providerOptions.
   const anthropicReasoningEffort =
@@ -431,7 +443,7 @@ export async function resolveChatModelContext({
   }
 
   const openaiProviderOptions: OpenAIResponsesProviderOptions | undefined =
-    openaiReasoningEffort || openaiReasoningMode
+    openaiReasoningEffort || openaiReasoningMode || openaiServiceTier
       ? {
           ...(openaiReasoningEffort
             ? {
@@ -440,6 +452,7 @@ export async function resolveChatModelContext({
               }
             : {}),
           ...(openaiReasoningMode ? { reasoningMode: openaiReasoningMode } : {}),
+          ...(openaiServiceTier ? { serviceTier: openaiServiceTier } : {}),
         }
       : undefined;
 
@@ -476,6 +489,14 @@ export async function resolveChatModelContext({
   // When routing through OpenRouter, wrap provider-specific options so they are
   // forwarded in OpenRouter-compatible format. voids.top only understands OpenAI
   // chat-style options (and only for OpenAI-authored models).
+  const openRouterBody = usesOpenRouter
+    ? {
+        ...(Object.keys(directProviderOptions).length > 0
+          ? { providerOptions: directProviderOptions }
+          : {}),
+        ...(useFastMode ? { service_tier: "fast" as const } : {}),
+      }
+    : undefined;
   const providerOptions: ChatProviderOptions = (
     usesVoids
       ? providerId === "openai" && openaiProviderOptions
@@ -483,8 +504,8 @@ export async function resolveChatModelContext({
         : {}
       : useByok || providerId === "anthropic"
         ? directProviderOptions
-        : usesOpenRouter && Object.keys(directProviderOptions).length > 0
-          ? { openrouter: { providerOptions: directProviderOptions } }
+        : openRouterBody && Object.keys(openRouterBody).length > 0
+          ? { openrouter: openRouterBody }
           : {}
   ) as ChatProviderOptions;
 

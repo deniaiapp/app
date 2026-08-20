@@ -1,11 +1,8 @@
 "use client";
 
-import {
-  type MultiSessionAuthClient,
-  useAuth,
-  useSession,
-  useSetActiveSession,
-} from "@better-auth-ui/react";
+import type { MultiSessionAuthClient } from "@better-auth-ui/core/plugins/multi-session";
+import { useAuth, useSession } from "@better-auth-ui/react";
+import { useSetActiveSession } from "@better-auth-ui/react/plugins/multi-session";
 import { ChevronsUpDown, LogIn, LogOut, Settings, UserPlus2 } from "lucide-react";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 

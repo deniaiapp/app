@@ -1,0 +1,2 @@
+# next-intl embeds these as JSON.parse("..."); CRLF breaks that wrapper on Windows.
+messages/*.json text eol=lf

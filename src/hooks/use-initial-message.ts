@@ -18,6 +18,7 @@ export function useInitialMessage(params: {
   setImageMode: (imageMode: boolean) => void;
   setReasoningEffort: (effort: ReasoningEffort) => void;
   setProMode: (enabled: boolean) => void;
+  setFastMode: (enabled: boolean) => void;
   setDeepResearch: (enabled: boolean) => void;
   setProjectId?: (projectId: string | null) => void;
   onMessageSent: () => void;
@@ -33,6 +34,7 @@ export function useInitialMessage(params: {
     setImageMode,
     setReasoningEffort,
     setProMode,
+    setFastMode,
     setDeepResearch,
     setProjectId,
     onMessageSent,
@@ -72,6 +74,7 @@ export function useInitialMessage(params: {
           imageMode?: boolean;
           reasoningEffort?: string;
           proMode?: boolean;
+          fastMode?: boolean;
           deepResearch?: boolean;
           projectId?: string | null;
         };
@@ -105,8 +108,10 @@ export function useInitialMessage(params: {
         const parsedReasoningEffort =
           resolveReasoningEffort(selectedModel?.efforts ?? false, parsed.reasoningEffort) ?? "high";
         const parsedProMode = Boolean(parsed.proMode && selectedModel?.supportsProMode);
+        const parsedFastMode = Boolean(parsed.fastMode && selectedModel?.supportsFastMode);
         setReasoningEffort(parsedReasoningEffort);
         setProMode(parsedProMode);
+        setFastMode(parsedFastMode);
         setDeepResearch(Boolean(parsed.deepResearch));
         setProjectId?.(parsed.projectId ?? null);
 
@@ -123,6 +128,7 @@ export function useInitialMessage(params: {
                 webSearch: parsed.webSearch,
                 reasoningEffort: parsedReasoningEffort,
                 proMode: parsedProMode,
+                fastMode: parsedFastMode,
                 video: parsed.videoMode ?? false,
                 image: parsed.imageMode ?? false,
                 deepResearch: parsed.deepResearch ?? false,

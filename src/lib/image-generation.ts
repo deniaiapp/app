@@ -3,7 +3,6 @@ import { generateImage } from "ai";
 import { env } from "@/env";
 import {
   type ImageModel,
-  isImagenImageModel,
   supportsImageHighResolution,
   type ImageAspectRatio,
   type ImageResolution,
@@ -55,18 +54,6 @@ export async function generateImages({
   numberOfImages?: number;
   signal?: AbortSignal;
 }): Promise<GeneratedImage[]> {
-  if (isImagenImageModel(model)) {
-    const result = await generateImage({
-      model: google.image(model),
-      prompt,
-      n: numberOfImages,
-      ...(aspectRatio ? { aspectRatio } : {}),
-      abortSignal: signal,
-    });
-
-    return toGeneratedImages(result.images);
-  }
-
   const providerOptions = buildGeminiProviderOptions(model, aspectRatio, resolution);
   const geminiModel = google.image(model);
   const images: GeneratedImage[] = [];

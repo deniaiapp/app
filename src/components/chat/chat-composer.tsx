@@ -2,7 +2,17 @@
 
 import type { ChatStatus } from "ai";
 import type { LucideIcon } from "lucide-react";
-import { BrainIcon, Film, Globe, Image as ImageIcon, Mic, Sparkle, Zap, XIcon } from "lucide-react";
+import {
+  BrainIcon,
+  Film,
+  Gauge,
+  Globe,
+  Image as ImageIcon,
+  Mic,
+  Sparkle,
+  Zap,
+  XIcon,
+} from "lucide-react";
 import { useExtracted } from "next-intl";
 import { useEffect, useRef } from "react";
 import {
@@ -18,6 +28,7 @@ import { ChatComposerModelPicker } from "@/components/chat/chat-composer-model-p
 import { useAvailableModels } from "@/hooks/use-available-models";
 import {
   isReasoningEffort,
+  OPENAI_FAST_MODE_MULTIPLIER,
   OPENAI_PRO_MODE_MULTIPLIER,
   type ModelDefinition,
   type ReasoningEffort,
@@ -66,6 +77,7 @@ export interface ChatComposerProps {
       imageMode: boolean;
       reasoningEffort: ReasoningEffort;
       proMode: boolean;
+      fastMode: boolean;
       deepResearch: boolean;
     },
   ) => void;
@@ -86,6 +98,8 @@ export interface ChatComposerProps {
   onReasoningEffortChange: (effort: ReasoningEffort) => void;
   proMode: boolean;
   onProModeChange: (enabled: boolean) => void;
+  fastMode: boolean;
+  onFastModeChange: (enabled: boolean) => void;
   deepResearch: boolean;
   onDeepResearchChange: (enabled: boolean) => void;
   showByokBadge?: boolean;
@@ -112,6 +126,8 @@ export function ChatComposer({
   onReasoningEffortChange,
   proMode,
   onProModeChange,
+  fastMode,
+  onFastModeChange,
   deepResearch,
   onDeepResearchChange,
   showByokBadge = false,
@@ -122,6 +138,7 @@ export function ChatComposer({
   const supportedEfforts = selectedModel?.efforts ?? false;
   const supportsReasoningEffort = supportedEfforts !== false;
   const supportsProMode = Boolean(selectedModel?.supportsProMode);
+  const supportsFastMode = Boolean(selectedModel?.supportsFastMode);
   const getReasoningEffortLabel = (effort: ReasoningEffort) => {
     switch (effort) {
       case "none":
@@ -202,6 +219,7 @@ export function ChatComposer({
       imageMode,
       reasoningEffort,
       proMode: supportsProMode && proMode,
+      fastMode: supportsFastMode && fastMode,
       deepResearch,
     });
   };
@@ -210,6 +228,12 @@ export function ChatComposer({
     "Pro mode uses deeper multi-pass reasoning ({multiplier}× premium usage)",
     {
       multiplier: String(OPENAI_PRO_MODE_MULTIPLIER),
+    },
+  );
+  const fastModeTitle = t(
+    "Fast mode uses priority processing for lower latency ({multiplier}× usage)",
+    {
+      multiplier: String(OPENAI_FAST_MODE_MULTIPLIER),
     },
   );
 
@@ -293,6 +317,15 @@ export function ChatComposer({
               <Sparkle className="size-4" aria-hidden="true" />
               {t("Deep Research")}
             </DropdownMenuCheckboxItem>
+            {supportsFastMode && (
+              <DropdownMenuCheckboxItem
+                checked={fastMode}
+                onCheckedChange={(checked) => onFastModeChange(Boolean(checked))}
+              >
+                <Gauge className="size-4" aria-hidden="true" />
+                {t("Fast")}
+              </DropdownMenuCheckboxItem>
+            )}
             {supportsProMode && (
               <DropdownMenuCheckboxItem
                 checked={proMode}
@@ -333,9 +366,6 @@ export function ChatComposer({
                 onRemove={() => handleResearchToggle(false)}
               />
             )}
-            {supportsProMode && proMode && (
-              <ToolChip icon={Zap} label={t("Pro")} onRemove={() => onProModeChange(false)} />
-            )}
             <SpeechInput
               size="icon-sm"
               variant="ghost"
@@ -360,6 +390,33 @@ export function ChatComposer({
 
             <div className="hidden md:flex md:items-center md:gap-1">
               {renderReasoningEffortSelector()}
+              {supportsFastMode && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant={fastMode ? "secondary" : "ghost"}
+                        size="icon-sm"
+                        className={cn(
+                          "size-8",
+                          fastMode
+                            ? "bg-sky-500/15 text-sky-700 hover:bg-sky-500/20 dark:text-sky-400"
+                            : "text-muted-foreground",
+                        )}
+                        aria-pressed={fastMode}
+                        aria-label={t("Fast")}
+                        onClick={() => onFastModeChange(!fastMode)}
+                      >
+                        <Gauge className="size-3.5" aria-hidden="true" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{fastModeTitle}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
               {supportsProMode && (
                 <TooltipProvider>
                   <Tooltip>
@@ -367,9 +424,9 @@ export function ChatComposer({
                       <Button
                         type="button"
                         variant={proMode ? "secondary" : "ghost"}
-                        size="sm"
+                        size="icon-sm"
                         className={cn(
-                          "h-8 gap-1.5 px-2 font-medium",
+                          "size-8",
                           proMode
                             ? "bg-amber-500/15 text-amber-700 hover:bg-amber-500/20 dark:text-amber-400"
                             : "text-muted-foreground",
@@ -379,7 +436,6 @@ export function ChatComposer({
                         onClick={() => onProModeChange(!proMode)}
                       >
                         <Zap className="size-3.5" aria-hidden="true" />
-                        {t("Pro")}
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>

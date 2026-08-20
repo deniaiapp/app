@@ -1,16 +1,20 @@
 "use client";
 
-import { authMutationKeys, getProviderName } from "@better-auth-ui/core";
-import { providerIcons, useAuth, useSignInSocial } from "@better-auth-ui/react";
+import {
+  authMutationKeys,
+  getProviderId,
+  getProviderName,
+  type AuthSocialProvider,
+} from "@better-auth-ui/core";
+import { renderProviderIcon, useAuth, useSignInSocial } from "@better-auth-ui/react";
 import { useIsMutating } from "@tanstack/react-query";
-import type { SocialProvider } from "better-auth/social-providers";
 import type { ComponentProps } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 
 export type ProviderButtonProps = {
-  provider: SocialProvider;
+  provider: AuthSocialProvider;
   display?: "full" | "name" | "icon";
 } & Omit<ComponentProps<typeof Button>, "onClick" | "children" | "disabled">;
 
@@ -32,7 +36,7 @@ export function ProviderButton({
 
   const { mutate: signInSocial, isPending: signInSocialPending } = useSignInSocial(authClient);
 
-  const ProviderIcon = providerIcons[provider];
+  const providerIcon = renderProviderIcon(provider);
 
   const signInMutating = useIsMutating({
     mutationKey: authMutationKeys.signIn.all,
@@ -47,11 +51,11 @@ export function ProviderButton({
       type="button"
       variant={variant}
       disabled={isPending}
-      onClick={() => signInSocial({ provider, callbackURL })}
+      onClick={() => signInSocial({ provider: getProviderId(provider), callbackURL })}
       {...props}
       aria-label={getProviderName(provider)}
     >
-      {signInSocialPending ? <Spinner /> : ProviderIcon ? <ProviderIcon /> : null}
+      {signInSocialPending ? <Spinner /> : providerIcon}
 
       {display === "full"
         ? localization.auth.continueWith.replace("{{provider}}", getProviderName(provider))
