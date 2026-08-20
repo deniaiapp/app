@@ -331,7 +331,7 @@ export async function resolveChatModelContext({
     return openrouter.chat(selectedOpenRouterModelId, {
       provider: {
         allow_fallbacks: false,
-        only: ["openai", "anthropic", "google", "xai"],
+        only: ["openai", "anthropic", "google-ai-studio", "xai"],
       },
     });
   };

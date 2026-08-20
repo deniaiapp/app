@@ -33,9 +33,9 @@ COPY packages/disposable-email-domains ./packages/disposable-email-domains
 RUN bun install --frozen-lockfile
 
 # ---------------------------------------------------------------------------
-# Build with Node (stable Next.js production build)
+# Build (Next.js production build)
 # ---------------------------------------------------------------------------
-FROM node:22-bookworm-slim AS builder
+FROM oven/bun:1 AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1 \
   NODE_ENV=production
@@ -114,9 +114,7 @@ ENV DATABASE_URL=$DATABASE_URL \
   NEXT_PUBLIC_ADSENSE_HOME_SLOT_ID=$NEXT_PUBLIC_ADSENSE_HOME_SLOT_ID \
   NEXT_PUBLIC_ADSENSE_CHAT_SLOT_ID=$NEXT_PUBLIC_ADSENSE_CHAT_SLOT_ID
 
-# Use Node for `next build` — Bun has segfaulted during "Finalizing page optimization"
-# on some hosts (SIGILL / exit 132).
-RUN node ./node_modules/next/dist/bin/next build
+RUN bun --bun run build
 
 # Next's standalone tracer can copy only the CJS side of Bun's virtual-store
 # @swc/helpers package. Node 22 resolves its `module-sync` condition to ESM,

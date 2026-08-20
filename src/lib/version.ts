@@ -1,6 +1,6 @@
-export const appVersion = "7.6.1";
-export const appCodename = "Emerald Tiger";
-export const appDate = "2026-07-23";
+export const appVersion = "7.7";
+export const appCodename = "Stellar Shield";
+export const appDate = "2026-08-21";
 
 const appHashPayload = [appVersion, appDate].join(":");
 export const appHash = globalThis.btoa(appHashPayload);

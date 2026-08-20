@@ -178,6 +178,16 @@ function getOsText(os: DownloadOption["os"]): string {
   return "Linux";
 }
 
+const OS_ORDER = ["windows", "macos", "linux"] as const;
+
+function selectionChipClassName(active: boolean): string {
+  return `rounded-full border px-3 py-1.5 text-sm transition-colors ${
+    active
+      ? "border-foreground bg-foreground text-background"
+      : "border-border bg-background/70 text-muted-foreground hover:bg-background"
+  }`;
+}
+
 function pickDefaultOption(
   options: DownloadOption[],
   preferred: {
@@ -220,6 +230,12 @@ export function DesktopDownloadPicker({ downloads }: { downloads: DesktopDownloa
     macos: options.filter((option) => option.os === "macos"),
     linux: options.filter((option) => option.os === "linux"),
   };
+  const availableOs = OS_ORDER.filter((os) => osOptions[os].length > 0);
+  const selectOs = (os: DownloadOption["os"]) => {
+    setSelectedOs(os);
+    setSelectedArch(null);
+    setSelectedFormat(null);
+  };
   const currentOs =
     (selectedOs && options.some((option) => option.os === selectedOs) ? selectedOs : null) ??
     pickDefaultOption(options, detectPreferredPlatform())?.os ??
@@ -253,8 +269,6 @@ export function DesktopDownloadPicker({ downloads }: { downloads: DesktopDownloa
     availableFormats.find((option) => option.format === currentFormat) ??
     pickDefaultOption(options, detectPreferredPlatform()) ??
     null;
-  const activeChannelLabel =
-    effectiveIncludePrerelease || shouldUsePrereleaseFallback ? t("Pre-release") : t("Stable");
 
   return (
     <section id="download" className="relative px-4 py-8">
@@ -284,13 +298,25 @@ export function DesktopDownloadPicker({ downloads }: { downloads: DesktopDownloa
                 />
                 <span>{t("Pre-release")}</span>
               </label>
-              <span className="rounded-full border border-border bg-secondary/70 px-2.5 py-1 text-xs font-medium text-foreground">
-                {activeChannelLabel}
-              </span>
             </div>
           ) : null}
           {options.length > 0 && selectedOption ? (
             <div className="mx-auto mb-4 flex w-full max-w-2xl flex-col items-stretch justify-center gap-3">
+              {availableOs.length > 1 ? (
+                <div className="flex flex-wrap justify-center gap-2">
+                  {availableOs.map((os) => (
+                    <button
+                      key={os}
+                      type="button"
+                      aria-pressed={currentOs === os}
+                      onClick={() => selectOs(os)}
+                      className={selectionChipClassName(currentOs === os)}
+                    >
+                      {getOsText(os)}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
               <div className="flex w-full flex-col items-stretch justify-center sm:flex-row">
                 <Button
                   size="lg"
@@ -319,11 +345,7 @@ export function DesktopDownloadPicker({ downloads }: { downloads: DesktopDownloa
                     {osOptions.macos.length > 0 ? (
                       <DropdownMenuItem
                         className="p-1.5 font-medium"
-                        onSelect={() => {
-                          setSelectedOs("macos");
-                          setSelectedArch(null);
-                          setSelectedFormat(null);
-                        }}
+                        onClick={() => selectOs("macos")}
                       >
                         {t("macOS build")}
                       </DropdownMenuItem>
@@ -335,11 +357,7 @@ export function DesktopDownloadPicker({ downloads }: { downloads: DesktopDownloa
                     {osOptions.windows.length > 0 ? (
                       <DropdownMenuItem
                         className="p-1.5 font-medium"
-                        onSelect={() => {
-                          setSelectedOs("windows");
-                          setSelectedArch(null);
-                          setSelectedFormat(null);
-                        }}
+                        onClick={() => selectOs("windows")}
                       >
                         {t("Windows build")}
                       </DropdownMenuItem>
@@ -350,11 +368,7 @@ export function DesktopDownloadPicker({ downloads }: { downloads: DesktopDownloa
                     {osOptions.linux.length > 0 ? (
                       <DropdownMenuItem
                         className="p-1.5 font-medium"
-                        onSelect={() => {
-                          setSelectedOs("linux");
-                          setSelectedArch(null);
-                          setSelectedFormat(null);
-                        }}
+                        onClick={() => selectOs("linux")}
                       >
                         {t("Linux build")}
                       </DropdownMenuItem>
@@ -372,11 +386,7 @@ export function DesktopDownloadPicker({ downloads }: { downloads: DesktopDownloa
                         setSelectedArch(arch);
                         setSelectedFormat(null);
                       }}
-                      className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
-                        currentArch === arch
-                          ? "border-foreground bg-foreground text-background"
-                          : "border-border bg-background/70 text-muted-foreground hover:bg-background"
-                      }`}
+                      className={selectionChipClassName(currentArch === arch)}
                     >
                       {getArchLabel(currentOs ?? selectedOption.os, arch)}
                     </button>
@@ -390,11 +400,7 @@ export function DesktopDownloadPicker({ downloads }: { downloads: DesktopDownloa
                       key={option.id}
                       type="button"
                       onClick={() => setSelectedFormat(option.format)}
-                      className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
-                        currentFormat === option.format
-                          ? "border-foreground bg-foreground text-background"
-                          : "border-border bg-background/70 text-muted-foreground hover:bg-background"
-                      }`}
+                      className={selectionChipClassName(currentFormat === option.format)}
                     >
                       {getFormatLabel(option.format)}
                     </button>

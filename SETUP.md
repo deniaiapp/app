@@ -174,6 +174,8 @@ Regenerate better-auth tables into `src/db/schema/auth-schema.ts` (overwrites th
 bun run auth:generate
 ```
 
+Better Auth 1.7 keys linked accounts by `(issuer, accountId)`. After upgrading, apply the generated migration (adds `account.issuer`, backfills Google / GitHub / credential rows, then creates the unique index) before OAuth sign-in will work.
+
 ### 5. Run the development server
 
 ```bash
@@ -268,7 +270,7 @@ Schema change workflow:
 
 A multi-stage `Dockerfile` is included for self-hosting (e.g. Dokploy):
 
-- **Build:** Bun installs deps; **Node 22** runs `next build` (standalone output)
+- **Build:** Bun installs deps and runs `next build` (standalone output)
 - **Run:** Node serves `.next/standalone` on port **3000**
 - `NEXT_PUBLIC_*` values must be present at **build time** (inlined into the client bundle)
 - Server secrets should also be available at build time for `@t3-oss/env-nextjs` validation / prerender; runtime still uses container env
