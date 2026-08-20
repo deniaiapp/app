@@ -118,6 +118,20 @@ ENV DATABASE_URL=$DATABASE_URL \
 # on some hosts (SIGILL / exit 132).
 RUN node ./node_modules/next/dist/bin/next build
 
+# Next's standalone tracer can copy only the CJS side of Bun's virtual-store
+# @swc/helpers package. Node 22 resolves its `module-sync` condition to ESM,
+# so preserve the ESM files in every traced helper package as well.
+RUN set -eux; \
+  for standalone_helpers in \
+    .next/standalone/node_modules/.bun/*/node_modules/@swc/helpers \
+    .next/standalone/node_modules/@swc/helpers; do \
+    [ -d "$standalone_helpers" ] || continue; \
+    source_helpers="${standalone_helpers#.next/standalone/}"; \
+    [ -d "$source_helpers/esm" ] || continue; \
+    mkdir -p "$standalone_helpers/esm"; \
+    cp -a "$source_helpers/esm/." "$standalone_helpers/esm/"; \
+  done
+
 # ---------------------------------------------------------------------------
 # Runtime (Next.js standalone + Node)
 # ---------------------------------------------------------------------------
