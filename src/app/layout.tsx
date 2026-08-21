@@ -46,6 +46,7 @@ export const viewport: Viewport = {
 // Keep metadata free of cookies()/headers() so the document shell can prerender.
 // Per-request locale for page content is resolved in LocalizedRoot via next-intl.
 export async function generateMetadata(): Promise<Metadata> {
+  const title = "Deni AI — Free AI Chat with GPT, Claude & Gemini";
   const description = "Free multi-model AI chat with GPT, Claude, Gemini, and more in one place.";
   const adsenseAccount = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID;
 
@@ -53,7 +54,7 @@ export async function generateMetadata(): Promise<Metadata> {
     metadataBase: new URL("https://deniai.app"),
     applicationName: "Deni AI",
     title: {
-      default: "Deni AI",
+      default: title,
       template: "%s | Deni AI",
     },
     description,
@@ -83,7 +84,7 @@ export async function generateMetadata(): Promise<Metadata> {
     openGraph: {
       type: "website",
       siteName: "Deni AI",
-      title: "Deni AI",
+      title,
       description,
       locale: "en_US",
       images: [
@@ -97,7 +98,7 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     twitter: {
       card: "summary_large_image",
-      title: "Deni AI",
+      title,
       description,
       images: ["/og.png"],
     },

@@ -196,7 +196,7 @@ export default function Header() {
           <div className="flex items-center justify-between gap-4">
             <Link href="/" aria-label="Deni AI" title="Deni AI" className="flex items-center gap-3">
               <DeniAIIcon className="size-7 text-foreground" />
-              <span className="hidden text-base font-semibold tracking-tight text-foreground sm:inline-block">
+              <span className="sr-only text-base font-semibold tracking-tight text-foreground sm:not-sr-only sm:inline-block">
                 Deni AI
               </span>
             </Link>
