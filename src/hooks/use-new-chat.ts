@@ -1,5 +1,4 @@
 import { useRouter } from "next/navigation";
-import { useCallback } from "react";
 import { makeTRPCClient } from "@/lib/trpc/client";
 import { trpc } from "@/lib/trpc/react";
 
@@ -16,56 +15,53 @@ export function useNewChat() {
   const router = useRouter();
   const utils = trpc.useUtils();
 
-  return useCallback(
-    (options?: NewChatOptions): string => {
-      const id = crypto.randomUUID();
-      const projectId = options?.projectId ?? null;
-      const now = new Date();
+  return (options?: NewChatOptions): string => {
+    const id = crypto.randomUUID();
+    const projectId = options?.projectId ?? null;
+    const now = new Date();
 
-      utils.chat.getChats.setData(undefined, (old) => [
-        {
-          id,
-          title: "New Chat",
-          projectId,
-          pinned: false,
-          folder: null,
-          tags: [],
-          created_at: now,
-          updated_at: now,
-        },
-        ...(old ?? []),
-      ]);
+    utils.chat.getChats.setData(undefined, (old) => [
+      {
+        id,
+        title: "New Chat",
+        projectId,
+        pinned: false,
+        folder: null,
+        tags: [],
+        created_at: now,
+        updated_at: now,
+      },
+      ...(old ?? []),
+    ]);
 
-      // Seed SPA host cache so the pane paints without waiting on the network.
-      utils.chat.getChatPage.setData(
-        { id },
-        {
-          id,
-          title: "New Chat",
-          projectId,
-          projectName: null,
-          messages: [],
-        },
-      );
+    // Seed SPA host cache so the pane paints without waiting on the network.
+    utils.chat.getChatPage.setData(
+      { id },
+      {
+        id,
+        title: "New Chat",
+        projectId,
+        projectName: null,
+        messages: [],
+      },
+    );
 
-      // Persist row ASAP so /api/chat can write on first message.
-      void makeTRPCClient()
-        .chat.ensureChat.mutate({ id, projectId })
-        .then((row) => {
-          utils.chat.getChatPage.setData({ id }, row);
-        })
-        .catch(() => {
-          // ChatRouteHost will retry ensure on mount if needed.
-        });
+    // Persist row ASAP so /api/chat can write on first message.
+    void makeTRPCClient()
+      .chat.ensureChat.mutate({ id, projectId })
+      .then((row) => {
+        utils.chat.getChatPage.setData({ id }, row);
+      })
+      .catch(() => {
+        // ChatRouteHost will retry ensure on mount if needed.
+      });
 
-      const url = projectId
-        ? `/chat/${id}?projectId=${encodeURIComponent(projectId)}`
-        : `/chat/${id}`;
-      router.prefetch(url);
-      router.push(url);
+    const url = projectId
+      ? `/chat/${id}?projectId=${encodeURIComponent(projectId)}`
+      : `/chat/${id}`;
+    router.prefetch(url);
+    router.push(url);
 
-      return id;
-    },
-    [router, utils.chat.getChatPage, utils.chat.getChats],
-  );
+    return id;
+  };
 }

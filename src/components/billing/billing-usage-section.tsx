@@ -2,8 +2,8 @@
 
 import { Zap } from "lucide-react";
 import { useExtracted, useLocale } from "next-intl";
+import { formatAppDate } from "@/lib/format-date";
 import { formatCompactUsageValue } from "@/lib/utils";
-import { usageResetFormatter } from "./billing-utils";
 import { Badge } from "../ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Progress } from "../ui/progress";
@@ -41,9 +41,7 @@ function UsageRow({
 
   // When Max Mode is enabled, show as unlimited
   if (maxModeEnabled) {
-    const periodEndLabel = item.periodEnd
-      ? usageResetFormatter(locale).format(new Date(item.periodEnd))
-      : null;
+    const periodEndLabel = item.periodEnd ? formatAppDate(item.periodEnd, locale) : null;
 
     return (
       <div className="space-y-2">
@@ -67,9 +65,7 @@ function UsageRow({
   const remainingLabel = hasLimit
     ? t("{percent}% remaining", { percent: remainingPercent.toFixed(1) })
     : t("Unlimited");
-  const periodEndLabel = item.periodEnd
-    ? usageResetFormatter(locale).format(new Date(item.periodEnd))
-    : null;
+  const periodEndLabel = item.periodEnd ? formatAppDate(item.periodEnd, locale) : null;
 
   return (
     <div className="space-y-2">

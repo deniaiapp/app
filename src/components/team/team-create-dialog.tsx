@@ -43,8 +43,14 @@ export function TeamCreateDialog({
               placeholder={t("e.g. Acme Corp")}
               value={name}
               onChange={(e) => onNameChange(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") onCreate();
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter" &&
+                  !event.nativeEvent.isComposing &&
+                  event.keyCode !== 229
+                ) {
+                  onCreate();
+                }
               }}
             />
           </div>

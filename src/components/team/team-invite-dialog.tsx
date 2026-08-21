@@ -55,8 +55,14 @@ export function TeamInviteDialog({
               placeholder="colleague@example.com"
               value={email}
               onChange={(e) => onEmailChange(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") onInvite();
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter" &&
+                  !event.nativeEvent.isComposing &&
+                  event.keyCode !== 229
+                ) {
+                  onInvite();
+                }
               }}
             />
           </div>

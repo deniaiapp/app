@@ -1,0 +1,393 @@
+"use client";
+
+import type { LucideIcon } from "lucide-react";
+import {
+  BrainIcon,
+  Film,
+  Gauge,
+  Globe,
+  Image as ImageIcon,
+  Mic,
+  Sparkle,
+  Zap,
+  XIcon,
+} from "lucide-react";
+import { useExtracted } from "next-intl";
+import {
+  PromptInputSelect,
+  PromptInputSelectContent,
+  PromptInputSelectItem,
+  PromptInputSelectTrigger,
+  PromptInputSelectValue,
+} from "@/components/ai-elements/prompt-input";
+import { SpeechInput } from "@/components/ai-elements/speech-input";
+import { ChatComposerModelPicker } from "@/components/chat/chat-composer-model-picker";
+import {
+  isReasoningEffort,
+  type ModelDefinition,
+  type ModelEfforts,
+  type ReasoningEffort,
+} from "@/lib/constants";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { DropdownMenuCheckboxItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+type ToolChipProps = {
+  icon: LucideIcon;
+  label: string;
+  onRemove: () => void;
+};
+
+function ToolChip({ icon: Icon, label, onRemove }: ToolChipProps) {
+  const t = useExtracted();
+
+  return (
+    <Button
+      variant="ghost"
+      className="group flex items-center gap-1.5 rounded-md px-2 py-1 font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+      onClick={onRemove}
+      aria-label={t("Remove {label}", { label })}
+    >
+      <Icon className="size-3.5 group-hover:hidden" aria-hidden="true" />
+      <XIcon className="size-3.5 hidden group-hover:block" aria-hidden="true" />
+      <span>{label}</span>
+    </Button>
+  );
+}
+
+function getReasoningEffortLabel(
+  effort: ReasoningEffort,
+  t: ReturnType<typeof useExtracted>,
+): string {
+  switch (effort) {
+    case "none":
+      return t("None");
+    case "minimal":
+      return t("Minimal");
+    case "low":
+      return t("Low");
+    case "medium":
+      return t("Medium");
+    case "high":
+      return t("High");
+    case "xhigh":
+      return t("X-High");
+    case "max":
+      return t("Max");
+    default:
+      return effort;
+  }
+}
+
+function ChatComposerReasoningSelect({
+  reasoningEffort,
+  onReasoningEffortChange,
+  supportedEfforts,
+  supportsReasoningEffort,
+  triggerClassName,
+}: {
+  reasoningEffort: ReasoningEffort;
+  onReasoningEffortChange: (effort: ReasoningEffort) => void;
+  supportedEfforts: ModelEfforts;
+  supportsReasoningEffort: boolean;
+  triggerClassName?: string;
+}) {
+  const t = useExtracted();
+  const reasoningEffortLabel = getReasoningEffortLabel(reasoningEffort, t);
+
+  return (
+    <PromptInputSelect
+      value={reasoningEffort}
+      onValueChange={(value) => {
+        if (isReasoningEffort(value)) {
+          onReasoningEffortChange(value);
+        }
+      }}
+      disabled={!supportsReasoningEffort}
+    >
+      <PromptInputSelectTrigger className={cn(triggerClassName)}>
+        <PromptInputSelectValue>
+          <BrainIcon className="size-4" aria-hidden="true" />
+          {reasoningEffortLabel}
+        </PromptInputSelectValue>
+      </PromptInputSelectTrigger>
+      <PromptInputSelectContent>
+        {supportedEfforts !== false &&
+          supportedEfforts.map((effort) => (
+            <PromptInputSelectItem key={effort} value={effort}>
+              {getReasoningEffortLabel(effort, t)}
+            </PromptInputSelectItem>
+          ))}
+      </PromptInputSelectContent>
+    </PromptInputSelect>
+  );
+}
+
+export function ChatComposerActionMenu({
+  videoMode,
+  onVideoToggle,
+  imageMode,
+  onImageToggle,
+  webSearch,
+  onSearchToggle,
+  deepResearch,
+  onResearchToggle,
+  supportsFastMode,
+  fastMode,
+  onFastModeChange,
+  supportsProMode,
+  proMode,
+  onProModeChange,
+  reasoningEffort,
+  onReasoningEffortChange,
+  supportedEfforts,
+  supportsReasoningEffort,
+}: {
+  videoMode: boolean;
+  onVideoToggle: (enabled: boolean) => void;
+  imageMode: boolean;
+  onImageToggle: (enabled: boolean) => void;
+  webSearch: boolean;
+  onSearchToggle: (enabled: boolean) => void;
+  deepResearch: boolean;
+  onResearchToggle: (enabled: boolean) => void;
+  supportsFastMode: boolean;
+  fastMode: boolean;
+  onFastModeChange: (enabled: boolean) => void;
+  supportsProMode: boolean;
+  proMode: boolean;
+  onProModeChange: (enabled: boolean) => void;
+  reasoningEffort: ReasoningEffort;
+  onReasoningEffortChange: (effort: ReasoningEffort) => void;
+  supportedEfforts: ModelEfforts;
+  supportsReasoningEffort: boolean;
+}) {
+  const t = useExtracted();
+
+  return (
+    <>
+      <DropdownMenuSeparator />
+      <DropdownMenuCheckboxItem
+        checked={videoMode}
+        onCheckedChange={(checked) => onVideoToggle(Boolean(checked))}
+      >
+        <Film className="size-4" aria-hidden="true" />
+        {t("Video")}
+      </DropdownMenuCheckboxItem>
+      <DropdownMenuCheckboxItem
+        checked={imageMode}
+        onCheckedChange={(checked) => onImageToggle(Boolean(checked))}
+      >
+        <ImageIcon className="size-4" aria-hidden="true" />
+        {t("Image")}
+      </DropdownMenuCheckboxItem>
+      <DropdownMenuCheckboxItem
+        checked={webSearch}
+        onCheckedChange={(checked) => onSearchToggle(Boolean(checked))}
+      >
+        <Globe className="size-4" aria-hidden="true" />
+        {t("Search")}
+      </DropdownMenuCheckboxItem>
+      <DropdownMenuCheckboxItem
+        checked={deepResearch}
+        onCheckedChange={(checked) => onResearchToggle(Boolean(checked))}
+      >
+        <Sparkle className="size-4" aria-hidden="true" />
+        {t("Deep Research")}
+      </DropdownMenuCheckboxItem>
+      {supportsFastMode && (
+        <DropdownMenuCheckboxItem
+          checked={fastMode}
+          onCheckedChange={(checked) => onFastModeChange(Boolean(checked))}
+        >
+          <Gauge className="size-4" aria-hidden="true" />
+          {t("Fast")}
+        </DropdownMenuCheckboxItem>
+      )}
+      {supportsProMode && (
+        <DropdownMenuCheckboxItem
+          checked={proMode}
+          onCheckedChange={(checked) => onProModeChange(Boolean(checked))}
+        >
+          <Zap className="size-4" aria-hidden="true" />
+          {t("Pro")}
+        </DropdownMenuCheckboxItem>
+      )}
+      <div className="px-2 py-1.5 md:hidden">
+        <ChatComposerReasoningSelect
+          reasoningEffort={reasoningEffort}
+          onReasoningEffortChange={onReasoningEffortChange}
+          supportedEfforts={supportedEfforts}
+          supportsReasoningEffort={supportsReasoningEffort}
+          triggerClassName="w-full justify-between"
+        />
+      </div>
+    </>
+  );
+}
+
+export function ChatComposerTools({
+  value,
+  onValueChange,
+  videoMode,
+  onVideoToggle,
+  imageMode,
+  onImageToggle,
+  webSearch,
+  onSearchToggle,
+  deepResearch,
+  onResearchToggle,
+  model,
+  onModelChange,
+  availableModels,
+  selectedModel,
+  showByokBadge,
+  reasoningEffort,
+  onReasoningEffortChange,
+  supportedEfforts,
+  supportsReasoningEffort,
+  supportsFastMode,
+  fastMode,
+  onFastModeChange,
+  fastModeTitle,
+  supportsProMode,
+  proMode,
+  onProModeChange,
+  proModeTitle,
+}: {
+  value: string;
+  onValueChange: (value: string) => void;
+  videoMode: boolean;
+  onVideoToggle: (enabled: boolean) => void;
+  imageMode: boolean;
+  onImageToggle: (enabled: boolean) => void;
+  webSearch: boolean;
+  onSearchToggle: (enabled: boolean) => void;
+  deepResearch: boolean;
+  onResearchToggle: (enabled: boolean) => void;
+  model: string;
+  onModelChange: (model: string) => void;
+  availableModels: ModelDefinition[];
+  selectedModel: ModelDefinition | undefined;
+  showByokBadge: boolean;
+  reasoningEffort: ReasoningEffort;
+  onReasoningEffortChange: (effort: ReasoningEffort) => void;
+  supportedEfforts: ModelEfforts;
+  supportsReasoningEffort: boolean;
+  supportsFastMode: boolean;
+  fastMode: boolean;
+  onFastModeChange: (enabled: boolean) => void;
+  fastModeTitle: string;
+  supportsProMode: boolean;
+  proMode: boolean;
+  onProModeChange: (enabled: boolean) => void;
+  proModeTitle: string;
+}) {
+  const t = useExtracted();
+
+  return (
+    <>
+      {videoMode && (
+        <ToolChip icon={Film} label={t("Video")} onRemove={() => onVideoToggle(false)} />
+      )}
+      {imageMode && (
+        <ToolChip icon={ImageIcon} label={t("Image")} onRemove={() => onImageToggle(false)} />
+      )}
+      {webSearch && (
+        <ToolChip icon={Globe} label={t("Search")} onRemove={() => onSearchToggle(false)} />
+      )}
+      {deepResearch && (
+        <ToolChip
+          icon={Sparkle}
+          label={t("Deep Research")}
+          onRemove={() => onResearchToggle(false)}
+        />
+      )}
+      <SpeechInput
+        size="icon-sm"
+        variant="ghost"
+        className="size-8 bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground"
+        aria-label={t("Voice input")}
+        title={t("Voice input")}
+        onTranscriptionChange={(transcript) => {
+          const nextValue = value.trim() ? `${value.trim()} ${transcript}` : transcript;
+          onValueChange(nextValue.trim());
+        }}
+      >
+        <Mic className="size-4" />
+      </SpeechInput>
+
+      <ChatComposerModelPicker
+        model={model}
+        onModelChange={onModelChange}
+        availableModels={availableModels}
+        selectedModel={selectedModel}
+        showByokBadge={showByokBadge}
+      />
+
+      <div className="hidden md:flex md:items-center md:gap-1">
+        <ChatComposerReasoningSelect
+          reasoningEffort={reasoningEffort}
+          onReasoningEffortChange={onReasoningEffortChange}
+          supportedEfforts={supportedEfforts}
+          supportsReasoningEffort={supportsReasoningEffort}
+        />
+        {supportsFastMode && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant={fastMode ? "secondary" : "ghost"}
+                  size="icon-sm"
+                  className={cn(
+                    "size-8",
+                    fastMode
+                      ? "bg-sky-500/15 text-sky-700 hover:bg-sky-500/20 dark:text-sky-400"
+                      : "text-muted-foreground",
+                  )}
+                  aria-pressed={fastMode}
+                  aria-label={t("Fast")}
+                  onClick={() => onFastModeChange(!fastMode)}
+                >
+                  <Gauge className="size-3.5" aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{fastModeTitle}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+        {supportsProMode && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant={proMode ? "secondary" : "ghost"}
+                  size="icon-sm"
+                  className={cn(
+                    "size-8",
+                    proMode
+                      ? "bg-amber-500/15 text-amber-700 hover:bg-amber-500/20 dark:text-amber-400"
+                      : "text-muted-foreground",
+                  )}
+                  aria-pressed={proMode}
+                  aria-label={t("Pro")}
+                  onClick={() => onProModeChange(!proMode)}
+                >
+                  <Zap className="size-3.5" aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{proModeTitle}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </div>
+    </>
+  );
+}

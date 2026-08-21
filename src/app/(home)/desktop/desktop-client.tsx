@@ -70,7 +70,7 @@ export function DesktopClient({ downloads }: { downloads: DesktopDownloads }) {
                   variant="outline"
                   size="lg"
                   asChild
-                  className="group transition-all hover:bg-secondary"
+                  className="group transition-colors hover:bg-secondary"
                 >
                   <Link href="#download">
                     <Download className="size-5 transition-transform group-hover:translate-x-1" />
@@ -81,7 +81,7 @@ export function DesktopClient({ downloads }: { downloads: DesktopDownloads }) {
                   variant="outline"
                   size="lg"
                   asChild
-                  className="group transition-all hover:bg-secondary"
+                  className="group transition-colors hover:bg-secondary"
                 >
                   <Link href="#features">
                     {t("Learn More")}

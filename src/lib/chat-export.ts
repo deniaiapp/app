@@ -1,10 +1,13 @@
 import type { UIMessage } from "ai";
 
 function getTextFromMessage(message: UIMessage): string {
-  return message.parts
-    .filter((part) => part.type === "text")
-    .map((part) => (part as { type: "text"; text: string }).text)
-    .join("\n");
+  const texts: string[] = [];
+  for (const part of message.parts) {
+    if (part.type === "text") {
+      texts.push(part.text);
+    }
+  }
+  return texts.join("\n");
 }
 
 export function exportAsMarkdown(messages: UIMessage[], title?: string): string {

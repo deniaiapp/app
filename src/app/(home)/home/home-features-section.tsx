@@ -24,9 +24,9 @@ function FeatureCard({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.5, delay }}
-      className="group relative p-6 rounded-2xl border border-border bg-card/20 backdrop-blur-sm transition-all hover:bg-card hover:shadow-xl hover:-translate-y-1"
+      className="group relative p-6 rounded-2xl border border-border bg-card/20 backdrop-blur-sm transition-[transform,box-shadow,background-color] hover:bg-card hover:shadow-xl hover:-translate-y-1"
     >
-      <div className="inline-flex items-center justify-center size-12 rounded-xl bg-secondary text-foreground mb-4 group-hover:scale-110 group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300">
+      <div className="inline-flex items-center justify-center size-12 rounded-xl bg-secondary text-foreground mb-4 group-hover:scale-110 group-hover:bg-primary group-hover:text-primary-foreground transition-[background-color,transform,color] duration-300">
         <Icon className="size-6" />
       </div>
       <h3 className="text-lg font-semibold mb-2">{title}</h3>

@@ -234,7 +234,7 @@ function TeamSettingsContent() {
             currency: teamPlan?.currency ?? "usd",
             paymentMethodBrand: null,
             paymentMethodLast4: null,
-            paidAt: teamBillingQuery.data?.currentPeriodEnd ?? new Date().toISOString(),
+            paidAt: teamBillingQuery.data?.currentPeriodEnd ?? null,
           } satisfies SubscriptionReceiptData
         }
         onClose={() => setShredOpen(false)}

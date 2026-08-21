@@ -1,8 +1,8 @@
 import { GoogleAnalytics } from "@next/third-parties/google";
 import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Geist, Geist_Mono, Inter } from "next/font/google";
-import { NextIntlClientProvider } from "next-intl";
-import { getExtracted, getLocale, getMessages } from "next-intl/server";
+import { createTranslator, NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
 import { Suspense } from "react";
 import { AdSenseScript } from "@/components/adsense-script";
 import { ThemeProvider } from "@/components/ui/theme-provider";
@@ -147,17 +147,31 @@ function RootLayoutFallback() {
 }
 
 /**
+ * Sequential: next-intl server helpers share request context and can break
+ * under concurrent Promise.all during static prerender.
+ */
+async function loadMessagesForLocale(locale: string) {
+  const messages = await getMessages();
+  return {
+    locale,
+    messages,
+    t: createTranslator({ locale, messages }),
+  };
+}
+
+async function loadLocalizedRootMessages() {
+  const locale = await getLocale();
+  return loadMessagesForLocale(locale);
+}
+
+/**
  * Resolves cookie/header-based locale and wraps the app in next-intl.
  * Must sit inside <Suspense> so the root shell can prerender under cacheComponents.
  * ThemeProvider stays outside this boundary so next-themes' blocking script is in
  * the static shell (not streamed client-side where <script> would not execute).
  */
 async function LocalizedRoot({ children }: { children: React.ReactNode }) {
-  // Sequential: next-intl server helpers share request context and can break
-  // under concurrent Promise.all during static prerender (getExtracted).
-  const locale = await getLocale();
-  const messages = await getMessages();
-  const t = await getExtracted();
+  const { locale, messages, t } = await loadLocalizedRootMessages();
 
   return (
     <>

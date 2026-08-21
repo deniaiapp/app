@@ -19,7 +19,7 @@ type PlanActionProps = {
   isOnTeamPlan: boolean;
   pendingPlanId: IndividualPlanId | null;
   isEstimateLoading: boolean;
-  cancelDate: number | false;
+  cancelDate: number | null;
   changePlan: { isPending: boolean; variables?: { planId: IndividualPlanId } };
   checkout: { isPending: boolean; variables?: { planId: IndividualPlanId } };
   onChangePlanClick: (plan: ClientPlan) => void;

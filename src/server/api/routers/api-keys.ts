@@ -48,28 +48,26 @@ export const apiKeysRouter = router({
         .onConflictDoNothing()
         .returning({ id: apiKey.id });
 
-      // Verify we haven't exceeded the limit (handles race conditions)
-      const countResult = await ctx.db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(apiKey)
-        .where(eq(apiKey.userId, ctx.userId));
-
-      const totalKeys = countResult[0]?.count ?? 0;
-
-      if (totalKeys > 5) {
-        // Race condition: another request also inserted — roll back by deleting ours
-        if (inserted) {
-          await ctx.db
-            .delete(apiKey)
-            .where(and(eq(apiKey.id, inserted.id), eq(apiKey.userId, ctx.userId)));
-        }
+      if (!inserted) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
           message: "Maximum of 5 API keys allowed. Revoke an existing key first.",
         });
       }
 
-      if (!inserted) {
+      // Count after insert so the new row is included; inserted.id makes this
+      // ordered with the insert rather than an independent sibling await.
+      const countResult = await ctx.db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(apiKey)
+        .where(and(eq(apiKey.userId, ctx.userId), sql`${inserted.id} is not null`));
+
+      const totalKeys = countResult[0]?.count ?? 0;
+
+      if (totalKeys > 5) {
+        await ctx.db
+          .delete(apiKey)
+          .where(and(eq(apiKey.id, inserted.id), eq(apiKey.userId, ctx.userId)));
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
           message: "Maximum of 5 API keys allowed. Revoke an existing key first.",

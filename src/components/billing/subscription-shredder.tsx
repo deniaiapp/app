@@ -6,6 +6,7 @@ import { useExtracted, useLocale } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { formatMinorCurrency } from "@/lib/currency";
+import { formatAppDate } from "@/lib/format-date";
 import { formatReceiptOrderId } from "@/lib/stripe-checkout-receipt";
 import { cn } from "@/lib/utils";
 import {
@@ -46,7 +47,7 @@ function ShreddedReceipt({
 
         return (
           <div
-            className="absolute inset-0 origin-top will-change-transform"
+            className="absolute inset-0 origin-top"
             key={index}
             style={{
               clipPath: `inset(0 ${Math.max(0, 100 - left - width)}% 0 ${left}%)`,
@@ -103,39 +104,52 @@ export function SubscriptionShredder({
   onConfirm: () => Promise<void>;
   onClose: () => void;
 }) {
+  if (!open) {
+    return null;
+  }
+
+  return <SubscriptionShredderActive data={data} onClose={onClose} onConfirm={onConfirm} />;
+}
+
+function SubscriptionShredderActive({
+  data,
+  onConfirm,
+  onClose,
+}: {
+  data: SubscriptionReceiptData;
+  onConfirm: () => Promise<void>;
+  onClose: () => void;
+}) {
   const t = useExtracted();
   const locale = useLocale();
   const shouldReduceMotion = useReducedMotion();
   const [phase, setPhase] = useState<ShredPhase>("hold");
   const orderId = formatReceiptOrderId(data.sessionId);
-  const paidAtLabel = new Intl.DateTimeFormat(locale, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  })
-    .format(data.paidAt ? new Date(data.paidAt) : new Date())
-    .replace(",", " ·");
+  const paidAtLabel = data.paidAt
+    ? formatAppDate(data.paidAt, locale, {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }).replace(",", " ·")
+    : "—";
   const money = (amount: number) => formatMinorCurrency(amount, data.currency, undefined, locale);
   const confirmRef = useRef(onConfirm);
   const closeRef = useRef(onClose);
-  confirmRef.current = onConfirm;
-  closeRef.current = onClose;
 
   useEffect(() => {
-    if (!open) {
-      setPhase("hold");
-      return;
-    }
+    confirmRef.current = onConfirm;
+    closeRef.current = onClose;
+  });
 
+  useEffect(() => {
     let cancelled = false;
     let shredTimer = 0;
     let closeTimer = 0;
 
     async function run() {
-      setPhase("hold");
       try {
         await confirmRef.current();
         if (cancelled) {
@@ -174,11 +188,7 @@ export function SubscriptionShredder({
       window.clearTimeout(shredTimer);
       window.clearTimeout(closeTimer);
     };
-  }, [open, shouldReduceMotion, t]);
-
-  if (!open) {
-    return null;
-  }
+  }, [shouldReduceMotion, t]);
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">

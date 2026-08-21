@@ -1,19 +1,9 @@
 import type { BillingPlanId, ClientPlan } from "@/lib/billing";
 import { getPlanTier } from "@/lib/billing";
 import { formatMinorCurrency } from "@/lib/currency";
-import { getAppDateFormatter } from "@/lib/format-date";
 import { useExtracted, useLocale } from "next-intl";
 
 export const ACTIVE_STATUSES = new Set(["active", "trialing", "paid"]);
-
-export function getDateFormatter(
-  locale: string,
-  options: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" },
-) {
-  return getAppDateFormatter(locale, options);
-}
-
-export const usageResetFormatter = (locale: string) => getDateFormatter(locale);
 
 export function useFormatPriceLabel() {
   const t = useExtracted();

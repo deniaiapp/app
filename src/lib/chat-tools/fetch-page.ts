@@ -196,7 +196,7 @@ async function withTimeoutSignal<T>(
 async function fetchWithSafeRedirects(
   url: string,
   signal: AbortSignal,
-): Promise<{ response: Response; finalUrl: string; finalHostname: string }> {
+): Promise<{ raw: string; contentType: string; finalUrl: string; finalHostname: string }> {
   let current = await assertSafePublicHttpUrl(url);
 
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
@@ -205,28 +205,35 @@ async function fetchWithSafeRedirects(
       signal,
       redirect: "manual",
     });
+    if (!response.ok) {
+      if (REDIRECT_STATUSES.has(response.status)) {
+        const location = response.headers.get("location");
+        void response.arrayBuffer().catch(() => undefined);
 
-    if (REDIRECT_STATUSES.has(response.status)) {
-      const location = response.headers.get("location");
+        if (!location) {
+          throw new Error(`Redirect without Location header (${response.status}).`);
+        }
+
+        let next: URL;
+        try {
+          next = new URL(location, current);
+        } catch {
+          throw new Error("Invalid redirect Location header.");
+        }
+
+        current = await assertSafePublicHttpUrl(next.toString());
+        continue;
+      }
+
       void response.arrayBuffer().catch(() => undefined);
-
-      if (!location) {
-        throw new Error(`Redirect without Location header (${response.status}).`);
-      }
-
-      let next: URL;
-      try {
-        next = new URL(location, current);
-      } catch {
-        throw new Error("Invalid redirect Location header.");
-      }
-
-      current = await assertSafePublicHttpUrl(next.toString());
-      continue;
+      throw new Error(statusErrorMessage(response.status));
     }
 
+    const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+    const raw = await response.text();
     return {
-      response,
+      raw,
+      contentType,
       finalUrl: current.toString(),
       finalHostname: current.hostname,
     };
@@ -236,17 +243,13 @@ async function fetchWithSafeRedirects(
 }
 
 async function parseSuccessfulResponse(
-  response: Response,
+  raw: string,
+  contentType: string,
   finalUrl: string,
   finalHostname: string,
   maxChars: number,
   source: PageFetchSource,
 ): Promise<FetchedPageText> {
-  if (!response.ok) {
-    throw new Error(statusErrorMessage(response.status));
-  }
-
-  const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
   const isTextLike =
     contentType.length === 0 ||
     contentType.includes("text/") ||
@@ -259,8 +262,6 @@ async function parseSuccessfulResponse(
   if (!isTextLike) {
     throw new Error(`Unsupported content type: ${contentType || "unknown"}`);
   }
-
-  const raw = await response.text();
 
   if (
     contentType.includes("text/plain") ||
@@ -305,8 +306,8 @@ async function fetchDirect(
   maxChars: number,
   signal: AbortSignal,
 ): Promise<FetchedPageText> {
-  const { response, finalUrl, finalHostname } = await fetchWithSafeRedirects(url, signal);
-  return parseSuccessfulResponse(response, finalUrl, finalHostname, maxChars, "direct");
+  const { raw, contentType, finalUrl, finalHostname } = await fetchWithSafeRedirects(url, signal);
+  return parseSuccessfulResponse(raw, contentType, finalUrl, finalHostname, maxChars, "direct");
 }
 
 async function fetchViaReader(

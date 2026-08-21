@@ -7,10 +7,6 @@ type AffiliateDiscountCouponEmailProps = {
   note?: string | null;
 };
 
-export function affiliateDiscountCouponEmailSubject(discountPercent: number) {
-  return `Your Deni AI ${discountPercent}% off coupon`;
-}
-
 export function AffiliateDiscountCouponEmail({
   name,
   couponCode,

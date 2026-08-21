@@ -213,9 +213,13 @@ export function ShareDialog({ chatId, isOpen, onOpenChange }: ShareDialogProps) 
                       placeholder={t("Enter email address")}
                       value={recipientEmail}
                       onChange={(e) => setRecipientEmail(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
+                      onKeyDown={(event) => {
+                        if (
+                          event.key === "Enter" &&
+                          !event.nativeEvent.isComposing &&
+                          event.keyCode !== 229
+                        ) {
+                          event.preventDefault();
                           handleAddRecipient();
                         }
                       }}

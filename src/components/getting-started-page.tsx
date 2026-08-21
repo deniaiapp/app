@@ -164,7 +164,7 @@ function SetupScreen({
         <p className="text-muted-foreground">{t("Let’s set up the AI chatbot for yours.")}</p>
       </div>
 
-      <Card className="overflow-hidden border-border/60 bg-background/60 backdrop-blur supports-[backdrop-filter]:bg-background/60 animate-fade-in will-change-[transform,opacity]">
+      <Card className="overflow-hidden border-border/60 bg-background/60 backdrop-blur supports-[backdrop-filter]:bg-background/60 animate-fade-in">
         <CardContent>
           <div className="mb-4 flex flex-col -mx-0.5">
             <h1 className="text-balance text-2xl font-semibold">{steps[index].title}</h1>
@@ -507,7 +507,7 @@ function FeatureCard({
   description: string;
 }) {
   return (
-    <div className="rounded-md border bg-muted/30 p-4 shadow-sm transition-colors will-change-transform hover:bg-muted/40 data-[active=true]:animate-in data-[active=true]:fade-in-0 data-[active=true]:slide-in-from-bottom-2">
+    <div className="rounded-md border bg-muted/30 p-4 shadow-sm transition-colors hover:bg-muted/40 data-[active=true]:animate-in data-[active=true]:fade-in-0 data-[active=true]:slide-in-from-bottom-2">
       <div className="mb-2 flex items-center gap-2">
         <Icon className="size-4" aria-hidden="true" />
         <p className="font-medium">{title}</p>

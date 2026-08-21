@@ -32,14 +32,6 @@ export const MICROSOFT_MAIL_DOMAINS: ReadonlySet<string> = new Set([
   "msn.com",
 ]);
 
-/** Apple free consumer mail — same alias / plus-tag farm checks. */
-export const APPLE_MAIL_DOMAINS: ReadonlySet<string> = new Set([
-  "icloud.com",
-  "me.com",
-  "mac.com",
-  "icloud.com.jp",
-]);
-
 /** Exact domains allowed for email/password and magic-link sign-up. */
 export const ALLOWED_EMAIL_PROVIDERS: ReadonlySet<string> = new Set([
   // Microsoft (primary address only — see alias checks)
@@ -207,10 +199,6 @@ export function isMicrosoftMailDomain(domain: string): boolean {
   return MICROSOFT_MAIL_DOMAINS.has(domain.toLowerCase());
 }
 
-export function isAppleMailDomain(domain: string): boolean {
-  return APPLE_MAIL_DOMAINS.has(domain.toLowerCase());
-}
-
 export function isAllowedEmailProviderDomain(domain: string): boolean {
   return ALLOWED_EMAIL_PROVIDERS.has(domain.toLowerCase());
 }
@@ -255,12 +243,6 @@ export function isAliasLikeLocalPart(local: string): boolean {
   return false;
 }
 
-/** @deprecated Use {@link isAliasLikeLocalPart} */
-export const isFreeMailAliasLikeLocalPart = isAliasLikeLocalPart;
-
-/** @deprecated Use {@link isAliasLikeLocalPart} */
-export const isMicrosoftAliasLikeLocalPart = isAliasLikeLocalPart;
-
 export type SignupEmailDenyReason =
   | "invalid"
   | "not_allowed"
@@ -295,11 +277,6 @@ export function checkSignupEmail(email: string): SignupEmailPolicyResult {
   return { ok: false, reason: "not_allowed" };
 }
 
-/** True when the email may be used for email/password or magic-link sign-up. */
-export function isAllowedSignupEmail(email: string): boolean {
-  return checkSignupEmail(email).ok;
-}
-
 export function signupEmailDenialMessage(reason: SignupEmailDenyReason): string {
   switch (reason) {
     case "use_google_oauth":
@@ -326,23 +303,4 @@ export function signupEmailDenialCode(reason: SignupEmailDenyReason): string {
     default:
       return "EMAIL_DOMAIN_NOT_ALLOWED";
   }
-}
-
-/**
- * Paths where email domain whitelist should be enforced.
- * OAuth callbacks are intentionally excluded so Google Workspace / GitHub
- * corporate emails still work.
- */
-export function isEmailRegistrationPath(path: string | undefined | null): boolean {
-  if (!path) return false;
-  return (
-    path === "/sign-up/email" ||
-    path.startsWith("/sign-up/email") ||
-    path === "/sign-in/magic-link" ||
-    path.startsWith("/sign-in/magic-link") ||
-    path === "/magic-link/verify" ||
-    path.startsWith("/magic-link/verify") ||
-    path === "/change-email" ||
-    path.startsWith("/change-email")
-  );
 }

@@ -1,5 +1,4 @@
 import { useExtracted } from "next-intl";
-import { useMemo } from "react";
 import { toast } from "sonner";
 import type { ModelOption } from "@/components/chat/chat-composer";
 import { trpc } from "@/lib/trpc/react";
@@ -36,18 +35,10 @@ export function useUsageStatus(params: {
   const usageUnit = categoryUsage?.unit ?? "requests";
   const usageTier = usageQuery.data?.tier ?? "free";
 
-  const lowUsageThreshold = useMemo(() => {
-    if (
-      remainingUsage === null ||
-      remainingUsage === undefined ||
-      usageLimit === null ||
-      usageLimit === undefined
-    ) {
-      return null;
-    }
-    const computed = Math.ceil(usageLimit * 0.1);
-    return Math.max(3, Math.min(20, computed));
-  }, [remainingUsage, usageLimit]);
+  const remaining = remainingUsage;
+  const limit = usageLimit;
+  const lowUsageThreshold =
+    remaining == null || limit == null ? null : Math.max(3, Math.min(20, Math.ceil(limit * 0.1)));
 
   const selectedProvider = selectedModel?.author ?? null;
 

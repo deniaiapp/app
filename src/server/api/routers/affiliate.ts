@@ -24,7 +24,7 @@ import {
   rejectAffiliateResetReward,
   resetAffiliateCouponSending,
   setAffiliateRewardPreference,
-  useAffiliateResetCredit,
+  consumeAffiliateResetCredit,
 } from "@/lib/affiliate";
 import { protectedProcedure, router } from "../trpc";
 
@@ -114,8 +114,8 @@ export const affiliateRouter = router({
       }
     }),
 
-  useResetCredit: protectedProcedure.mutation(async ({ ctx }) => {
-    const remaining = await useAffiliateResetCredit(ctx.userId);
+  consumeResetCredit: protectedProcedure.mutation(async ({ ctx }) => {
+    const remaining = await consumeAffiliateResetCredit(ctx.userId);
     if (remaining === null) {
       throw new TRPCError({
         code: "PRECONDITION_FAILED",

@@ -5,12 +5,12 @@ import { useExtracted, useLocale } from "next-intl";
 import type { ClientPlan, IndividualPlanId } from "@/lib/billing";
 import { useBillingPlanCopy } from "@/lib/billing-plan-copy";
 import { formatMinorCurrency } from "@/lib/currency";
+import { formatAppDate } from "@/lib/format-date";
 import { useFormatPriceParts } from "@/lib/use-format-price-parts";
 import { cn } from "@/lib/utils";
 import { PlanHighlights } from "./plan-highlights";
 import {
   calculateYearlySavingsPercent,
-  getDateFormatter,
   useFormatPriceLabel,
   usePlanFitCopy,
   useTierLabel,
@@ -44,7 +44,7 @@ export function PlanCard({
     isLoadingEstimate: boolean;
     isOnTeamPlan?: boolean;
   };
-  cancelDate: number | false;
+  cancelDate: number | null;
   activePlanId: string | undefined;
   changePlan: { isPending: boolean; variables?: { planId: IndividualPlanId } };
   checkout: { isPending: boolean; variables?: { planId: IndividualPlanId } };
@@ -59,16 +59,14 @@ export function PlanCard({
   const getPlanFitCopy = usePlanFitCopy();
   const planCopy = useBillingPlanCopy(plan.id);
   const mode = plan.mode ?? "subscription";
-  const offerEndsAt = plan.limitedTimeOfferEndsAt ? new Date(plan.limitedTimeOfferEndsAt) : null;
-  const offerEndsLabel =
-    offerEndsAt && !Number.isNaN(offerEndsAt.getTime())
-      ? getDateFormatter(locale, {
-          month: "short",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-        }).format(offerEndsAt)
-      : null;
+  const offerEndsLabel = plan.limitedTimeOfferEndsAt
+    ? formatAppDate(plan.limitedTimeOfferEndsAt, locale, {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : null;
   const canChange =
     status.hasActiveSubscription && !cancelDate && !status.isCurrent && mode === "subscription";
   const isBlockedByCancel =

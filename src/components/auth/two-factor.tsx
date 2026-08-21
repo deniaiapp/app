@@ -22,6 +22,15 @@ export type TwoFactorProps = {
 
 type VerifyMode = "totp" | "backup";
 
+async function runWithLoading(setLoading: (value: boolean) => void, work: () => Promise<void>) {
+  setLoading(true);
+  try {
+    await work();
+  } finally {
+    setLoading(false);
+  }
+}
+
 /**
  * Second-factor verification after email/password sign-in when 2FA is enabled.
  * Accepts a TOTP code from an authenticator app, or a one-time backup code.
@@ -49,50 +58,48 @@ export function TwoFactor({ className }: TwoFactorProps) {
     setBackupCode("");
   };
 
-  const verifyTotp = async (code: string) => {
+  const verifyTotp = (code: string) => {
     if (code.length !== 6 || isPending) return;
 
-    setIsPending(true);
-    setError(undefined);
+    void runWithLoading(setIsPending, async () => {
+      setError(undefined);
 
-    const { error: verifyError } = await authClient.twoFactor.verifyTotp({
-      code,
-      trustDevice,
+      const { error: verifyError } = await authClient.twoFactor.verifyTotp({
+        code,
+        trustDevice,
+      });
+
+      if (verifyError) {
+        handleError(verifyError.message);
+        return;
+      }
+
+      toast.success(t("Signed in successfully"));
+      completeSignIn();
     });
-
-    setIsPending(false);
-
-    if (verifyError) {
-      handleError(verifyError.message);
-      return;
-    }
-
-    toast.success(t("Signed in successfully"));
-    completeSignIn();
   };
 
-  const verifyBackup = async (e: FormEvent<HTMLFormElement>) => {
+  const verifyBackup = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const code = backupCode.trim();
     if (!code || isPending) return;
 
-    setIsPending(true);
-    setError(undefined);
+    void runWithLoading(setIsPending, async () => {
+      setError(undefined);
 
-    const { error: verifyError } = await authClient.twoFactor.verifyBackupCode({
-      code,
-      trustDevice,
+      const { error: verifyError } = await authClient.twoFactor.verifyBackupCode({
+        code,
+        trustDevice,
+      });
+
+      if (verifyError) {
+        handleError(verifyError.message);
+        return;
+      }
+
+      toast.success(t("Signed in successfully"));
+      completeSignIn();
     });
-
-    setIsPending(false);
-
-    if (verifyError) {
-      handleError(verifyError.message);
-      return;
-    }
-
-    toast.success(t("Signed in successfully"));
-    completeSignIn();
   };
 
   return (

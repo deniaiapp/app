@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useExtracted, useLocale } from "next-intl";
 import type { BillingPlanId, ClientPlan } from "@/lib/billing";
-import { getDateFormatter, usePlanIntervalLabel, useTierLabel } from "./billing-utils";
+import { formatAppDate } from "@/lib/format-date";
+import { usePlanIntervalLabel, useTierLabel } from "./billing-utils";
 import { Button } from "../ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Spinner } from "../ui/spinner";
@@ -28,7 +29,7 @@ export function BillingCurrentPlanCard({
   rawPlanId: BillingPlanId | undefined;
   currentPlan: ClientPlan | undefined;
   activePlanId: BillingPlanId | undefined;
-  cancelDate: number | false;
+  cancelDate: number | null;
   currentPeriodEnd?: Date | string | null;
   stripeCustomerId?: string | null;
   hasActiveSubscription: boolean;
@@ -63,7 +64,7 @@ export function BillingCurrentPlanCard({
             {cancelDate && (
               <span className="text-destructive">
                 {t("(Cancels {date})", {
-                  date: getDateFormatter(locale).format(new Date(cancelDate * 1000)),
+                  date: formatAppDate(cancelDate * 1000, locale),
                 })}
               </span>
             )}
@@ -73,7 +74,7 @@ export function BillingCurrentPlanCard({
           {currentPeriodEnd && !cancelDate && (
             <span className="text-xs text-muted-foreground px-3 py-1 rounded-full bg-muted">
               {t("Renews {date}", {
-                date: getDateFormatter(locale).format(new Date(currentPeriodEnd)),
+                date: formatAppDate(currentPeriodEnd, locale),
               })}
             </span>
           )}

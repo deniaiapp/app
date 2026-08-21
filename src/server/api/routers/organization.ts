@@ -412,8 +412,10 @@ export const organizationRouter = router({
     .input(z.object({ organizationId: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
       await verifyOrgOwner(ctx, input.organizationId);
-      const subscription = await syncTeamSubscription(ctx, ctx.userId, input.organizationId);
-      const memberCount = await getOrgMemberCount(input.organizationId);
+      const [subscription, memberCount] = await Promise.all([
+        syncTeamSubscription(ctx, ctx.userId, input.organizationId),
+        getOrgMemberCount(input.organizationId),
+      ]);
       return {
         planId: subscription.planId ?? null,
         status: subscription.status ?? null,
@@ -430,29 +432,44 @@ export const organizationRouter = router({
     .input(z.object({ organizationId: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
       await verifyOrgOwner(ctx, input.organizationId);
-      const subscription = await syncTeamSubscription(ctx, ctx.userId, input.organizationId);
-      const defaultPolicy = await ensureTeamUsagePolicy(ctx, input.organizationId);
-      const members = await ctx.db
-        .select({
-          memberId: member.id,
-          userId: member.userId,
-          role: member.role,
-          name: user.name,
-          email: user.email,
-          policyEnabled: teamMemberUsagePolicy.maxModeEnabled,
-          policyLimitBasic: teamMemberUsagePolicy.maxModeLimitBasic,
-          policyLimitPremium: teamMemberUsagePolicy.maxModeLimitPremium,
-        })
-        .from(member)
-        .innerJoin(user, eq(member.userId, user.id))
-        .leftJoin(
-          teamMemberUsagePolicy,
-          and(
-            eq(teamMemberUsagePolicy.organizationId, member.organizationId),
-            eq(teamMemberUsagePolicy.userId, member.userId),
-          ),
-        )
-        .where(eq(member.organizationId, input.organizationId));
+      const [subscription, defaultPolicy, members, auditLog] = await Promise.all([
+        syncTeamSubscription(ctx, ctx.userId, input.organizationId),
+        ensureTeamUsagePolicy(ctx, input.organizationId),
+        ctx.db
+          .select({
+            memberId: member.id,
+            userId: member.userId,
+            role: member.role,
+            name: user.name,
+            email: user.email,
+            policyEnabled: teamMemberUsagePolicy.maxModeEnabled,
+            policyLimitBasic: teamMemberUsagePolicy.maxModeLimitBasic,
+            policyLimitPremium: teamMemberUsagePolicy.maxModeLimitPremium,
+          })
+          .from(member)
+          .innerJoin(user, eq(member.userId, user.id))
+          .leftJoin(
+            teamMemberUsagePolicy,
+            and(
+              eq(teamMemberUsagePolicy.organizationId, member.organizationId),
+              eq(teamMemberUsagePolicy.userId, member.userId),
+            ),
+          )
+          .where(eq(member.organizationId, input.organizationId)),
+        ctx.db
+          .select({
+            id: teamUsageAuditLog.id,
+            actorUserId: teamUsageAuditLog.actorUserId,
+            targetUserId: teamUsageAuditLog.targetUserId,
+            action: teamUsageAuditLog.action,
+            metadata: teamUsageAuditLog.metadata,
+            createdAt: teamUsageAuditLog.createdAt,
+          })
+          .from(teamUsageAuditLog)
+          .where(eq(teamUsageAuditLog.organizationId, input.organizationId))
+          .orderBy(desc(teamUsageAuditLog.createdAt))
+          .limit(10),
+      ]);
 
       const memberIds = members.map((m) => m.userId);
       const usageRows =
@@ -466,19 +483,6 @@ export const organizationRouter = router({
               .from(usageQuota)
               .where(inArray(usageQuota.userId, memberIds))
           : [];
-      const auditLog = await ctx.db
-        .select({
-          id: teamUsageAuditLog.id,
-          actorUserId: teamUsageAuditLog.actorUserId,
-          targetUserId: teamUsageAuditLog.targetUserId,
-          action: teamUsageAuditLog.action,
-          metadata: teamUsageAuditLog.metadata,
-          createdAt: teamUsageAuditLog.createdAt,
-        })
-        .from(teamUsageAuditLog)
-        .where(eq(teamUsageAuditLog.organizationId, input.organizationId))
-        .orderBy(desc(teamUsageAuditLog.createdAt))
-        .limit(10);
       const usageByMember = new Map<string, { basic: number; premium: number }>();
       const basicIncluded = getUsageLimitConfig("basic", "pro").limit ?? 0;
       const premiumIncluded = getUsageLimitConfig("premium", "pro").limit ?? 0;
@@ -690,14 +694,15 @@ export const organizationRouter = router({
           organizationId: input.organizationId,
         }));
 
-      const price = await getPriceForPlan(plan);
-
-      const reusableSession = await reuseOpenTeamCheckoutSession({
-        checkoutSessionId: billingRecord.checkoutSessionId,
-        userId: ctx.userId,
-        organizationId: input.organizationId,
-        planId: plan.id,
-      });
+      const [price, reusableSession] = await Promise.all([
+        getPriceForPlan(plan),
+        reuseOpenTeamCheckoutSession({
+          checkoutSessionId: billingRecord.checkoutSessionId,
+          userId: ctx.userId,
+          organizationId: input.organizationId,
+          planId: plan.id,
+        }),
+      ]);
 
       if (reusableSession) {
         return {
@@ -860,9 +865,10 @@ export const organizationRouter = router({
         });
       }
 
-      const price = await getPriceForPlan(plan);
-
-      const subscriptionState = await syncTeamSubscription(ctx, ctx.userId, input.organizationId);
+      const [price, subscriptionState] = await Promise.all([
+        getPriceForPlan(plan),
+        syncTeamSubscription(ctx, ctx.userId, input.organizationId),
+      ]);
       if (!subscriptionState.stripeSubscriptionId) {
         throw new TRPCError({
           code: "BAD_REQUEST",

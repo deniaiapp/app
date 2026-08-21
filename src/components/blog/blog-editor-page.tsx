@@ -1,34 +1,19 @@
 "use client";
 
-import { ArrowLeft, Eye, Save } from "lucide-react";
+import { ArrowLeft, Save } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useExtracted } from "next-intl";
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
-import { BlogMarkdown } from "@/components/blog/blog-markdown";
+import { BlogEditorFields, type BlogEditorDraft } from "@/components/blog/blog-editor-fields";
 import { SettingsPageShell } from "@/components/settings-page-shell";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import { slugifyBlogTitle } from "@/lib/blog/slug";
 import { trpc } from "@/lib/trpc/react";
 
-type DraftState = {
-  slug: string;
-  title: string;
-  description: string;
-  body: string;
-  titleJa: string;
-  descriptionJa: string;
-  bodyJa: string;
-  author: string;
-};
-
-const EMPTY_DRAFT: DraftState = {
+const EMPTY_DRAFT: BlogEditorDraft = {
   slug: "",
   title: "",
   description: "",
@@ -39,13 +24,25 @@ const EMPTY_DRAFT: DraftState = {
   author: "Deni AI team",
 };
 
+function draftFromPost(post: BlogEditorDraft): BlogEditorDraft {
+  return {
+    slug: post.slug,
+    title: post.title,
+    description: post.description,
+    body: post.body,
+    titleJa: post.titleJa,
+    descriptionJa: post.descriptionJa,
+    bodyJa: post.bodyJa,
+    author: post.author,
+  };
+}
+
 export function BlogEditorPage({ postId }: { postId?: string }) {
   const t = useExtracted();
   const router = useRouter();
   const utils = trpc.useUtils();
   const isNew = !postId;
-  const [draft, setDraft] = useState<DraftState>(EMPTY_DRAFT);
-  const [slugTouched, setSlugTouched] = useState(!isNew);
+  const [edits, setEdits] = useState<BlogEditorDraft | null>(null);
   const [localeTab, setLocaleTab] = useState("en");
   const [mode, setMode] = useState("write");
 
@@ -54,23 +51,6 @@ export function BlogEditorPage({ postId }: { postId?: string }) {
     { id: postId ?? "" },
     { enabled: Boolean(postId) && canManage.data === true },
   );
-
-  useEffect(() => {
-    if (!postQuery.data) {
-      return;
-    }
-    setDraft({
-      slug: postQuery.data.slug,
-      title: postQuery.data.title,
-      description: postQuery.data.description,
-      body: postQuery.data.body,
-      titleJa: postQuery.data.titleJa,
-      descriptionJa: postQuery.data.descriptionJa,
-      bodyJa: postQuery.data.bodyJa,
-      author: postQuery.data.author,
-    });
-    setSlugTouched(true);
-  }, [postQuery.data]);
 
   const createPost = trpc.blog.create.useMutation({
     onSuccess: async (post) => {
@@ -111,12 +91,13 @@ export function BlogEditorPage({ postId }: { postId?: string }) {
     onError: (error) => toast.error(error.message),
   });
 
-  const previewMarkdown = localeTab === "ja" ? draft.bodyJa || draft.body : draft.body;
+  const serverDraft = postQuery.data ? draftFromPost(postQuery.data) : EMPTY_DRAFT;
+  const draft = edits ?? serverDraft;
   const isSaving = createPost.isPending || updatePost.isPending;
   const isPublishing = publishPost.isPending || unpublishPost.isPending;
   const status = postQuery.data?.status ?? "draft";
 
-  const canSave = useMemo(() => draft.title.trim().length > 0, [draft.title]);
+  const canSave = draft.title.trim().length > 0;
 
   const saveDraft = async () => {
     const payload = {
@@ -127,6 +108,7 @@ export function BlogEditorPage({ postId }: { postId?: string }) {
       toast.error(t("Add a title or slug first."));
       return null;
     }
+    setEdits(payload);
     if (isNew) {
       return createPost.mutateAsync(payload);
     }
@@ -202,135 +184,17 @@ export function BlogEditorPage({ postId }: { postId?: string }) {
       }
     >
       <div className="space-y-5">
-        <div className="space-y-2">
-          <Label htmlFor="blog-title">{t("Title")}</Label>
-          <Input
-            id="blog-title"
-            value={draft.title}
-            placeholder={t("How to keep AI chats useful after the first week")}
-            onChange={(event) => {
-              const title = event.target.value;
-              setDraft((current) => ({
-                ...current,
-                title,
-                slug: slugTouched ? current.slug : slugifyBlogTitle(title),
-              }));
-            }}
-          />
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="blog-slug">{t("Slug")}</Label>
-            <Input
-              id="blog-slug"
-              value={draft.slug}
-              placeholder="keep-ai-chats-useful"
-              onChange={(event) => {
-                setSlugTouched(true);
-                setDraft((current) => ({ ...current, slug: event.target.value }));
-              }}
-            />
-            <p className="text-xs text-muted-foreground">/blog/{draft.slug || "your-slug"}</p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="blog-author">{t("Author")}</Label>
-            <Input
-              id="blog-author"
-              value={draft.author}
-              onChange={(event) =>
-                setDraft((current) => ({ ...current, author: event.target.value }))
-              }
-            />
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="blog-description">{t("Excerpt")}</Label>
-          <Textarea
-            id="blog-description"
-            value={draft.description}
-            className="min-h-20"
-            placeholder={t("One or two sentences shown on the blog index and in search results.")}
-            onChange={(event) =>
-              setDraft((current) => ({ ...current, description: event.target.value }))
-            }
-          />
-        </div>
-
-        <Tabs value={localeTab} onValueChange={setLocaleTab}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <TabsList>
-              <TabsTrigger value="en">{t("English")}</TabsTrigger>
-              <TabsTrigger value="ja">{t("Japanese")}</TabsTrigger>
-            </TabsList>
-            <Tabs value={mode} onValueChange={setMode}>
-              <TabsList>
-                <TabsTrigger value="write">{t("Write")}</TabsTrigger>
-                <TabsTrigger value="preview">
-                  <Eye className="size-3.5" />
-                  {t("Preview")}
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-
-          <TabsContent value="en" className="mt-4 space-y-3">
-            {mode === "preview" ? (
-              <div className="rounded-2xl border border-border bg-card p-5">
-                <BlogMarkdown markdown={draft.body} />
-              </div>
-            ) : (
-              <Textarea
-                value={draft.body}
-                className="min-h-80 font-mono text-sm"
-                placeholder={t("Write in Markdown. Use ## headings, lists, and links.")}
-                onChange={(event) =>
-                  setDraft((current) => ({ ...current, body: event.target.value }))
-                }
-              />
-            )}
-          </TabsContent>
-
-          <TabsContent value="ja" className="mt-4 space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor="blog-title-ja">{t("Japanese title")}</Label>
-              <Input
-                id="blog-title-ja"
-                value={draft.titleJa}
-                onChange={(event) =>
-                  setDraft((current) => ({ ...current, titleJa: event.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="blog-description-ja">{t("Japanese excerpt")}</Label>
-              <Textarea
-                id="blog-description-ja"
-                value={draft.descriptionJa}
-                className="min-h-20"
-                onChange={(event) =>
-                  setDraft((current) => ({ ...current, descriptionJa: event.target.value }))
-                }
-              />
-            </div>
-            {mode === "preview" ? (
-              <div className="rounded-2xl border border-border bg-card p-5">
-                <BlogMarkdown markdown={previewMarkdown} />
-              </div>
-            ) : (
-              <Textarea
-                value={draft.bodyJa}
-                className="min-h-80 font-mono text-sm"
-                placeholder={t("Optional Japanese Markdown. English is used if this is empty.")}
-                onChange={(event) =>
-                  setDraft((current) => ({ ...current, bodyJa: event.target.value }))
-                }
-              />
-            )}
-          </TabsContent>
-        </Tabs>
-
+        <BlogEditorFields
+          draft={draft}
+          lockSlugInitially={!isNew}
+          localeTab={localeTab}
+          mode={mode}
+          onDraftChange={(updater) => {
+            setEdits((current) => updater(current ?? serverDraft));
+          }}
+          onLocaleTabChange={setLocaleTab}
+          onModeChange={setMode}
+        />
         {status === "published" && postQuery.data ? (
           <p className="text-xs text-muted-foreground">
             {t("Live at")}{" "}
