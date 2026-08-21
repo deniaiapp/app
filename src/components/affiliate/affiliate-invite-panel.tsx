@@ -22,7 +22,7 @@ export function AffiliateInvitePanel({
 }: {
   status: AffiliateInviteStatus;
   isResetPending: boolean;
-  onCopy: (value: string, message: string) => void;
+  onCopy: (value: string, message: string) => Promise<void>;
   onReset: () => void;
 }) {
   const t = useExtracted();

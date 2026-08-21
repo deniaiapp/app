@@ -44,9 +44,9 @@ export function AffiliateAdminDesk({
   updateDraft: (rewardId: string, field: "code" | "note", value: string) => void;
   pending: {
     load: boolean;
-    approve: boolean;
-    reject: boolean;
-    send: boolean;
+    approveRewardId: string | null;
+    rejectRewardId: string | null;
+    sendRewardId: string | null;
   };
   onApprove: (rewardId: string) => void;
   onReject: (rewardId: string) => void;
@@ -81,6 +81,9 @@ export function AffiliateAdminDesk({
               const draft = getDraft(row.reward.id);
               const isResetReward = row.reward.type === "registration_reset";
               const isDiscountCouponReward = row.reward.type === "discount_coupon";
+              const isApproving = pending.approveRewardId === row.reward.id;
+              const isRejecting = pending.rejectRewardId === row.reward.id;
+              const isSending = pending.sendRewardId === row.reward.id;
               return (
                 <div key={row.reward.id} className="rounded-2xl border bg-background/70 p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -113,19 +116,19 @@ export function AffiliateAdminDesk({
                       <div className="flex shrink-0 gap-2">
                         <Button
                           size="sm"
-                          disabled={pending.approve || pending.reject}
+                          disabled={isApproving || isRejecting}
                           onClick={() => onApprove(row.reward.id)}
                         >
-                          {pending.approve ? <Spinner /> : <Check className="size-3.5" />}
+                          {isApproving ? <Spinner /> : <Check className="size-3.5" />}
                           {t("Approve")}
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
-                          disabled={pending.approve || pending.reject}
+                          disabled={isApproving || isRejecting}
                           onClick={() => onReject(row.reward.id)}
                         >
-                          {pending.reject ? <Spinner /> : <X className="size-3.5" />}
+                          {isRejecting ? <Spinner /> : <X className="size-3.5" />}
                           {t("Reject")}
                         </Button>
                       </div>
@@ -147,7 +150,7 @@ export function AffiliateAdminDesk({
                           />
                           <Button
                             size="sm"
-                            disabled={pending.send || draft.code.trim().length === 0}
+                            disabled={isSending || draft.code.trim().length === 0}
                             onClick={() =>
                               onSend({
                                 rewardId: row.reward.id,
@@ -156,7 +159,7 @@ export function AffiliateAdminDesk({
                               })
                             }
                           >
-                            {pending.send ? <Spinner /> : <Send className="size-3.5" />}
+                            {isSending ? <Spinner /> : <Send className="size-3.5" />}
                             {t("Send")}
                           </Button>
                         </div>

@@ -1,10 +1,10 @@
-import type { UIMessage } from "ai";
+import type { ChatStatus, UIMessage } from "ai";
 import { useEffect, useRef } from "react";
 import { trpc } from "@/lib/trpc/react";
 
 export function useChatPageSync(params: {
   id: string;
-  status: string;
+  status: ChatStatus;
   isWaitingForResponse: boolean;
   activeGenerationId: string | null | undefined;
   statusUpdatedAt: Date | null | undefined;

@@ -6,9 +6,9 @@ import { useExtracted, useLocale } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { formatMinorCurrency } from "@/lib/currency";
-import { formatAppDate } from "@/lib/format-date";
 import { formatReceiptOrderId } from "@/lib/stripe-checkout-receipt";
 import { cn } from "@/lib/utils";
+import { formatReceiptDate } from "./format-receipt-date";
 import {
   ReceiptPaper,
   ReceiptPrinterCard,
@@ -125,23 +125,18 @@ function SubscriptionShredderActive({
   const shouldReduceMotion = useReducedMotion();
   const [phase, setPhase] = useState<ShredPhase>("hold");
   const orderId = formatReceiptOrderId(data.sessionId);
-  const paidAtLabel = data.paidAt
-    ? formatAppDate(data.paidAt, locale, {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      }).replace(",", " ·")
-    : "—";
+  const paidAtLabel = formatReceiptDate(data.paidAt, locale);
   const money = (amount: number) => formatMinorCurrency(amount, data.currency, undefined, locale);
   const confirmRef = useRef(onConfirm);
   const closeRef = useRef(onClose);
+  const reduceMotionRef = useRef(shouldReduceMotion);
+  const tRef = useRef(t);
 
   useEffect(() => {
     confirmRef.current = onConfirm;
     closeRef.current = onClose;
+    reduceMotionRef.current = shouldReduceMotion;
+    tRef.current = t;
   });
 
   useEffect(() => {
@@ -160,10 +155,10 @@ function SubscriptionShredderActive({
           () => {
             if (!cancelled) {
               setPhase("done");
-              toast.success(t("Subscription will end at period end."));
+              toast.success(tRef.current("Subscription will end at period end."));
             }
           },
-          shouldReduceMotion ? 200 : SHRED_MS + 200,
+          reduceMotionRef.current ? 200 : SHRED_MS + 200,
         );
         closeTimer = window.setTimeout(
           () => {
@@ -171,11 +166,13 @@ function SubscriptionShredderActive({
               closeRef.current();
             }
           },
-          shouldReduceMotion ? 700 : SHRED_MS + DONE_HOLD_MS + 200,
+          reduceMotionRef.current ? 700 : SHRED_MS + DONE_HOLD_MS + 200,
         );
       } catch (error) {
         if (!cancelled) {
-          toast.error(error instanceof Error ? error.message : t("Failed to cancel subscription"));
+          toast.error(
+            error instanceof Error ? error.message : tRef.current("Failed to cancel subscription"),
+          );
           closeRef.current();
         }
       }
@@ -188,7 +185,7 @@ function SubscriptionShredderActive({
       window.clearTimeout(shredTimer);
       window.clearTimeout(closeTimer);
     };
-  }, [shouldReduceMotion, t]);
+  }, []);
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">

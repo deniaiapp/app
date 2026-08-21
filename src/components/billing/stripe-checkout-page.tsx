@@ -14,7 +14,7 @@ import { stripeJsPromise } from "@/lib/stripe-js";
 import { makeTRPCClient } from "@/lib/trpc/client";
 import { type CheckoutSessionSummary as ReceiptCheckoutSessionSummary } from "@/lib/stripe-checkout-receipt";
 import { CheckoutReceiptForm, CheckoutReceiptFormPreview } from "./checkout-receipt-form";
-import { runWithLoading } from "./run-with-loading";
+import { runWithLoading } from "@/lib/run-with-loading";
 import { SubscriptionShredder } from "./subscription-shredder";
 import { SubscriptionReceipt, type SubscriptionReceiptData } from "./subscription-receipt";
 import { Button } from "../ui/button";
@@ -253,6 +253,7 @@ function CheckoutForm({
   appearance,
   planId,
   plan,
+  sessionPaidAt,
 }: {
   backHref: string;
   returnLabel: string;
@@ -260,12 +261,14 @@ function CheckoutForm({
   appearance: Appearance;
   planId: BillingPlanId | null;
   plan: ClientPlan | null;
+  sessionPaidAt: string | null;
 }) {
   const t = useExtracted();
   const { replace } = useRouter();
   const checkoutState = useCheckout();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmedPaidAt, setConfirmedPaidAt] = useState<string | null>(null);
   const checkout = checkoutState.type === "success" ? checkoutState.checkout : null;
   const receiptHomeLabel = t("Home");
   const receiptCopy = useReceiptCopy()(planId, backHref, receiptHomeLabel);
@@ -321,7 +324,7 @@ function CheckoutForm({
       currency: activeCheckout.currency,
       paymentMethodBrand: savedCard?.brand ?? null,
       paymentMethodLast4: savedCard?.last4 ?? null,
-      paidAt: null,
+      paidAt: confirmedPaidAt ?? sessionPaidAt,
     };
 
     return <SubscriptionReceipt data={receipt} />;
@@ -343,6 +346,7 @@ function CheckoutForm({
           return;
         }
 
+        setConfirmedPaidAt(new Date().toISOString());
         startTransition(() => {
           replace(returnUrl);
         });
@@ -730,6 +734,7 @@ export function StripeCheckoutPage(props: StripeCheckoutPageProps) {
             appearance={checkoutAppearance}
             planId={resolvedPlanId}
             plan={selectedPlan}
+            sessionPaidAt={session?.paidAt ?? null}
           />
         </CheckoutElementsProvider>
       ) : (

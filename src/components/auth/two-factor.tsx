@@ -14,6 +14,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient } from "@/lib/auth-client";
+import { runWithLoading } from "@/lib/run-with-loading";
 import { cn } from "@/lib/utils";
 
 export type TwoFactorProps = {
@@ -21,15 +22,6 @@ export type TwoFactorProps = {
 };
 
 type VerifyMode = "totp" | "backup";
-
-async function runWithLoading(setLoading: (value: boolean) => void, work: () => Promise<void>) {
-  setLoading(true);
-  try {
-    await work();
-  } finally {
-    setLoading(false);
-  }
-}
 
 /**
  * Second-factor verification after email/password sign-in when 2FA is enabled.

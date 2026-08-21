@@ -15,6 +15,8 @@ type ReferralRow = {
   purchaseDeadlineAt: Date | string | null;
 };
 
+const RECENT_REFERRAL_LIMIT = 6;
+
 type RewardRow = {
   id: string;
   type: string;
@@ -126,7 +128,7 @@ export function AffiliateActivity({
               </div>
             ) : (
               <div className="space-y-2">
-                {referrals.slice(0, 6).map((referral) => (
+                {referrals.slice(0, RECENT_REFERRAL_LIMIT).map((referral) => (
                   <div
                     key={referral.id}
                     className="flex items-center justify-between gap-3 rounded-xl border bg-muted/20 px-3 py-2.5"
@@ -154,9 +156,11 @@ export function AffiliateActivity({
                     )}
                   </div>
                 ))}
-                {referrals.length > 6 ? (
+                {referrals.length > RECENT_REFERRAL_LIMIT ? (
                   <p className="pt-1 text-xs text-muted-foreground">
-                    {t("Showing the six most recent referrals.")}
+                    {t("Showing the {count} most recent referrals.", {
+                      count: String(RECENT_REFERRAL_LIMIT),
+                    })}
                   </p>
                 ) : null}
               </div>

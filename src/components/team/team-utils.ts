@@ -1,17 +1,5 @@
 import { formatMinorCurrency } from "@/lib/currency";
 
-export async function runWithLoading(
-  setLoading: (loading: boolean) => void,
-  work: () => Promise<void>,
-) {
-  setLoading(true);
-  try {
-    await work();
-  } finally {
-    setLoading(false);
-  }
-}
-
 export function formatCurrency(amount: number | null, currency: string | null) {
   if (amount === null || !currency) return "—";
   return formatMinorCurrency(amount, currency, {

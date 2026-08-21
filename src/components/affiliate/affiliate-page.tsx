@@ -291,9 +291,13 @@ export function AffiliatePage() {
           onSend={(input) => sendCoupon.mutate(input)}
           pending={{
             load: adminQuery.isLoading,
-            approve: approveReward.isPending,
-            reject: rejectReward.isPending,
-            send: sendCoupon.isPending,
+            approveRewardId: approveReward.isPending
+              ? (approveReward.variables?.rewardId ?? null)
+              : null,
+            rejectRewardId: rejectReward.isPending
+              ? (rejectReward.variables?.rewardId ?? null)
+              : null,
+            sendRewardId: sendCoupon.isPending ? (sendCoupon.variables?.rewardId ?? null) : null,
           }}
           rows={adminQuery.data}
           updateDraft={updateDraft}

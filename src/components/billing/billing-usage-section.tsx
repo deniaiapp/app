@@ -41,7 +41,9 @@ function UsageRow({
 
   // When Max Mode is enabled, show as unlimited
   if (maxModeEnabled) {
-    const periodEndLabel = item.periodEnd ? formatAppDate(item.periodEnd, locale) : null;
+    const periodEndLabel = item.periodEnd
+      ? formatAppDate(item.periodEnd, locale, { month: "short", day: "numeric" })
+      : null;
 
     return (
       <div className="space-y-2">
@@ -65,7 +67,9 @@ function UsageRow({
   const remainingLabel = hasLimit
     ? t("{percent}% remaining", { percent: remainingPercent.toFixed(1) })
     : t("Unlimited");
-  const periodEndLabel = item.periodEnd ? formatAppDate(item.periodEnd, locale) : null;
+  const periodEndLabel = item.periodEnd
+    ? formatAppDate(item.periodEnd, locale, { month: "short", day: "numeric" })
+    : null;
 
   return (
     <div className="space-y-2">

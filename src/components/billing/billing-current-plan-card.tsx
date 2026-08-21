@@ -64,7 +64,10 @@ export function BillingCurrentPlanCard({
             {cancelDate && (
               <span className="text-destructive">
                 {t("(Cancels {date})", {
-                  date: formatAppDate(cancelDate * 1000, locale),
+                  date: formatAppDate(cancelDate * 1000, locale, {
+                    month: "short",
+                    day: "numeric",
+                  }),
                 })}
               </span>
             )}
@@ -74,7 +77,10 @@ export function BillingCurrentPlanCard({
           {currentPeriodEnd && !cancelDate && (
             <span className="text-xs text-muted-foreground px-3 py-1 rounded-full bg-muted">
               {t("Renews {date}", {
-                date: formatAppDate(currentPeriodEnd, locale),
+                date: formatAppDate(currentPeriodEnd, locale, {
+                  month: "short",
+                  day: "numeric",
+                }),
               })}
             </span>
           )}

@@ -12,6 +12,7 @@ import { useExtracted, useLocale } from "next-intl";
 import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { runWithLoading } from "@/lib/run-with-loading";
 import { formatCardBrand, formatPaymentMethodLabel } from "@/lib/stripe-checkout-receipt";
 import { cn } from "@/lib/utils";
 import { ReceiptPrinterCard, receiptDeviceCardClassName } from "./subscription-receipt";
@@ -62,18 +63,6 @@ function CheckoutStackSection({
   );
 }
 
-async function runWithLoadingFlag(
-  setLoading: (loading: boolean) => void,
-  work: () => Promise<void>,
-) {
-  setLoading(true);
-  try {
-    await work();
-  } finally {
-    setLoading(false);
-  }
-}
-
 function CompactPromotion({ checkout }: { checkout: StripeCheckoutValue }) {
   const t = useExtracted();
   const [promotionCode, setPromotionCode] = useState("");
@@ -90,7 +79,7 @@ function CompactPromotion({ checkout }: { checkout: StripeCheckoutValue }) {
     }
 
     setPromotionError(null);
-    await runWithLoadingFlag(setIsApplyingPromotion, async () => {
+    await runWithLoading(setIsApplyingPromotion, async () => {
       try {
         const result = await checkout.applyPromotionCode(code);
 
@@ -119,7 +108,7 @@ function CompactPromotion({ checkout }: { checkout: StripeCheckoutValue }) {
     }
 
     setPromotionError(null);
-    await runWithLoadingFlag(setIsRemovingPromotion, async () => {
+    await runWithLoading(setIsRemovingPromotion, async () => {
       try {
         const result = await checkout.removePromotionCode();
 
@@ -366,10 +355,8 @@ export function CheckoutReceiptForm({
   const t = useExtracted();
   const locale = useLocale();
   const savedCard = checkout.savedPaymentMethods?.[0]?.card ?? null;
-  const [paymentOpenOverride, setPaymentOpen] = useState<boolean | null>(null);
-  const [addressOpenOverride, setAddressOpen] = useState<boolean | null>(null);
-  const paymentOpen = paymentOpenOverride ?? !savedCard;
-  const addressOpen = addressOpenOverride ?? !checkout.billingAddress;
+  const [paymentOpen, setPaymentOpen] = useState(() => !savedCard);
+  const [addressOpen, setAddressOpen] = useState(() => !checkout.billingAddress);
   const [paymentComplete, setPaymentComplete] = useState(false);
   const [paymentType, setPaymentType] = useState<string | null>(null);
   const [cardBrand, setCardBrand] = useState<string | null>(savedCard?.brand ?? null);

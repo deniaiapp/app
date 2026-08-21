@@ -120,8 +120,10 @@ export function useChatBranches({ messages, setMessages, regenerate }: UseChatBr
 
     void Promise.resolve()
       .then(() => regenerate(options))
-      .finally(() => {
+      .then(() => {
         setMessages((prev) => mergePendingBranch(prev, pending));
+      })
+      .finally(() => {
         setPendingBranch(null);
       });
   }

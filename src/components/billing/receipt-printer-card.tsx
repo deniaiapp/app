@@ -39,6 +39,7 @@ export function ReceiptPrinterCard({
             <DeniAIIcon className="size-6" />
           </div>
           <Link
+            aria-label={homeLabel}
             className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-white/8 px-2.5 text-[13px] text-white/90 transition-colors hover:bg-white/12 sm:px-3"
             href={homeHref}
           >

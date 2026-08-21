@@ -83,6 +83,15 @@ const planIdToTier = new Map<BillingPlanId, "plus" | "pro" | "max" | "team">([
 ]);
 
 const teamPlanIds = new Set<TeamPlanId>(["pro_team_monthly", "pro_team_yearly"]);
+const individualPlanIds = new Set<IndividualPlanId>([
+  "plus_monthly",
+  "plus_yearly",
+  "pro_monthly",
+  "pro_yearly",
+  "max_monthly",
+  "max_yearly",
+  "pro_lifetime",
+]);
 
 export function findPlanById(planId: BillingPlanId | string) {
   return billingPlans.find((plan) => plan.id === planId);
@@ -97,6 +106,10 @@ export function findPlanByLookupKey(lookupKey: string | null | undefined) {
 
 export function isTeamPlanId(planId: string | null | undefined): planId is TeamPlanId {
   return planId != null && teamPlanIds.has(planId as TeamPlanId);
+}
+
+export function isIndividualPlanId(planId: string | null | undefined): planId is IndividualPlanId {
+  return planId != null && individualPlanIds.has(planId as IndividualPlanId);
 }
 
 export function isTeamPlan(planId: string | null | undefined): boolean {

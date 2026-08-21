@@ -12,7 +12,8 @@ export function useReceiptPlayback() {
   const shouldReduceMotion = useReducedMotion();
   const paperRef = useRef<HTMLDivElement>(null);
   const [paperHeight, setPaperHeight] = useState(0);
-  const [phase, setPhase] = useState<ReceiptPhase>(shouldReduceMotion ? "complete" : "processing");
+  const [animatedPhase, setAnimatedPhase] = useState<ReceiptPhase>("processing");
+  const phase: ReceiptPhase = shouldReduceMotion === true ? "complete" : animatedPhase;
   const isPrinting = phase !== "processing";
   const isAnimating = phase !== "complete";
 
@@ -37,9 +38,9 @@ export function useReceiptPlayback() {
       return;
     }
 
-    const printTimer = window.setTimeout(() => setPhase("printing"), PRINT_START_MS);
+    const printTimer = window.setTimeout(() => setAnimatedPhase("printing"), PRINT_START_MS);
     const fallbackTimer = window.setTimeout(
-      () => setPhase((current) => (current === "printing" ? "complete" : current)),
+      () => setAnimatedPhase((current) => (current === "printing" ? "complete" : current)),
       PRINT_START_MS + PRINT_MS + 80,
     );
     return () => {
@@ -53,7 +54,7 @@ export function useReceiptPlayback() {
       return;
     }
     if (phase === "printing") {
-      setPhase("complete");
+      setAnimatedPhase("complete");
     }
   }
 

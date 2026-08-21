@@ -7,20 +7,12 @@ import { toast } from "sonner";
 import { Button, type buttonVariants } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient } from "@/lib/auth-client";
+import { runWithLoading } from "@/lib/run-with-loading";
 import { User } from "lucide-react";
 
 type GuestSignInButtonProps = VariantProps<typeof buttonVariants> & {
   className?: string;
 };
-
-async function runWithLoading(setLoading: (value: boolean) => void, work: () => Promise<void>) {
-  setLoading(true);
-  try {
-    await work();
-  } finally {
-    setLoading(false);
-  }
-}
 
 export function GuestSignInButton({
   className,

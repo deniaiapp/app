@@ -2,10 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useExtracted } from "next-intl";
-import { startTransition, useEffect, useRef, useState } from "react";
+import { startTransition, useState } from "react";
 import { toast } from "sonner";
 import type { BillingPlanId, ClientPlan, IndividualPlanId } from "@/lib/billing";
-import { isTeamPlan } from "@/lib/billing";
+import { isIndividualPlanId, isTeamPlan } from "@/lib/billing";
 import { trpc } from "@/lib/trpc/react";
 import { settingsUsageQueryOptions } from "@/lib/usage-query-options";
 import {
@@ -39,19 +39,11 @@ export function useBillingPage() {
     !estimateQuery.isFetching &&
     (estimateQuery.data !== undefined || estimateQuery.error !== null);
 
-  const changePlanPendingRef = useRef(false);
-  const handleDialogOpenChange = (open: boolean) => {
-    if (changePlanPendingRef.current) return;
-    if (!open) {
-      setHasAgreed(false);
-      setPendingPlanId(null);
-      setChangeTarget(null);
-    }
-  };
-
   const handleChangePlanClick = (plan: ClientPlan) => {
     setChangeTarget(plan);
-    setPendingPlanId(plan.id as IndividualPlanId);
+    if (isIndividualPlanId(plan.id)) {
+      setPendingPlanId(plan.id);
+    }
   };
 
   const createCheckout = trpc.billing.createCheckoutSession.useMutation();
@@ -101,12 +93,16 @@ export function useBillingPage() {
     },
   });
 
-  useEffect(() => {
-    changePlanPendingRef.current = changePlan.isPending;
-  }, [changePlan.isPending]);
+  const handleDialogOpenChange = (open: boolean) => {
+    if (changePlan.isPending) return;
+    if (!open) {
+      setHasAgreed(false);
+      setPendingPlanId(null);
+      setChangeTarget(null);
+    }
+  };
 
   const handleConfirmChangePlan = (planId: IndividualPlanId) => {
-    changePlanPendingRef.current = true;
     changePlan.mutate({ planId });
   };
 

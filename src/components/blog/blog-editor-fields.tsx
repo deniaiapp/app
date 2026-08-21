@@ -67,13 +67,13 @@ export function BlogEditorFields({
           <Input
             id="blog-slug"
             value={draft.slug}
-            placeholder="keep-ai-chats-useful"
+            placeholder={t("keep-ai-chats-useful")}
             onChange={(event) => {
               slugTouchedRef.current = true;
               onDraftChange((current) => ({ ...current, slug: event.target.value }));
             }}
           />
-          <p className="text-xs text-muted-foreground">/blog/{draft.slug || "your-slug"}</p>
+          <p className="text-xs text-muted-foreground">/blog/{draft.slug || t("your-slug")}</p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="blog-author">{t("Author")}</Label>

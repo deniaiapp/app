@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { stripeJsPromise } from "@/lib/stripe-js";
 import { trpc } from "@/lib/trpc/react";
 
-import { runWithLoading } from "./run-with-loading";
+import { runWithLoading } from "@/lib/run-with-loading";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
@@ -231,18 +231,18 @@ function CardSetupForm({
     setError(null);
 
     await runWithLoading(setSubmitting, async () => {
-      const result = await stripe.confirmPayment({
-        elements,
-        confirmParams: { return_url: window.location.href },
-        redirect: "if_required",
-      });
-
-      if (result.error) {
-        setError(result.error.message ?? t("Card verification failed."));
-        return;
-      }
-
       try {
+        const result = await stripe.confirmPayment({
+          elements,
+          confirmParams: { return_url: window.location.href },
+          redirect: "if_required",
+        });
+
+        if (result.error) {
+          setError(result.error.message ?? t("Card verification failed."));
+          return;
+        }
+
         const data = await confirmSetup.mutateAsync({ paymentIntentId });
         toast.success(
           data.funding === "prepaid"

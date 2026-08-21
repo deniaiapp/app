@@ -1,6 +1,6 @@
 import type { useChat } from "@ai-sdk/react";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { models, resolveReasoningEffort, type ReasoningEffort } from "@/lib/constants";
 
 const INITIAL_MESSAGE_STORAGE_KEY = "deni_initial_message:v1";
@@ -41,7 +41,6 @@ export type InitialComposerSeed = {
 type StoreListener = () => void;
 
 const listeners = new Set<StoreListener>();
-const consumedSeeds = new Map<string, InitialComposerSeed>();
 let cachedStoredRaw: string | null = null;
 let cachedStoredValue: StoredInitialMessage | null = null;
 
@@ -131,6 +130,10 @@ export function useInitialMessage(params: {
   const sendMessageRef = useRef(sendMessage);
   const onMessageSentRef = useRef(onMessageSent);
   const modelRef = useRef(model);
+  const [consumedSeed, setConsumedSeed] = useState<{
+    id: string;
+    seed: InitialComposerSeed;
+  } | null>(null);
 
   useEffect(() => {
     sendMessageRef.current = sendMessage;
@@ -152,7 +155,9 @@ export function useInitialMessage(params: {
           fastMode: false,
           deepResearch: false,
         }
-      : (consumedSeeds.get(id) ?? null);
+      : consumedSeed?.id === id
+        ? consumedSeed.seed
+        : null;
 
   useEffect(() => {
     if (initialMessageSentRef.current || initialMessagesLength > 0) {
@@ -162,7 +167,7 @@ export function useInitialMessage(params: {
     const storedData = readStoredInitialMessage();
     if (storedData) {
       initialMessageSentRef.current = true;
-      consumedSeeds.set(id, seedFromStored(storedData, modelRef.current));
+      setConsumedSeed({ id, seed: seedFromStored(storedData, modelRef.current) });
       sessionStorage.removeItem(INITIAL_MESSAGE_STORAGE_KEY);
       emitInitialMessageStore();
 
@@ -215,14 +220,17 @@ export function useInitialMessage(params: {
     initialMessageSentRef.current = true;
     const decodedMessage = decodeQueryMessage(initialMessage);
     const initialWebSearch = searchParams.get("webSearch") === "true";
-    consumedSeeds.set(id, {
-      webSearch: initialWebSearch,
-      videoMode: false,
-      imageMode: false,
-      reasoningEffort: "high",
-      proMode: false,
-      fastMode: false,
-      deepResearch: false,
+    setConsumedSeed({
+      id,
+      seed: {
+        webSearch: initialWebSearch,
+        videoMode: false,
+        imageMode: false,
+        reasoningEffort: "high",
+        proMode: false,
+        fastMode: false,
+        deepResearch: false,
+      },
     });
 
     window.history.replaceState({}, "", `/chat/${id}`);

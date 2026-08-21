@@ -9,7 +9,8 @@ import { authClient } from "@/lib/auth-client";
 import { useBillingPlanCopy } from "@/lib/billing-plan-copy";
 import { trpc } from "@/lib/trpc/react";
 import { isInvitation, isMember, type Member, type Organization } from "./team-types";
-import { createTeamSlug, escapeCsvCell, parseTokenLimit, runWithLoading } from "./team-utils";
+import { runWithLoading } from "@/lib/run-with-loading";
+import { createTeamSlug, escapeCsvCell, parseTokenLimit } from "./team-utils";
 
 export function useTeamSettings() {
   const t = useExtracted();

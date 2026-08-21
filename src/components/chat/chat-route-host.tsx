@@ -1,12 +1,10 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import type { UIMessage } from "ai";
 import dynamic from "next/dynamic";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState, type ReactNode } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { ChatInterfaceSkeleton } from "@/components/chat/chat-interface-skeleton";
-import { makeTRPCClient } from "@/lib/trpc/client";
 import { trpc } from "@/lib/trpc/react";
 
 /**
@@ -56,7 +54,6 @@ function nextMountedIds(prev: string[], activeId: string): string[] {
 }
 
 function useChatPanePage(id: string, isActive: boolean, projectIdFromQuery: string | null) {
-  const router = useRouter();
   const utils = trpc.useUtils();
 
   const pageQuery = trpc.chat.getChatPage.useQuery(
@@ -69,36 +66,50 @@ function useChatPanePage(id: string, isActive: boolean, projectIdFromQuery: stri
   );
 
   const shouldEnsure = isActive && pageQuery.isSuccess && pageQuery.data === null;
+  const paneIdRef = useRef(id);
+  const projectIdRef = useRef(projectIdFromQuery);
 
-  const ensureQuery = useQuery({
-    queryKey: ["chat", "ensureChat", id, projectIdFromQuery],
-    queryFn: async () => {
-      try {
-        const row = await makeTRPCClient().chat.ensureChat.mutate({
-          id,
-          projectId: projectIdFromQuery,
-        });
-        utils.chat.getChatPage.setData({ id }, row);
-        void utils.chat.getChats.invalidate();
-        if (projectIdFromQuery) {
-          router.replace(`/chat/${id}`);
-        }
-        return row;
-      } catch {
-        if (!utils.chat.getChatPage.getData({ id })) {
-          router.replace("/chat");
-        }
-        throw new Error("Failed to ensure chat");
-      }
-    },
-    enabled: shouldEnsure,
-    retry: false,
-    staleTime: Infinity,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+  useEffect(() => {
+    paneIdRef.current = id;
+    projectIdRef.current = projectIdFromQuery;
   });
 
-  return pageQuery.data ?? ensureQuery.data ?? null;
+  const ensureChat = trpc.chat.ensureChat.useMutation({
+    retry: false,
+    onSuccess: (row, variables) => {
+      if (
+        variables.id !== paneIdRef.current ||
+        (variables.projectId ?? null) !== projectIdRef.current
+      ) {
+        return;
+      }
+      utils.chat.getChatPage.setData({ id: variables.id }, row);
+      void utils.chat.getChats.invalidate();
+      if (variables.projectId) {
+        window.history.replaceState({}, "", `/chat/${variables.id}`);
+      }
+    },
+    onError: (_error, variables) => {
+      if (
+        variables.id !== paneIdRef.current ||
+        (variables.projectId ?? null) !== projectIdRef.current
+      ) {
+        return;
+      }
+      if (!utils.chat.getChatPage.getData({ id: variables.id })) {
+        window.location.replace("/chat");
+      }
+    },
+  });
+
+  useEffect(() => {
+    if (!shouldEnsure) {
+      return;
+    }
+    ensureChat.mutate({ id, projectId: projectIdFromQuery });
+  }, [ensureChat, id, projectIdFromQuery, shouldEnsure]);
+
+  return pageQuery.data ?? null;
 }
 
 function ChatPane({ id, isActive }: { id: string; isActive: boolean }) {

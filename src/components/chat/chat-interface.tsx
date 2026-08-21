@@ -168,15 +168,15 @@ async function submitComposerMessage(params: {
     return;
   }
 
-  if (GA_ID) {
-    sendGAEvent("event", "chat_message_sent", {
-      event_category: "chat",
-      event_label: params.usageTier,
-      value: 1,
-    });
-  }
-
   if (params.message.text || attachments?.length) {
+    if (GA_ID) {
+      sendGAEvent("event", "chat_message_sent", {
+        event_category: "chat",
+        event_label: params.usageTier,
+        value: 1,
+      });
+    }
+
     Promise.resolve(
       params.sendMessage(
         {

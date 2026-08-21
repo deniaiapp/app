@@ -2,11 +2,11 @@
 
 import { Download, QrCode } from "lucide-react";
 import { useExtracted } from "next-intl";
-import QRCode from "qrcode";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 
 async function toReferralQrDataUrl(url: string) {
+  const QRCode = await import("qrcode");
   return QRCode.toDataURL(url, {
     width: 280,
     margin: 2,
@@ -17,7 +17,13 @@ async function toReferralQrDataUrl(url: string) {
 
 export function ReferralQrCode({ url }: { url: string }) {
   const t = useExtracted();
-  const [dataUrl, setDataUrl] = useState<string | null>(null);
+  const [result, setResult] = useState<{
+    url: string;
+    dataUrl: string | null;
+    hasError: boolean;
+  } | null>(null);
+  const dataUrl = result?.url === url ? result.dataUrl : null;
+  const hasError = result?.url === url ? result.hasError : false;
 
   useEffect(() => {
     let active = true;
@@ -25,12 +31,12 @@ export function ReferralQrCode({ url }: { url: string }) {
     void toReferralQrDataUrl(url)
       .then((value) => {
         if (active) {
-          setDataUrl(value);
+          setResult({ url, dataUrl: value, hasError: false });
         }
       })
       .catch(() => {
         if (active) {
-          setDataUrl(null);
+          setResult({ url, dataUrl: null, hasError: true });
         }
       });
 
@@ -46,8 +52,10 @@ export function ReferralQrCode({ url }: { url: string }) {
           <img src={dataUrl} alt={t("QR code for your referral link")} className="size-full" />
         ) : (
           <div className="flex flex-col items-center gap-2 text-muted-foreground">
-            <QrCode className="size-10 animate-pulse" />
-            <span className="text-xs">{t("Generating QR code…")}</span>
+            <QrCode className={hasError ? "size-10" : "size-10 animate-pulse"} />
+            <span className="text-xs">
+              {hasError ? t("Could not generate QR code.") : t("Generating QR code…")}
+            </span>
           </div>
         )}
       </div>

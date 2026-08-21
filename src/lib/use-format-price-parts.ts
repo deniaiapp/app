@@ -12,22 +12,13 @@ const NUMBER_PART_TYPES = new Set([
   "fraction",
 ]);
 
-const priceFormatters = new Map<string, Intl.NumberFormat>();
-
 function getPriceFormatter(locale: string, currencyCode: string) {
-  const key = `${locale}:${currencyCode}`;
-  const cached = priceFormatters.get(key);
-  if (cached) {
-    return cached;
-  }
-  const formatter = new Intl.NumberFormat(locale, {
+  return new Intl.NumberFormat(locale, {
     style: "currency",
     currency: currencyCode,
     currencyDisplay: "code",
     maximumFractionDigits: 0,
   });
-  priceFormatters.set(key, formatter);
-  return formatter;
 }
 
 export function useFormatPriceParts() {
