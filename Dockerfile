@@ -146,15 +146,12 @@ ENV PORT=3000 \
   NEXT_TELEMETRY_DISABLED=1 \
   NODE_ENV=production
 
-# oven/bun images have adduser but not usermod (no passwd extras).
-# Create nextjs in the existing bun group so COPY --chown=nextjs:bun works.
-RUN adduser --system --uid 1001 --ingroup bun nextjs
+# oven/bun images already ship a non-root `bun` user/group and omit adduser/usermod.
+COPY --from=builder --chown=bun:bun /app/public ./public
+COPY --from=builder --chown=bun:bun /app/.next/standalone ./
+COPY --from=builder --chown=bun:bun /app/.next/static ./.next/static
 
-COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:bun /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:bun /app/.next/static ./.next/static
-
-USER nextjs
+USER bun
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
