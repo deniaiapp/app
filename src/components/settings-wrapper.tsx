@@ -29,6 +29,9 @@ export default function SettingsWrapper({ children }: { children: React.ReactNod
     enabled: !isCheckoutRoute,
     ...settingsUsageQueryOptions,
   });
+  const blogAdminQuery = trpc.blog.canManage.useQuery(undefined, {
+    enabled: !isCheckoutRoute,
+  });
 
   // Always keep {children} in the tree. Returning only a Spinner drops the page
   // segment and breaks Next.js instant-navigation validation
@@ -47,8 +50,6 @@ export default function SettingsWrapper({ children }: { children: React.ReactNod
       ?.split("_")
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join(" ") || "";
-
-  const blogAdminQuery = trpc.blog.canManage.useQuery();
 
   const settingsTabs = [
     {
@@ -225,7 +226,7 @@ export default function SettingsWrapper({ children }: { children: React.ReactNod
                   href={tab.href}
                   aria-current={isActive ? "page" : undefined}
                   className={cn(
-                    "relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap capitalize transition-all",
+                    "relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap capitalize transition-colors",
                     "text-foreground/60 hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring",
                     isActive &&
                       "bg-background text-foreground shadow-sm dark:border-input dark:bg-input/30 dark:text-foreground",

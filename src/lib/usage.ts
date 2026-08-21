@@ -636,9 +636,10 @@ export async function getUsageSummary({
   isAnonymous?: boolean;
 }): Promise<UsageSummary> {
   const nowDate = now;
-  const tierInfo = await getTierInfo(userId, nowDate);
-
-  const records = await db.select().from(usageQuota).where(eq(usageQuota.userId, userId));
+  const [tierInfo, records] = await Promise.all([
+    getTierInfo(userId, nowDate),
+    db.select().from(usageQuota).where(eq(usageQuota.userId, userId)),
+  ]);
 
   const usage = await Promise.all(
     USAGE_CATEGORIES.map(async (category) => {

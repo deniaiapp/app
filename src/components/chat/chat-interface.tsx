@@ -6,7 +6,7 @@ import type { FileUIPart, UIMessage } from "ai";
 import { DefaultChatTransport } from "ai";
 import dynamic from "next/dynamic";
 import { useExtracted } from "next-intl";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { AdSenseSlot } from "@/components/adsense-slot";
 import { ArtifactPreviewProvider } from "@/components/chat/artifact-preview-context";
 import { ChatComposer, type ComposerMessage } from "@/components/chat/chat-composer";
@@ -15,6 +15,7 @@ import { ChatInterfaceMessages } from "@/components/chat/chat-interface-messages
 import { UsageAlerts } from "@/components/chat/usage-alerts";
 import { env } from "@/env";
 import { useAvailableModels } from "@/hooks/use-available-models";
+import { useChatPageSync } from "@/hooks/use-chat-page-sync";
 import { useInitialMessage } from "@/hooks/use-initial-message";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { useChatBranches } from "@/hooks/use-chat-branches";
@@ -133,6 +134,76 @@ function handleFocusComposer() {
   window.dispatchEvent(new CustomEvent("deni:focus-composer"));
 }
 
+async function submitComposerMessage(params: {
+  message: ComposerMessage;
+  options: {
+    model: string;
+    webSearch: boolean;
+    videoMode: boolean;
+    imageMode: boolean;
+    reasoningEffort: ReasoningEffort;
+    proMode: boolean;
+    fastMode: boolean;
+    deepResearch: boolean;
+  };
+  id: string;
+  isSubmitBlocked: boolean;
+  usageTier: string;
+  sendMessage: ReturnType<typeof useChat>["sendMessage"];
+  invalidateChats: () => void;
+  setAttachmentError: (error: string | null) => void;
+  setInput: (value: string) => void;
+  uploadFailedLabel: string;
+}) {
+  if (params.isSubmitBlocked) {
+    return;
+  }
+  params.setAttachmentError(null);
+
+  let attachments: FileUIPart[] | undefined;
+  try {
+    attachments = await normalizeAttachments(params.message.files);
+  } catch (error) {
+    params.setAttachmentError(error instanceof Error ? error.message : params.uploadFailedLabel);
+    return;
+  }
+
+  if (params.message.text || attachments?.length) {
+    if (GA_ID) {
+      sendGAEvent("event", "chat_message_sent", {
+        event_category: "chat",
+        event_label: params.usageTier,
+        value: 1,
+      });
+    }
+
+    Promise.resolve(
+      params.sendMessage(
+        {
+          text: params.message.text || "",
+          files: attachments,
+        },
+        {
+          body: {
+            model: params.options.model,
+            webSearch: params.options.webSearch,
+            reasoningEffort: params.options.reasoningEffort,
+            proMode: params.options.proMode,
+            fastMode: params.options.fastMode,
+            deepResearch: params.options.deepResearch,
+            video: params.options.videoMode,
+            image: params.options.imageMode,
+            id: params.id,
+          },
+        },
+      ),
+    ).finally(() => {
+      params.invalidateChats();
+    });
+    params.setInput("");
+  }
+}
+
 export function ChatInterface({
   id,
   initialMessages = [],
@@ -145,19 +216,51 @@ export function ChatInterface({
   const isAnonymous = Boolean(session.data?.user?.isAnonymous);
   const billingDisabled = isBillingDisabled;
   const [input, setInput] = useState("");
-  const [model, setModel] = useState(defaultModel.value);
-  const [webSearch, setWebSearch] = useState(false);
-  const [videoMode, setVideoMode] = useState(false);
-  const [imageMode, setImageMode] = useState(false);
-  const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>(() =>
-    getPreferredReasoningEffort(defaultModel.efforts),
-  );
-  const [proMode, setProMode] = useState(false);
-  const [fastMode, setFastMode] = useState(false);
-  const [deepResearch, setDeepResearch] = useState(false);
+  const [modelOverride, setModel] = useState<string | null>(null);
+  const [webSearchOverride, setWebSearch] = useState<boolean | null>(null);
+  const [videoModeOverride, setVideoMode] = useState<boolean | null>(null);
+  const [imageModeOverride, setImageMode] = useState<boolean | null>(null);
+  const [reasoningEffortOverride, setReasoningEffort] = useState<ReasoningEffort | null>(null);
+  const [proModeOverride, setProMode] = useState<boolean | null>(null);
+  const [fastModeOverride, setFastMode] = useState<boolean | null>(null);
+  const [deepResearchOverride, setDeepResearch] = useState<boolean | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const utils = trpc.useUtils();
   const { availableModels, providerSettings, providerKeys } = useAvailableModels();
+  const transport = new DefaultChatTransport({
+    body: {
+      id,
+    },
+  });
+
+  const { messages, sendMessage, regenerate, setMessages, status, error, stop } = useChat({
+    id,
+    messages: initialMessages,
+    transport,
+  });
+
+  const seed = useInitialMessage({
+    id,
+    initialMessagesLength: initialMessages.length,
+    model: modelOverride ?? defaultModel.value,
+    sendMessage,
+    onMessageSent: () => {
+      void utils.chat.getChats.invalidate();
+    },
+  });
+
+  const model = modelOverride ?? seed?.model ?? defaultModel.value;
+  const webSearch = webSearchOverride ?? seed?.webSearch ?? false;
+  const videoMode = videoModeOverride ?? seed?.videoMode ?? false;
+  const imageMode = imageModeOverride ?? seed?.imageMode ?? false;
+  const reasoningEffort =
+    reasoningEffortOverride ??
+    seed?.reasoningEffort ??
+    getPreferredReasoningEffort(defaultModel.efforts);
+  const proMode = proModeOverride ?? seed?.proMode ?? false;
+  const fastMode = fastModeOverride ?? seed?.fastMode ?? false;
+  const deepResearch = deepResearchOverride ?? seed?.deepResearch ?? false;
+
   const {
     usageQuery,
     selectedModel,
@@ -185,31 +288,16 @@ export function ChatInterface({
     image: imageMode,
     id,
   };
-  const transport = new DefaultChatTransport({
-    body: {
-      id,
-    },
-  });
-
-  const { messages, sendMessage, regenerate, setMessages, status, error, stop } = useChat({
-    id,
-    messages: initialMessages,
-    transport,
-  });
 
   const { handleRegenerate, groupedMessages } = useChatBranches({
     messages,
     setMessages,
     regenerate,
   });
-  const previousStatusRef = useRef(status);
   const showMessageActions = status !== "streaming" && status !== "submitted";
   const lastMessage = messages.at(-1);
   const isWaitingForResponse =
     status !== "streaming" && status !== "submitted" && isPendingMessage(lastMessage);
-  // Only poll the generation marker. Fetch the full transcript once the
-  // server clears the pending generation, instead of transferring JSONB every
-  // second while waiting for a response.
   const chatStatusQuery = trpc.chat.getChatStatus.useQuery(
     { id },
     {
@@ -222,107 +310,19 @@ export function ChatInterface({
     },
   );
 
-  useInitialMessage({
+  useChatPageSync({
     id,
-    initialMessagesLength: initialMessages.length,
-    model,
-    sendMessage,
-    setModel,
-    setWebSearch,
-    setVideoMode,
-    setImageMode,
-    setReasoningEffort,
-    setProMode,
-    setFastMode,
-    setDeepResearch,
-    onMessageSent: () => utils.chat.getChats.invalidate(),
-  });
-
-  const lastRecoveredStatusRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    const statusUpdatedAt = chatStatusQuery.data?.updated_at?.getTime() ?? null;
-
-    if (
-      !isWaitingForResponse ||
-      !chatStatusQuery.isSuccess ||
-      chatStatusQuery.data?.activeGenerationId ||
-      statusUpdatedAt === null ||
-      lastRecoveredStatusRef.current === statusUpdatedAt
-    ) {
-      return;
-    }
-
-    lastRecoveredStatusRef.current = statusUpdatedAt;
-    let cancelled = false;
-
-    void utils.chat.getChatPage
-      .fetch({ id })
-      .then((chat) => {
-        if (cancelled || !chat?.messages) {
-          return;
-        }
-
-        const serverMessages = chat.messages as UIMessage[];
-
-        // The status query can race the final /api/chat persist. Never clobber
-        // optimistic local state with an empty/shorter server snapshot.
-        setMessages((current) => {
-          if (serverMessages.length === 0 && current.length > 0) {
-            return current;
-          }
-          if (serverMessages.length < current.length) {
-            return current;
-          }
-
-          const localUserCount = current.filter((message) => message.role === "user").length;
-          const serverUserCount = serverMessages.filter(
-            (message) => message.role === "user",
-          ).length;
-          if (localUserCount > serverUserCount) {
-            return current;
-          }
-
-          return serverMessages;
-        });
-      })
-      .catch(() => {
-        if (!cancelled) {
-          lastRecoveredStatusRef.current = null;
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    chatStatusQuery.data,
-    chatStatusQuery.isSuccess,
-    id,
+    status,
     isWaitingForResponse,
+    activeGenerationId: chatStatusQuery.data?.activeGenerationId,
+    statusUpdatedAt: chatStatusQuery.data?.updated_at,
+    isStatusSuccess: chatStatusQuery.isSuccess,
     setMessages,
-    utils,
-  ]);
-
-  useEffect(() => {
-    const previousStatus = previousStatusRef.current;
-    previousStatusRef.current = status;
-
-    const hadInFlightRequest = previousStatus === "submitted" || previousStatus === "streaming";
-    const requestSettled = status === "ready" || status === "error";
-
-    if (!hadInFlightRequest || !requestSettled) {
-      return;
-    }
-
-    void utils.billing.usage.invalidate();
-    // Keep SPA ChatRouteHost cache in sync after a generation settles.
-    void utils.chat.getChatPage.invalidate({ id });
-  }, [id, status, utils]);
+  });
 
   useMemorySaveNotice({ status });
 
-  const handleSubmit = async (
+  const handleSubmit = (
     message: ComposerMessage,
     options: {
       model: string;
@@ -334,57 +334,21 @@ export function ChatInterface({
       fastMode: boolean;
       deepResearch: boolean;
     },
-  ) => {
-    if (isSubmitBlocked) {
-      return;
-    }
-    setAttachmentError(null);
-
-    let attachments: FileUIPart[] | undefined;
-    try {
-      attachments = await normalizeAttachments(message.files);
-    } catch (error) {
-      setAttachmentError(
-        error instanceof Error ? error.message : t("Failed to upload attachment."),
-      );
-      return;
-    }
-
-    if (GA_ID) {
-      sendGAEvent("event", "chat_message_sent", {
-        event_category: "chat",
-        event_label: usageTier,
-        value: 1,
-      });
-    }
-
-    if (message.text || attachments?.length) {
-      Promise.resolve(
-        sendMessage(
-          {
-            text: message.text || "",
-            files: attachments,
-          },
-          {
-            body: {
-              model: options.model,
-              webSearch: options.webSearch,
-              reasoningEffort: options.reasoningEffort,
-              proMode: options.proMode,
-              fastMode: options.fastMode,
-              deepResearch: options.deepResearch,
-              video: options.videoMode,
-              image: options.imageMode,
-              id,
-            },
-          },
-        ),
-      ).finally(() => {
-        utils.chat.getChats.invalidate();
-      });
-      setInput("");
-    }
-  };
+  ) =>
+    submitComposerMessage({
+      message,
+      options,
+      id,
+      isSubmitBlocked,
+      usageTier,
+      sendMessage,
+      invalidateChats: () => {
+        void utils.chat.getChats.invalidate();
+      },
+      setAttachmentError,
+      setInput,
+      uploadFailedLabel: t("Failed to upload attachment."),
+    });
 
   // Adjust invalid model during render (avoids setState-in-effect cascade).
   if (!selectedModel && availableModels.length > 0) {
@@ -405,7 +369,7 @@ export function ChatInterface({
       return;
     }
     setReasoningEffort((current) =>
-      nextEfforts.includes(current) ? current : getPreferredReasoningEffort(nextEfforts),
+      current && nextEfforts.includes(current) ? current : getPreferredReasoningEffort(nextEfforts),
     );
   };
 

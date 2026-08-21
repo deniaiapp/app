@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { formatMinorCurrency } from "@/lib/currency";
 import { formatReceiptOrderId } from "@/lib/stripe-checkout-receipt";
 import { cn } from "@/lib/utils";
+import { formatReceiptDate } from "./format-receipt-date";
 import {
   ReceiptPaper,
   ReceiptPrinterCard,
@@ -46,7 +47,7 @@ function ShreddedReceipt({
 
         return (
           <div
-            className="absolute inset-0 origin-top will-change-transform"
+            className="absolute inset-0 origin-top"
             key={index}
             style={{
               clipPath: `inset(0 ${Math.max(0, 100 - left - width)}% 0 ${left}%)`,
@@ -103,39 +104,47 @@ export function SubscriptionShredder({
   onConfirm: () => Promise<void>;
   onClose: () => void;
 }) {
+  if (!open) {
+    return null;
+  }
+
+  return <SubscriptionShredderActive data={data} onClose={onClose} onConfirm={onConfirm} />;
+}
+
+function SubscriptionShredderActive({
+  data,
+  onConfirm,
+  onClose,
+}: {
+  data: SubscriptionReceiptData;
+  onConfirm: () => Promise<void>;
+  onClose: () => void;
+}) {
   const t = useExtracted();
   const locale = useLocale();
   const shouldReduceMotion = useReducedMotion();
   const [phase, setPhase] = useState<ShredPhase>("hold");
   const orderId = formatReceiptOrderId(data.sessionId);
-  const paidAtLabel = new Intl.DateTimeFormat(locale, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  })
-    .format(data.paidAt ? new Date(data.paidAt) : new Date())
-    .replace(",", " ·");
+  const paidAtLabel = formatReceiptDate(data.paidAt, locale);
   const money = (amount: number) => formatMinorCurrency(amount, data.currency, undefined, locale);
   const confirmRef = useRef(onConfirm);
   const closeRef = useRef(onClose);
-  confirmRef.current = onConfirm;
-  closeRef.current = onClose;
+  const reduceMotionRef = useRef(shouldReduceMotion);
+  const tRef = useRef(t);
 
   useEffect(() => {
-    if (!open) {
-      setPhase("hold");
-      return;
-    }
+    confirmRef.current = onConfirm;
+    closeRef.current = onClose;
+    reduceMotionRef.current = shouldReduceMotion;
+    tRef.current = t;
+  });
 
+  useEffect(() => {
     let cancelled = false;
     let shredTimer = 0;
     let closeTimer = 0;
 
     async function run() {
-      setPhase("hold");
       try {
         await confirmRef.current();
         if (cancelled) {
@@ -146,10 +155,10 @@ export function SubscriptionShredder({
           () => {
             if (!cancelled) {
               setPhase("done");
-              toast.success(t("Subscription will end at period end."));
+              toast.success(tRef.current("Subscription will end at period end."));
             }
           },
-          shouldReduceMotion ? 200 : SHRED_MS + 200,
+          reduceMotionRef.current ? 200 : SHRED_MS + 200,
         );
         closeTimer = window.setTimeout(
           () => {
@@ -157,11 +166,13 @@ export function SubscriptionShredder({
               closeRef.current();
             }
           },
-          shouldReduceMotion ? 700 : SHRED_MS + DONE_HOLD_MS + 200,
+          reduceMotionRef.current ? 700 : SHRED_MS + DONE_HOLD_MS + 200,
         );
       } catch (error) {
         if (!cancelled) {
-          toast.error(error instanceof Error ? error.message : t("Failed to cancel subscription"));
+          toast.error(
+            error instanceof Error ? error.message : tRef.current("Failed to cancel subscription"),
+          );
           closeRef.current();
         }
       }
@@ -174,11 +185,7 @@ export function SubscriptionShredder({
       window.clearTimeout(shredTimer);
       window.clearTimeout(closeTimer);
     };
-  }, [open, shouldReduceMotion, t]);
-
-  if (!open) {
-    return null;
-  }
+  }, []);
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">

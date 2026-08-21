@@ -12,6 +12,7 @@ import { useExtracted, useLocale } from "next-intl";
 import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { runWithLoading } from "@/lib/run-with-loading";
 import { formatCardBrand, formatPaymentMethodLabel } from "@/lib/stripe-checkout-receipt";
 import { cn } from "@/lib/utils";
 import { ReceiptPrinterCard, receiptDeviceCardClassName } from "./subscription-receipt";
@@ -78,30 +79,27 @@ function CompactPromotion({ checkout }: { checkout: StripeCheckoutValue }) {
     }
 
     setPromotionError(null);
-    setIsApplyingPromotion(true);
+    await runWithLoading(setIsApplyingPromotion, async () => {
+      try {
+        const result = await checkout.applyPromotionCode(code);
 
-    try {
-      const result = await checkout.applyPromotionCode(code);
+        if (result.type === "error") {
+          const message =
+            result.error.code === "invalidCode"
+              ? t("This coupon code is invalid or unavailable.")
+              : result.error.message;
+          setPromotionError(message);
+          toast.error(message);
+          return;
+        }
 
-      if (result.type === "error") {
-        const message =
-          result.error.code === "invalidCode"
-            ? t("This coupon code is invalid or unavailable.")
-            : result.error.message;
+        setPromotionCode("");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : t("Unable to apply coupon code.");
         setPromotionError(message);
         toast.error(message);
-        setIsApplyingPromotion(false);
-        return;
       }
-
-      setPromotionCode("");
-      setIsApplyingPromotion(false);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t("Unable to apply coupon code.");
-      setPromotionError(message);
-      toast.error(message);
-      setIsApplyingPromotion(false);
-    }
+    });
   }
 
   async function handleRemovePromotionCode() {
@@ -110,24 +108,22 @@ function CompactPromotion({ checkout }: { checkout: StripeCheckoutValue }) {
     }
 
     setPromotionError(null);
-    setIsRemovingPromotion(true);
+    await runWithLoading(setIsRemovingPromotion, async () => {
+      try {
+        const result = await checkout.removePromotionCode();
 
-    try {
-      const result = await checkout.removePromotionCode();
-
-      if (result.type === "error") {
-        setPromotionError(result.error.message);
-        toast.error(result.error.message);
-      } else {
-        setPromotionCode("");
+        if (result.type === "error") {
+          setPromotionError(result.error.message);
+          toast.error(result.error.message);
+        } else {
+          setPromotionCode("");
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : t("Unable to remove coupon code.");
+        setPromotionError(message);
+        toast.error(message);
       }
-      setIsRemovingPromotion(false);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t("Unable to remove coupon code.");
-      setPromotionError(message);
-      toast.error(message);
-      setIsRemovingPromotion(false);
-    }
+    });
   }
 
   return (
@@ -359,8 +355,8 @@ export function CheckoutReceiptForm({
   const t = useExtracted();
   const locale = useLocale();
   const savedCard = checkout.savedPaymentMethods?.[0]?.card ?? null;
-  const [paymentOpen, setPaymentOpen] = useState(!savedCard);
-  const [addressOpen, setAddressOpen] = useState(!checkout.billingAddress);
+  const [paymentOpen, setPaymentOpen] = useState(() => !savedCard);
+  const [addressOpen, setAddressOpen] = useState(() => !checkout.billingAddress);
   const [paymentComplete, setPaymentComplete] = useState(false);
   const [paymentType, setPaymentType] = useState<string | null>(null);
   const [cardBrand, setCardBrand] = useState<string | null>(savedCard?.brand ?? null);
@@ -482,18 +478,6 @@ export function CheckoutReceiptForm({
               } else if (type !== "card" && type !== "link") {
                 setCardBrand(null);
               }
-            }}
-            onReady={(element) => {
-              (
-                element as StripePaymentElement & {
-                  on: (event: string, handler: (event: unknown) => void) => void;
-                }
-              ).on("carddetailschange", (event: unknown) => {
-                const brand = readCardBrand(event);
-                if (brand) {
-                  setCardBrand(brand);
-                }
-              });
             }}
             options={{
               fields: {

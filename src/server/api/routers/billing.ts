@@ -397,28 +397,28 @@ export const billingRouter = router({
     return { plans };
   }),
   status: billingEnabledProcedure.query(async ({ ctx }) => {
-    const subscription = await syncSubscription(ctx, ctx.userId);
-
-    // Check if user belongs to an org with an active team plan
-    const teamRecords = await ctx.db
-      .select({
-        planId: billing.planId,
-        status: billing.status,
-        cancelAt: billing.cancelAt,
-        mode: billing.mode,
-        priceId: billing.priceId,
-        currentPeriodEnd: billing.currentPeriodEnd,
-        stripeCustomerId: billing.stripeCustomerId,
-      })
-      .from(billing)
-      .innerJoin(member, eq(billing.organizationId, member.organizationId))
-      .where(
-        and(
-          eq(member.userId, ctx.userId),
-          isNotNull(billing.organizationId),
-          like(billing.planId, "pro_team%"),
+    const [subscription, teamRecords] = await Promise.all([
+      syncSubscription(ctx, ctx.userId),
+      ctx.db
+        .select({
+          planId: billing.planId,
+          status: billing.status,
+          cancelAt: billing.cancelAt,
+          mode: billing.mode,
+          priceId: billing.priceId,
+          currentPeriodEnd: billing.currentPeriodEnd,
+          stripeCustomerId: billing.stripeCustomerId,
+        })
+        .from(billing)
+        .innerJoin(member, eq(billing.organizationId, member.organizationId))
+        .where(
+          and(
+            eq(member.userId, ctx.userId),
+            isNotNull(billing.organizationId),
+            like(billing.planId, "pro_team%"),
+          ),
         ),
-      );
+    ]);
 
     const now = new Date();
     const teamRecord = teamRecords.find((candidate) => {
@@ -513,6 +513,17 @@ export const billingRouter = router({
         }
       }
 
+      if (
+        mode === "payment" &&
+        billingRecord.planId === plan.id &&
+        billingRecord.status === "paid"
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This one-time plan has already been purchased.",
+        });
+      }
+
       const trialEligible =
         mode === "subscription"
           ? await isTrialEligibleForCustomer(billingRecord.stripeCustomerId)
@@ -537,17 +548,6 @@ export const billingRouter = router({
           userId: ctx.userId,
           funding: trialFunding,
         }));
-
-      if (
-        mode === "payment" &&
-        billingRecord.planId === plan.id &&
-        billingRecord.status === "paid"
-      ) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "This one-time plan has already been purchased.",
-        });
-      }
 
       const session = await stripe.checkout.sessions.create(
         {

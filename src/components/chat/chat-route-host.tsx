@@ -2,7 +2,7 @@
 
 import type { UIMessage } from "ai";
 import dynamic from "next/dynamic";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { ChatInterfaceSkeleton } from "@/components/chat/chat-interface-skeleton";
 import { trpc } from "@/lib/trpc/react";
@@ -39,12 +39,22 @@ function parseChatRoute(pathname: string): { kind: "home" } | { kind: "chat"; id
   return { kind: "chat", id: match[1] };
 }
 
-function ChatPane({ id, isActive }: { id: string; isActive: boolean }) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const projectIdFromQuery = searchParams.get("projectId");
+function nextMountedIds(prev: string[], activeId: string): string[] {
+  if (prev.includes(activeId) && prev[prev.length - 1] === activeId) {
+    return prev;
+  }
+  const without = prev.filter((entry) => entry !== activeId);
+  const next = [...without, activeId];
+  if (next.length <= MAX_MOUNTED_CHATS) {
+    return next;
+  }
+  const droppable = next.slice(0, -1);
+  const keep = droppable.slice(-(MAX_MOUNTED_CHATS - 1));
+  return [...keep, activeId];
+}
+
+function useChatPanePage(id: string, isActive: boolean, projectIdFromQuery: string | null) {
   const utils = trpc.useUtils();
-  const ensuredRef = useRef<string | null>(null);
 
   const pageQuery = trpc.chat.getChatPage.useQuery(
     { id },
@@ -55,50 +65,57 @@ function ChatPane({ id, isActive }: { id: string; isActive: boolean }) {
     },
   );
 
+  const shouldEnsure = isActive && pageQuery.isSuccess && pageQuery.data === null;
+  const paneIdRef = useRef(id);
+  const projectIdRef = useRef(projectIdFromQuery);
+
+  useEffect(() => {
+    paneIdRef.current = id;
+    projectIdRef.current = projectIdFromQuery;
+  });
+
   const ensureChat = trpc.chat.ensureChat.useMutation({
-    onSuccess: (row) => {
-      utils.chat.getChatPage.setData({ id }, row);
+    retry: false,
+    onSuccess: (row, variables) => {
+      if (
+        variables.id !== paneIdRef.current ||
+        (variables.projectId ?? null) !== projectIdRef.current
+      ) {
+        return;
+      }
+      utils.chat.getChatPage.setData({ id: variables.id }, row);
       void utils.chat.getChats.invalidate();
-      if (projectIdFromQuery) {
-        router.replace(`/chat/${id}`);
+      if (variables.projectId) {
+        window.history.replaceState({}, "", `/chat/${variables.id}`);
       }
     },
-    onError: () => {
-      // Only bounce when we truly have no paintable payload.
-      if (!pageQuery.data) {
-        router.replace("/chat");
+    onError: (_error, variables) => {
+      if (
+        variables.id !== paneIdRef.current ||
+        (variables.projectId ?? null) !== projectIdRef.current
+      ) {
+        return;
+      }
+      if (!utils.chat.getChatPage.getData({ id: variables.id })) {
+        window.location.replace("/chat");
       }
     },
   });
 
-  const ensureMutate = ensureChat.mutate;
-  const ensurePending = ensureChat.isPending;
-
-  // Upsert when the row is missing (deep link to a client-generated UUID, or
-  // race before useNewChat's background ensure finishes).
   useEffect(() => {
-    if (!isActive || ensurePending || ensuredRef.current === id) {
+    if (!shouldEnsure) {
       return;
     }
-    if (!pageQuery.isSuccess || pageQuery.data !== null) {
-      return;
-    }
-    ensuredRef.current = id;
-    ensureMutate({
-      id,
-      projectId: projectIdFromQuery,
-    });
-  }, [
-    ensureMutate,
-    ensurePending,
-    id,
-    isActive,
-    pageQuery.data,
-    pageQuery.isSuccess,
-    projectIdFromQuery,
-  ]);
+    ensureChat.mutate({ id, projectId: projectIdFromQuery });
+  }, [ensureChat, id, projectIdFromQuery, shouldEnsure]);
 
-  const page = pageQuery.data ?? ensureChat.data ?? null;
+  return pageQuery.data ?? null;
+}
+
+function ChatPane({ id, isActive }: { id: string; isActive: boolean }) {
+  const searchParams = useSearchParams();
+  const projectIdFromQuery = searchParams.get("projectId");
+  const page = useChatPanePage(id, isActive, projectIdFromQuery);
 
   if (!page) {
     return <ChatInterfaceSkeleton />;
@@ -119,26 +136,14 @@ function ChatPane({ id, isActive }: { id: string; isActive: boolean }) {
 
 function ChatPanes({ activeId }: { activeId: string }) {
   const [mountedIds, setMountedIds] = useState<string[]>([activeId]);
-
-  useEffect(() => {
-    setMountedIds((prev) => {
-      if (prev.includes(activeId) && prev[prev.length - 1] === activeId) {
-        return prev;
-      }
-      const without = prev.filter((entry) => entry !== activeId);
-      const next = [...without, activeId];
-      if (next.length <= MAX_MOUNTED_CHATS) {
-        return next;
-      }
-      const droppable = next.slice(0, -1);
-      const keep = droppable.slice(-(MAX_MOUNTED_CHATS - 1));
-      return [...keep, activeId];
-    });
-  }, [activeId]);
+  const nextIds = nextMountedIds(mountedIds, activeId);
+  if (nextIds !== mountedIds) {
+    setMountedIds(nextIds);
+  }
 
   return (
     <>
-      {mountedIds.map((id) => {
+      {nextIds.map((id) => {
         const isActive = id === activeId;
         return (
           <div

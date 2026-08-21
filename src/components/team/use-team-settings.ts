@@ -9,6 +9,7 @@ import { authClient } from "@/lib/auth-client";
 import { useBillingPlanCopy } from "@/lib/billing-plan-copy";
 import { trpc } from "@/lib/trpc/react";
 import { isInvitation, isMember, type Member, type Organization } from "./team-types";
+import { runWithLoading } from "@/lib/run-with-loading";
 import { createTeamSlug, escapeCsvCell, parseTokenLimit } from "./team-utils";
 
 export function useTeamSettings() {
@@ -122,85 +123,84 @@ export function useTeamSettings() {
 
   async function handleCreateOrg() {
     if (!newOrgName.trim()) return;
-    setIsCreatingOrg(true);
-    try {
-      const result = await authClient.organization.create({
-        name: newOrgName.trim(),
-        slug: createTeamSlug(newOrgName),
-      });
-      if (result.error) {
-        toast.error(result.error.message || t("Failed to create organization"));
-        return;
-      }
-      if (result.data) {
-        const created = result.data as Organization;
-        queryClient.setQueryData<Organization[]>(
-          ["team", "organizations", currentUserId],
-          (current) => {
-            const list = current ?? [];
-            if (list.some((org) => org.id === created.id)) {
-              return list;
-            }
-            return [...list, created];
-          },
-        );
-        await selectOrg(created);
-        await queryClient.invalidateQueries({
-          queryKey: ["team", "organizations", currentUserId],
+    await runWithLoading(setIsCreatingOrg, async () => {
+      try {
+        const result = await authClient.organization.create({
+          name: newOrgName.trim(),
+          slug: createTeamSlug(newOrgName),
         });
-        toast.success(t("Organization created"));
-        setIsCreateDialogOpen(false);
-        setNewOrgName("");
+        if (result.error) {
+          toast.error(result.error.message || t("Failed to create organization"));
+          return;
+        }
+        if (result.data) {
+          const created = result.data as Organization;
+          queryClient.setQueryData<Organization[]>(
+            ["team", "organizations", currentUserId],
+            (current) => {
+              const list = current ?? [];
+              if (list.some((org) => org.id === created.id)) {
+                return list;
+              }
+              return [...list, created];
+            },
+          );
+          await selectOrg(created);
+          await queryClient.invalidateQueries({
+            queryKey: ["team", "organizations", currentUserId],
+          });
+          toast.success(t("Organization created"));
+          setIsCreateDialogOpen(false);
+          setNewOrgName("");
+        }
+      } catch (error) {
+        console.error("Failed to create org", error);
+        toast.error(t("Failed to create organization"));
       }
-    } catch (error) {
-      console.error("Failed to create org", error);
-      toast.error(t("Failed to create organization"));
-    } finally {
-      setIsCreatingOrg(false);
-    }
+    });
   }
 
   async function handleInvite() {
     if (!inviteEmail.trim() || !activeOrg) return;
-    setIsInviting(true);
-    try {
-      await authClient.organization.inviteMember({
-        email: inviteEmail.trim(),
-        role: inviteRole as "member" | "admin",
-        organizationId: activeOrg.id,
-      });
-      toast.success(t("Invitation sent"));
-      await queryClient.invalidateQueries({
-        queryKey: ["team", "organization", currentUserId, activeOrg.id],
-      });
-    } catch (error) {
-      console.error("Failed to invite", error);
-      toast.error(t("Failed to send invitation"));
-    }
-    setIsInviting(false);
-    setIsInviteDialogOpen(false);
-    setInviteEmail("");
-    setInviteRole("member");
+    await runWithLoading(setIsInviting, async () => {
+      try {
+        await authClient.organization.inviteMember({
+          email: inviteEmail.trim(),
+          role: inviteRole as "member" | "admin",
+          organizationId: activeOrg.id,
+        });
+        toast.success(t("Invitation sent"));
+        await queryClient.invalidateQueries({
+          queryKey: ["team", "organization", currentUserId, activeOrg.id],
+        });
+      } catch (error) {
+        console.error("Failed to invite", error);
+        toast.error(t("Failed to send invitation"));
+      }
+      setIsInviteDialogOpen(false);
+      setInviteEmail("");
+      setInviteRole("member");
+    });
   }
 
   async function handleRemoveMember(memberId: string) {
     if (!activeOrg) return;
-    setIsRemovingMember(true);
-    try {
-      await authClient.organization.removeMember({
-        memberIdOrEmail: memberId,
-        organizationId: activeOrg.id,
-      });
-      toast.success(t("Member removed"));
-      await queryClient.invalidateQueries({
-        queryKey: ["team", "organization", currentUserId, activeOrg.id],
-      });
-      setMemberToRemove(null);
-    } catch (error) {
-      console.error("Failed to remove member", error);
-      toast.error(t("Failed to remove member"));
-    }
-    setIsRemovingMember(false);
+    await runWithLoading(setIsRemovingMember, async () => {
+      try {
+        await authClient.organization.removeMember({
+          memberIdOrEmail: memberId,
+          organizationId: activeOrg.id,
+        });
+        toast.success(t("Member removed"));
+        await queryClient.invalidateQueries({
+          queryKey: ["team", "organization", currentUserId, activeOrg.id],
+        });
+        setMemberToRemove(null);
+      } catch (error) {
+        console.error("Failed to remove member", error);
+        toast.error(t("Failed to remove member"));
+      }
+    });
   }
 
   async function handleCancelInvitation(invitationId: string) {

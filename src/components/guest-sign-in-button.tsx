@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button, type buttonVariants } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient } from "@/lib/auth-client";
+import { runWithLoading } from "@/lib/run-with-loading";
 import { User } from "lucide-react";
 
 type GuestSignInButtonProps = VariantProps<typeof buttonVariants> & {
@@ -26,31 +27,28 @@ export function GuestSignInButton({
     return null;
   }
 
-  const handleClick = async () => {
+  const handleClick = () => {
     if (isPending || isSubmitting) return;
-    setIsSubmitting(true);
-    try {
-      const { data, error } = await authClient.signIn.anonymous();
-      if (error || !data) {
-        toast.error(error?.message || t("Failed to sign in as guest. Please try again."));
-        setIsSubmitting(false);
-        return;
-      }
+    void runWithLoading(setIsSubmitting, async () => {
+      try {
+        const { data, error } = await authClient.signIn.anonymous();
+        if (error || !data) {
+          toast.error(error?.message || t("Failed to sign in as guest. Please try again."));
+          return;
+        }
 
-      // A /chat prefetch made before sign-in can contain the unauthenticated
-      // redirect. Use a document navigation so that cached RSC redirects are
-      // not reused after the anonymous session cookie has been set.
-      window.location.assign("/chat");
-    } catch (error) {
-      const message =
-        error instanceof Error && error.message
-          ? error.message
-          : t("Failed to sign in as guest. Please try again.");
-      toast.error(message);
-      setIsSubmitting(false);
-      return;
-    }
-    setIsSubmitting(false);
+        // A /chat prefetch made before sign-in can contain the unauthenticated
+        // redirect. Use a document navigation so that cached RSC redirects are
+        // not reused after the anonymous session cookie has been set.
+        window.location.assign("/chat");
+      } catch (error) {
+        const message =
+          error instanceof Error && error.message
+            ? error.message
+            : t("Failed to sign in as guest. Please try again.");
+        toast.error(message);
+      }
+    });
   };
 
   return (

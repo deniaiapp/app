@@ -129,14 +129,27 @@ export function buildMemoryPrompt({
 }
 
 function getLatestUserText(messages: UIMessage[]) {
-  return messages
-    .filter((message) => message.role === "user")
-    .slice(-6)
-    .flatMap((message) => message.parts)
-    .filter((part): part is { type: "text"; text: string } => part.type === "text")
-    .map((part) => part.text.trim())
-    .filter(Boolean)
-    .join("\n");
+  const latestUserMessages: UIMessage[] = [];
+  for (const message of messages) {
+    if (message.role === "user") {
+      latestUserMessages.push(message);
+    }
+  }
+
+  const texts: string[] = [];
+  const start = Math.max(0, latestUserMessages.length - 6);
+  for (let index = start; index < latestUserMessages.length; index += 1) {
+    const message = latestUserMessages[index];
+    if (!message) continue;
+    for (const part of message.parts) {
+      if (part.type !== "text") continue;
+      const text = part.text.trim();
+      if (text) {
+        texts.push(text);
+      }
+    }
+  }
+  return texts.join("\n");
 }
 
 function normalizeMemoryText(value: string) {
@@ -164,10 +177,13 @@ function escapeRegExp(value: string) {
 function tokenizeMemory(value: string) {
   const normalized = normalizeMemoryText(value);
   // Prefer space-split for Latin; fall back to CJK bigrams when unspaced.
-  const spaceTokens = normalized
-    .split(" ")
-    .map((token) => token.trim())
-    .filter((token) => token.length > 0);
+  const spaceTokens: string[] = [];
+  for (const token of normalized.split(" ")) {
+    const trimmed = token.trim();
+    if (trimmed.length > 0) {
+      spaceTokens.push(trimmed);
+    }
+  }
 
   if (spaceTokens.length >= 2 || !CJK_PATTERN.test(normalized)) {
     return spaceTokens.filter((token) => token.length > 1 || /^[a-z0-9]+$/i.test(token));
@@ -392,7 +408,13 @@ export async function maybeAutoSaveMemories({
   }
 
   const existingItems = await db.select().from(memoryItem).where(eq(memoryItem.userId, userId));
-  const existingMemories = existingItems.map((item) => item.content.trim()).filter(Boolean);
+  const existingMemories: string[] = [];
+  for (const item of existingItems) {
+    const content = item.content.trim();
+    if (content) {
+      existingMemories.push(content);
+    }
+  }
   const existingBlock = formatExistingMemoriesForAgent(existingMemories);
 
   const { object } = await generateObject({
@@ -415,14 +437,16 @@ export async function maybeAutoSaveMemories({
     return;
   }
 
-  const freshMemories = dedupeMemories(
-    object.memories
-      .map((memory) => memory.trim())
-      .filter(Boolean)
-      .filter(
-        (memory) => !existingMemories.some((existing) => isNearDuplicateMemory(memory, existing)),
-      ),
-  );
+  const candidateMemories: string[] = [];
+  for (const memory of object.memories) {
+    const trimmed = memory.trim();
+    if (!trimmed) continue;
+    if (existingMemories.some((existing) => isNearDuplicateMemory(trimmed, existing))) {
+      continue;
+    }
+    candidateMemories.push(trimmed);
+  }
+  const freshMemories = dedupeMemories(candidateMemories);
 
   if (freshMemories.length === 0) {
     return;

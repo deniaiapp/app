@@ -1,5 +1,26 @@
 const DEFAULT_CURRENCY = "USD";
 
+const currencyFormatters = new Map<string, Intl.NumberFormat>();
+
+function getCurrencyFormatter(
+  locale: Intl.LocalesArgument | undefined,
+  currencyCode: string,
+  options?: Intl.NumberFormatOptions,
+) {
+  const key = `${String(locale ?? "")}:${currencyCode}:${JSON.stringify(options ?? {})}`;
+  const cached = currencyFormatters.get(key);
+  if (cached) {
+    return cached;
+  }
+  const formatter = new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: currencyCode,
+    ...options,
+  });
+  currencyFormatters.set(key, formatter);
+  return formatter;
+}
+
 function normalizeCurrencyCode(currency?: string | null) {
   return (currency ?? DEFAULT_CURRENCY).toUpperCase();
 }
@@ -24,9 +45,7 @@ export function formatMinorCurrency(
   locale?: Intl.LocalesArgument,
 ) {
   const currencyCode = normalizeCurrencyCode(currency);
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency: currencyCode,
-    ...options,
-  }).format(minorUnitToMajor(amountMinor, currencyCode));
+  return getCurrencyFormatter(locale, currencyCode, options).format(
+    minorUnitToMajor(amountMinor, currencyCode),
+  );
 }

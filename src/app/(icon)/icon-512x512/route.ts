@@ -2,9 +2,10 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const iconPath = join(process.cwd(), "public", "pwa", "android-chrome-512x512.png");
+const iconPromise = readFile(iconPath);
 
 export async function GET() {
-  const icon = await readFile(iconPath);
+  const icon = await iconPromise;
 
   return new Response(icon, {
     headers: {

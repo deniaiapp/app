@@ -101,7 +101,7 @@ export const projectsRouter = router({
       z.object({
         projectId: z.string().min(1),
         filename: z.string().trim().min(1).max(255),
-        url: z.string().url(),
+        url: z.url(),
         size: z.number().int().nonnegative(),
         mimeType: z.string().trim().min(1).max(128),
       }),

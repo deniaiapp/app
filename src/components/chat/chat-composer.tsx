@@ -1,69 +1,24 @@
 "use client";
 
 import type { ChatStatus } from "ai";
-import type { LucideIcon } from "lucide-react";
-import {
-  BrainIcon,
-  Film,
-  Gauge,
-  Globe,
-  Image as ImageIcon,
-  Mic,
-  Sparkle,
-  Zap,
-  XIcon,
-} from "lucide-react";
 import { useExtracted } from "next-intl";
 import { useEffect, useRef } from "react";
 import {
-  PromptInputSelect,
-  PromptInputSelectContent,
-  PromptInputSelectItem,
-  PromptInputSelectTrigger,
-  PromptInputSelectValue,
-} from "@/components/ai-elements/prompt-input";
-import { SpeechInput } from "@/components/ai-elements/speech-input";
+  ChatComposerActionMenu,
+  ChatComposerTools,
+} from "@/components/chat/chat-composer-controls";
 import { Composer, type ComposerMessage } from "@/components/chat/composer";
-import { ChatComposerModelPicker } from "@/components/chat/chat-composer-model-picker";
 import { useAvailableModels } from "@/hooks/use-available-models";
 import {
-  isReasoningEffort,
   OPENAI_FAST_MODE_MULTIPLIER,
   OPENAI_PRO_MODE_MULTIPLIER,
   type ModelDefinition,
   type ReasoningEffort,
 } from "@/lib/constants";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { DropdownMenuCheckboxItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export type { ComposerMessage };
 
 export type ModelOption = ModelDefinition;
-
-type ToolChipProps = {
-  icon: LucideIcon;
-  label: string;
-  onRemove: () => void;
-};
-
-function ToolChip({ icon: Icon, label, onRemove }: ToolChipProps) {
-  const t = useExtracted();
-
-  return (
-    <Button
-      variant="ghost"
-      className="group flex items-center gap-1.5 rounded-md px-2 py-1 font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-      onClick={onRemove}
-      aria-label={t("Remove {label}", { label })}
-    >
-      <Icon className="size-3.5 group-hover:hidden" aria-hidden="true" />
-      <XIcon className="size-3.5 hidden group-hover:block" aria-hidden="true" />
-      <span>{label}</span>
-    </Button>
-  );
-}
 
 export interface ChatComposerProps {
   value: string;
@@ -139,26 +94,6 @@ export function ChatComposer({
   const supportsReasoningEffort = supportedEfforts !== false;
   const supportsProMode = Boolean(selectedModel?.supportsProMode);
   const supportsFastMode = Boolean(selectedModel?.supportsFastMode);
-  const getReasoningEffortLabel = (effort: ReasoningEffort) => {
-    switch (effort) {
-      case "none":
-        return t("None");
-      case "minimal":
-        return t("Minimal");
-      case "low":
-        return t("Low");
-      case "medium":
-        return t("Medium");
-      case "high":
-        return t("High");
-      case "xhigh":
-        return t("X-High");
-      case "max":
-        return t("Max");
-      default:
-        return effort;
-    }
-  };
 
   const composerRef = useRef<HTMLDivElement>(null);
 
@@ -172,8 +107,6 @@ export function ChatComposer({
     window.addEventListener("deni:focus-composer", handleFocusComposer);
     return () => window.removeEventListener("deni:focus-composer", handleFocusComposer);
   }, []);
-
-  const reasoningEffortLabel = getReasoningEffortLabel(reasoningEffort);
 
   const handleVideoToggle = (enabled: boolean) => {
     onVideoModeChange(enabled);
@@ -237,33 +170,6 @@ export function ChatComposer({
     },
   );
 
-  const renderReasoningEffortSelector = (triggerClassName?: string) => (
-    <PromptInputSelect
-      value={reasoningEffort}
-      onValueChange={(value) => {
-        if (isReasoningEffort(value)) {
-          onReasoningEffortChange(value);
-        }
-      }}
-      disabled={!supportsReasoningEffort}
-    >
-      <PromptInputSelectTrigger className={cn(triggerClassName)}>
-        <PromptInputSelectValue>
-          <BrainIcon className="size-4" aria-hidden="true" />
-          {reasoningEffortLabel}
-        </PromptInputSelectValue>
-      </PromptInputSelectTrigger>
-      <PromptInputSelectContent>
-        {supportedEfforts !== false &&
-          supportedEfforts.map((effort) => (
-            <PromptInputSelectItem key={effort} value={effort}>
-              {getReasoningEffortLabel(effort)}
-            </PromptInputSelectItem>
-          ))}
-      </PromptInputSelectContent>
-    </PromptInputSelect>
-  );
-
   const resolvedPlaceholder =
     placeholder ??
     (videoMode
@@ -287,165 +193,57 @@ export function ChatComposer({
         status={status}
         isSubmitDisabled={isSubmitDisabled}
         actionMenuItems={
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuCheckboxItem
-              checked={videoMode}
-              onCheckedChange={(checked) => handleVideoToggle(Boolean(checked))}
-            >
-              <Film className="size-4" aria-hidden="true" />
-              {t("Video")}
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
-              checked={imageMode}
-              onCheckedChange={(checked) => handleImageToggle(Boolean(checked))}
-            >
-              <ImageIcon className="size-4" aria-hidden="true" />
-              {t("Image")}
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
-              checked={webSearch}
-              onCheckedChange={(checked) => handleSearchToggle(Boolean(checked))}
-            >
-              <Globe className="size-4" aria-hidden="true" />
-              {t("Search")}
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
-              checked={deepResearch}
-              onCheckedChange={(checked) => handleResearchToggle(Boolean(checked))}
-            >
-              <Sparkle className="size-4" aria-hidden="true" />
-              {t("Deep Research")}
-            </DropdownMenuCheckboxItem>
-            {supportsFastMode && (
-              <DropdownMenuCheckboxItem
-                checked={fastMode}
-                onCheckedChange={(checked) => onFastModeChange(Boolean(checked))}
-              >
-                <Gauge className="size-4" aria-hidden="true" />
-                {t("Fast")}
-              </DropdownMenuCheckboxItem>
-            )}
-            {supportsProMode && (
-              <DropdownMenuCheckboxItem
-                checked={proMode}
-                onCheckedChange={(checked) => onProModeChange(Boolean(checked))}
-              >
-                <Zap className="size-4" aria-hidden="true" />
-                {t("Pro")}
-              </DropdownMenuCheckboxItem>
-            )}
-            <div className="px-2 py-1.5 md:hidden">
-              {renderReasoningEffortSelector("w-full justify-between")}
-            </div>
-          </>
+          <ChatComposerActionMenu
+            videoMode={videoMode}
+            onVideoToggle={handleVideoToggle}
+            imageMode={imageMode}
+            onImageToggle={handleImageToggle}
+            webSearch={webSearch}
+            onSearchToggle={handleSearchToggle}
+            deepResearch={deepResearch}
+            onResearchToggle={handleResearchToggle}
+            supportsFastMode={supportsFastMode}
+            fastMode={fastMode}
+            onFastModeChange={onFastModeChange}
+            supportsProMode={supportsProMode}
+            proMode={proMode}
+            onProModeChange={onProModeChange}
+            reasoningEffort={reasoningEffort}
+            onReasoningEffortChange={onReasoningEffortChange}
+            supportedEfforts={supportedEfforts}
+            supportsReasoningEffort={supportsReasoningEffort}
+          />
         }
         tools={
-          <>
-            {videoMode && (
-              <ToolChip icon={Film} label={t("Video")} onRemove={() => handleVideoToggle(false)} />
-            )}
-            {imageMode && (
-              <ToolChip
-                icon={ImageIcon}
-                label={t("Image")}
-                onRemove={() => handleImageToggle(false)}
-              />
-            )}
-            {webSearch && (
-              <ToolChip
-                icon={Globe}
-                label={t("Search")}
-                onRemove={() => handleSearchToggle(false)}
-              />
-            )}
-            {deepResearch && (
-              <ToolChip
-                icon={Sparkle}
-                label={t("Deep Research")}
-                onRemove={() => handleResearchToggle(false)}
-              />
-            )}
-            <SpeechInput
-              size="icon-sm"
-              variant="ghost"
-              className="size-8 bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground"
-              aria-label={t("Voice input")}
-              title={t("Voice input")}
-              onTranscriptionChange={(transcript) => {
-                const nextValue = value.trim() ? `${value.trim()} ${transcript}` : transcript;
-                onValueChange(nextValue.trim());
-              }}
-            >
-              <Mic className="size-4" />
-            </SpeechInput>
-
-            <ChatComposerModelPicker
-              model={model}
-              onModelChange={onModelChange}
-              availableModels={availableModels}
-              selectedModel={selectedModel}
-              showByokBadge={showByokBadge}
-            />
-
-            <div className="hidden md:flex md:items-center md:gap-1">
-              {renderReasoningEffortSelector()}
-              {supportsFastMode && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant={fastMode ? "secondary" : "ghost"}
-                        size="icon-sm"
-                        className={cn(
-                          "size-8",
-                          fastMode
-                            ? "bg-sky-500/15 text-sky-700 hover:bg-sky-500/20 dark:text-sky-400"
-                            : "text-muted-foreground",
-                        )}
-                        aria-pressed={fastMode}
-                        aria-label={t("Fast")}
-                        onClick={() => onFastModeChange(!fastMode)}
-                      >
-                        <Gauge className="size-3.5" aria-hidden="true" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{fastModeTitle}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-              {supportsProMode && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant={proMode ? "secondary" : "ghost"}
-                        size="icon-sm"
-                        className={cn(
-                          "size-8",
-                          proMode
-                            ? "bg-amber-500/15 text-amber-700 hover:bg-amber-500/20 dark:text-amber-400"
-                            : "text-muted-foreground",
-                        )}
-                        aria-pressed={proMode}
-                        aria-label={t("Pro")}
-                        onClick={() => onProModeChange(!proMode)}
-                      >
-                        <Zap className="size-3.5" aria-hidden="true" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{proModeTitle}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-            </div>
-          </>
+          <ChatComposerTools
+            value={value}
+            onValueChange={onValueChange}
+            videoMode={videoMode}
+            onVideoToggle={handleVideoToggle}
+            imageMode={imageMode}
+            onImageToggle={handleImageToggle}
+            webSearch={webSearch}
+            onSearchToggle={handleSearchToggle}
+            deepResearch={deepResearch}
+            onResearchToggle={handleResearchToggle}
+            model={model}
+            onModelChange={onModelChange}
+            availableModels={availableModels}
+            selectedModel={selectedModel}
+            showByokBadge={showByokBadge}
+            reasoningEffort={reasoningEffort}
+            onReasoningEffortChange={onReasoningEffortChange}
+            supportedEfforts={supportedEfforts}
+            supportsReasoningEffort={supportsReasoningEffort}
+            supportsFastMode={supportsFastMode}
+            fastMode={fastMode}
+            onFastModeChange={onFastModeChange}
+            fastModeTitle={fastModeTitle}
+            supportsProMode={supportsProMode}
+            proMode={proMode}
+            onProModeChange={onProModeChange}
+            proModeTitle={proModeTitle}
+          />
         }
       />
     </div>

@@ -599,7 +599,7 @@ export async function resetAffiliateCouponSending(rewardId: string) {
     .where(and(eq(affiliateReward.id, rewardId), eq(affiliateReward.status, "sending")));
 }
 
-export async function useAffiliateResetCredit(userId: string) {
+export async function consumeAffiliateResetCredit(userId: string) {
   const now = new Date();
   const [profile] = await db
     .update(affiliateProfile)

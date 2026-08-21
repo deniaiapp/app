@@ -116,24 +116,25 @@ ENV DATABASE_URL=$DATABASE_URL \
 
 RUN bun --bun run build
 
-# Next's standalone tracer can copy only the CJS side of Bun's virtual-store
-# @swc/helpers package. Node 22 resolves its `module-sync` condition to ESM,
-# so preserve the ESM files in every traced helper package as well.
-RUN set -eux; \
-  for standalone_helpers in \
-    .next/standalone/node_modules/.bun/*/node_modules/@swc/helpers \
-    .next/standalone/node_modules/@swc/helpers; do \
-    [ -d "$standalone_helpers" ] || continue; \
-    source_helpers="${standalone_helpers#.next/standalone/}"; \
-    [ -d "$source_helpers/esm" ] || continue; \
-    mkdir -p "$standalone_helpers/esm"; \
-    cp -a "$source_helpers/esm/." "$standalone_helpers/esm/"; \
-  done
+# Temporary disabled (runtime is now bun)
+# # Next's standalone tracer can copy only the CJS side of Bun's virtual-store
+# # @swc/helpers package. Node 22 resolves its `module-sync` condition to ESM,
+# # so preserve the ESM files in every traced helper package as well.
+# RUN set -eux; \
+#   for standalone_helpers in \
+#     .next/standalone/node_modules/.bun/*/node_modules/@swc/helpers \
+#     .next/standalone/node_modules/@swc/helpers; do \
+#     [ -d "$standalone_helpers" ] || continue; \
+#     source_helpers="${standalone_helpers#.next/standalone/}"; \
+#     [ -d "$source_helpers/esm" ] || continue; \
+#     mkdir -p "$standalone_helpers/esm"; \
+#     cp -a "$source_helpers/esm/." "$standalone_helpers/esm/"; \
+#   done
 
 # ---------------------------------------------------------------------------
-# Runtime (Next.js standalone + Node)
+# Runtime (Next.js standalone + Bun)
 # ---------------------------------------------------------------------------
-FROM node:22-bookworm-slim AS runner
+FROM oven/bun:1 AS runner
 WORKDIR /app
 
 # Dokploy / Traefik reach the container on this port.
@@ -145,12 +146,12 @@ ENV PORT=3000 \
   NEXT_TELEMETRY_DISABLED=1 \
   NODE_ENV=production
 
-RUN groupadd --system --gid 1001 nodejs \
-  && useradd --system --uid 1001 --gid nodejs nextjs
+RUN adduser --system --uid 1001 nextjs && \
+      usermod -aG bun nextjs
 
 COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:bun /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:bun /app/.next/static ./.next/static
 
 USER nextjs
 EXPOSE 3000
@@ -158,4 +159,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
-CMD ["node", "server.js"]
+CMD ["bun", "server.js"]

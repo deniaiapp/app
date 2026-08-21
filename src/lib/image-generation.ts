@@ -56,19 +56,24 @@ export async function generateImages({
 }): Promise<GeneratedImage[]> {
   const providerOptions = buildGeminiProviderOptions(model, aspectRatio, resolution);
   const geminiModel = google.image(model);
-  const images: GeneratedImage[] = [];
 
+  const tasks: ReturnType<typeof generateImage>[] = [];
   for (let index = 0; index < numberOfImages; index += 1) {
-    const result = await generateImage({
-      model: geminiModel,
-      prompt,
-      ...(aspectRatio ? { aspectRatio } : {}),
-      providerOptions,
-      abortSignal: signal,
-    });
+    tasks.push(
+      generateImage({
+        model: geminiModel,
+        prompt,
+        ...(aspectRatio ? { aspectRatio } : {}),
+        providerOptions,
+        abortSignal: signal,
+      }),
+    );
+  }
+  const results = await Promise.all(tasks);
 
+  const images: GeneratedImage[] = [];
+  for (const result of results) {
     images.push(...toGeneratedImages(result.images));
   }
-
   return images;
 }

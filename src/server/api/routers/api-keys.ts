@@ -36,40 +36,18 @@ export const apiKeysRouter = router({
       const keyHash = await hashApiKey(raw);
       const keyPrefix = getKeyPrefix(raw);
 
-      // Atomically insert only if under the 5-key limit using INSERT ... SELECT ... WHERE
-      const [inserted] = await ctx.db
-        .insert(apiKey)
-        .values({
-          userId: ctx.userId,
-          name: input.name,
-          keyHash,
-          keyPrefix,
-        })
-        .onConflictDoNothing()
-        .returning({ id: apiKey.id });
+      // Neon HTTP has no interactive transactions. A single INSERT ... SELECT
+      // with a count predicate is the quota authority, so concurrent creates
+      // cannot both pass a separate check-then-insert window.
+      const inserted = await ctx.db.execute<{ id: string }>(sql`
+        INSERT INTO api_key (user_id, name, key_hash, key_prefix)
+        SELECT ${ctx.userId}, ${input.name}, ${keyHash}, ${keyPrefix}
+        WHERE (SELECT count(*) FROM api_key WHERE user_id = ${ctx.userId}) < 5
+        RETURNING id
+      `);
+      const insertedId = Array.isArray(inserted) ? inserted[0]?.id : inserted.rows[0]?.id;
 
-      // Verify we haven't exceeded the limit (handles race conditions)
-      const countResult = await ctx.db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(apiKey)
-        .where(eq(apiKey.userId, ctx.userId));
-
-      const totalKeys = countResult[0]?.count ?? 0;
-
-      if (totalKeys > 5) {
-        // Race condition: another request also inserted — roll back by deleting ours
-        if (inserted) {
-          await ctx.db
-            .delete(apiKey)
-            .where(and(eq(apiKey.id, inserted.id), eq(apiKey.userId, ctx.userId)));
-        }
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: "Maximum of 5 API keys allowed. Revoke an existing key first.",
-        });
-      }
-
-      if (!inserted) {
+      if (!insertedId) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
           message: "Maximum of 5 API keys allowed. Revoke an existing key first.",

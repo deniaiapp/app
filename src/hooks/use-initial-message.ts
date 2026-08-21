@@ -1,178 +1,207 @@
 import type { useChat } from "@ai-sdk/react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { models, resolveReasoningEffort, type ReasoningEffort } from "@/lib/constants";
 
 const INITIAL_MESSAGE_STORAGE_KEY = "deni_initial_message:v1";
 
 type SendMessage = ReturnType<typeof useChat>["sendMessage"];
 
+type StoredInitialMessage = {
+  text: string;
+  files?: Array<{
+    type?: "file";
+    filename?: string;
+    mediaType?: string;
+    url?: string;
+  }>;
+  webSearch: boolean;
+  model?: string;
+  videoMode?: boolean;
+  imageMode?: boolean;
+  reasoningEffort?: string;
+  proMode?: boolean;
+  fastMode?: boolean;
+  deepResearch?: boolean;
+  projectId?: string | null;
+};
+
+export type InitialComposerSeed = {
+  webSearch: boolean;
+  model?: string;
+  videoMode: boolean;
+  imageMode: boolean;
+  reasoningEffort: ReasoningEffort;
+  proMode: boolean;
+  fastMode: boolean;
+  deepResearch: boolean;
+  projectId?: string | null;
+};
+
+type StoreListener = () => void;
+
+const listeners = new Set<StoreListener>();
+let cachedStoredRaw: string | null = null;
+let cachedStoredValue: StoredInitialMessage | null = null;
+
+function emitInitialMessageStore() {
+  for (const listener of listeners) {
+    listener();
+  }
+}
+
+function subscribeInitialMessageStore(onStoreChange: StoreListener) {
+  listeners.add(onStoreChange);
+  return () => {
+    listeners.delete(onStoreChange);
+  };
+}
+
+function parseStoredInitialMessage(raw: string): StoredInitialMessage | null {
+  try {
+    const parsed = JSON.parse(raw) as StoredInitialMessage;
+    if (!parsed || typeof parsed.text !== "string") {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function getServerStoredSnapshot(): StoredInitialMessage | null {
+  return null;
+}
+
+function readStoredInitialMessage(): StoredInitialMessage | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const raw = sessionStorage.getItem(INITIAL_MESSAGE_STORAGE_KEY);
+  if (raw === cachedStoredRaw) {
+    return cachedStoredValue;
+  }
+  cachedStoredRaw = raw;
+  cachedStoredValue = raw ? parseStoredInitialMessage(raw) : null;
+  return cachedStoredValue;
+}
+
+function seedFromStored(stored: StoredInitialMessage, fallbackModel: string): InitialComposerSeed {
+  const effectiveModel = stored.model ?? fallbackModel;
+  const selectedModel = models.find((entry) => entry.value === effectiveModel);
+  return {
+    webSearch: Boolean(stored.webSearch),
+    model: stored.model,
+    videoMode: Boolean(stored.videoMode),
+    imageMode: Boolean(stored.imageMode),
+    reasoningEffort:
+      resolveReasoningEffort(selectedModel?.efforts ?? false, stored.reasoningEffort) ?? "high",
+    proMode: Boolean(stored.proMode && selectedModel?.supportsProMode),
+    fastMode: Boolean(stored.fastMode && selectedModel?.supportsFastMode),
+    deepResearch: Boolean(stored.deepResearch),
+    projectId: stored.projectId ?? null,
+  };
+}
+
+function decodeQueryMessage(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 export function useInitialMessage(params: {
   id: string;
   initialMessagesLength: number;
   model: string;
   sendMessage: SendMessage;
-  setModel: (model: string) => void;
-  setWebSearch: (webSearch: boolean) => void;
-  setVideoMode: (videoMode: boolean) => void;
-  setImageMode: (imageMode: boolean) => void;
-  setReasoningEffort: (effort: ReasoningEffort) => void;
-  setProMode: (enabled: boolean) => void;
-  setFastMode: (enabled: boolean) => void;
-  setDeepResearch: (enabled: boolean) => void;
-  setProjectId?: (projectId: string | null) => void;
   onMessageSent: () => void;
-}) {
-  const {
-    id,
-    initialMessagesLength,
-    model,
-    sendMessage,
-    setModel,
-    setWebSearch,
-    setVideoMode,
-    setImageMode,
-    setReasoningEffort,
-    setProMode,
-    setFastMode,
-    setDeepResearch,
-    setProjectId,
-    onMessageSent,
-  } = params;
-
-  const router = useRouter();
+}): InitialComposerSeed | null {
+  const { id, initialMessagesLength, model, sendMessage, onMessageSent } = params;
   const searchParams = useSearchParams();
+  const stored = useSyncExternalStore(
+    subscribeInitialMessageStore,
+    readStoredInitialMessage,
+    getServerStoredSnapshot,
+  );
+
   const initialMessageSentRef = useRef(false);
-  // Keep latest callbacks/setters without re-firing the mount send effect.
   const sendMessageRef = useRef(sendMessage);
   const onMessageSentRef = useRef(onMessageSent);
   const modelRef = useRef(model);
-  sendMessageRef.current = sendMessage;
-  onMessageSentRef.current = onMessageSent;
-  modelRef.current = model;
+  const [consumedSeed, setConsumedSeed] = useState<{
+    id: string;
+    seed: InitialComposerSeed;
+  } | null>(null);
+
+  useEffect(() => {
+    sendMessageRef.current = sendMessage;
+    onMessageSentRef.current = onMessageSent;
+    modelRef.current = model;
+  });
+
+  const queryMessage = searchParams.get("message");
+  const queryWebSearch = searchParams.get("webSearch") === "true";
+  const liveSeed = stored
+    ? seedFromStored(stored, model)
+    : queryMessage
+      ? {
+          webSearch: queryWebSearch,
+          videoMode: false,
+          imageMode: false,
+          reasoningEffort: "high" as const,
+          proMode: false,
+          fastMode: false,
+          deepResearch: false,
+        }
+      : consumedSeed?.id === id
+        ? consumedSeed.seed
+        : null;
 
   useEffect(() => {
     if (initialMessageSentRef.current || initialMessagesLength > 0) {
       return;
     }
 
-    // Try to get initial message from sessionStorage first (new method with file support)
-    const storedData = sessionStorage.getItem(INITIAL_MESSAGE_STORAGE_KEY);
+    const storedData = readStoredInitialMessage();
     if (storedData) {
-      try {
-        const parsed = JSON.parse(storedData) as {
-          text: string;
-          files?: Array<{
-            type?: "file";
-            filename?: string;
-            mediaType?: string;
-            url?: string;
-          }>;
-          webSearch: boolean;
-          model?: string;
-          videoMode?: boolean;
-          imageMode?: boolean;
-          reasoningEffort?: string;
-          proMode?: boolean;
-          fastMode?: boolean;
-          deepResearch?: boolean;
-          projectId?: string | null;
-        };
-        const files = Array.isArray(parsed.files)
-          ? parsed.files.filter(
-              (file): file is { type: "file"; filename?: string; mediaType: string; url: string } =>
-                Boolean(file?.url && file?.mediaType),
-            )
-          : [];
-
-        initialMessageSentRef.current = true;
-
-        // Clear the stored data to prevent re-sending on refresh
-        sessionStorage.removeItem(INITIAL_MESSAGE_STORAGE_KEY);
-
-        // Set state from stored data
-        if (parsed.webSearch) {
-          setWebSearch(true);
-        }
-        if (parsed.model) {
-          setModel(parsed.model);
-        }
-        if (parsed.videoMode) {
-          setVideoMode(true);
-        }
-        if (parsed.imageMode) {
-          setImageMode(true);
-        }
-        const effectiveModel = parsed.model ?? modelRef.current;
-        const selectedModel = models.find((entry) => entry.value === effectiveModel);
-        const parsedReasoningEffort =
-          resolveReasoningEffort(selectedModel?.efforts ?? false, parsed.reasoningEffort) ?? "high";
-        const parsedProMode = Boolean(parsed.proMode && selectedModel?.supportsProMode);
-        const parsedFastMode = Boolean(parsed.fastMode && selectedModel?.supportsFastMode);
-        setReasoningEffort(parsedReasoningEffort);
-        setProMode(parsedProMode);
-        setFastMode(parsedFastMode);
-        setDeepResearch(Boolean(parsed.deepResearch));
-        setProjectId?.(parsed.projectId ?? null);
-
-        // Send the message with files
-        Promise.resolve(
-          sendMessageRef.current(
-            {
-              text: parsed.text,
-              files: files.length > 0 ? files : undefined,
-            },
-            {
-              body: {
-                model: effectiveModel,
-                webSearch: parsed.webSearch,
-                reasoningEffort: parsedReasoningEffort,
-                proMode: parsedProMode,
-                fastMode: parsedFastMode,
-                video: parsed.videoMode ?? false,
-                image: parsed.imageMode ?? false,
-                deepResearch: parsed.deepResearch ?? false,
-                id,
-              },
-            },
-          ),
-        ).finally(() => {
-          onMessageSentRef.current();
-        });
-
-        return;
-      } catch (e) {
-        console.error("Failed to parse initial message from sessionStorage:", e);
-        sessionStorage.removeItem(INITIAL_MESSAGE_STORAGE_KEY);
-      }
-    }
-
-    // Fallback: check query parameters (legacy method, no file support)
-    const initialMessage = searchParams.get("message");
-    const initialWebSearch = searchParams.get("webSearch") === "true";
-
-    if (initialMessage) {
       initialMessageSentRef.current = true;
-      const decodedMessage = decodeURIComponent(initialMessage);
+      setConsumedSeed({ id, seed: seedFromStored(storedData, modelRef.current) });
+      sessionStorage.removeItem(INITIAL_MESSAGE_STORAGE_KEY);
+      emitInitialMessageStore();
 
-      // Set webSearch state if it was passed from home
-      if (initialWebSearch) {
-        setWebSearch(true);
-      }
+      const files = Array.isArray(storedData.files)
+        ? storedData.files.filter(
+            (file): file is { type: "file"; filename?: string; mediaType: string; url: string } =>
+              Boolean(file?.url && file?.mediaType),
+          )
+        : [];
 
-      // Remove the query params from URL to prevent re-sending on refresh
-      router.replace(`/chat/${id}`, { scroll: false });
+      const sendModel = storedData.model ?? modelRef.current;
+      const sendSelected = models.find((entry) => entry.value === sendModel);
+      const parsedReasoningEffort =
+        resolveReasoningEffort(sendSelected?.efforts ?? false, storedData.reasoningEffort) ??
+        "high";
+      const parsedProMode = Boolean(storedData.proMode && sendSelected?.supportsProMode);
+      const parsedFastMode = Boolean(storedData.fastMode && sendSelected?.supportsFastMode);
 
-      // Send the message with the webSearch setting from query params
       Promise.resolve(
         sendMessageRef.current(
-          { text: decodedMessage },
+          {
+            text: storedData.text,
+            files: files.length > 0 ? files : undefined,
+          },
           {
             body: {
-              model: modelRef.current,
-              webSearch: initialWebSearch,
-              reasoningEffort: "high",
-              video: false,
+              model: sendModel,
+              webSearch: storedData.webSearch,
+              reasoningEffort: parsedReasoningEffort,
+              proMode: parsedProMode,
+              fastMode: parsedFastMode,
+              video: storedData.videoMode ?? false,
+              image: storedData.imageMode ?? false,
+              deepResearch: storedData.deepResearch ?? false,
               id,
             },
           },
@@ -180,8 +209,50 @@ export function useInitialMessage(params: {
       ).finally(() => {
         onMessageSentRef.current();
       });
+      return;
     }
-    // Intentionally only re-run when chat identity / empty-message gate changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- setters are stable; send via refs
-  }, [searchParams, initialMessagesLength, router, id]);
+
+    const initialMessage = searchParams.get("message");
+    if (!initialMessage) {
+      return;
+    }
+
+    initialMessageSentRef.current = true;
+    const decodedMessage = decodeQueryMessage(initialMessage);
+    const initialWebSearch = searchParams.get("webSearch") === "true";
+    setConsumedSeed({
+      id,
+      seed: {
+        webSearch: initialWebSearch,
+        videoMode: false,
+        imageMode: false,
+        reasoningEffort: "high",
+        proMode: false,
+        fastMode: false,
+        deepResearch: false,
+      },
+    });
+
+    window.history.replaceState({}, "", `/chat/${id}`);
+    emitInitialMessageStore();
+
+    Promise.resolve(
+      sendMessageRef.current(
+        { text: decodedMessage },
+        {
+          body: {
+            model: modelRef.current,
+            webSearch: initialWebSearch,
+            reasoningEffort: "high",
+            video: false,
+            id,
+          },
+        },
+      ),
+    ).finally(() => {
+      onMessageSentRef.current();
+    });
+  }, [searchParams, initialMessagesLength, id]);
+
+  return liveSeed;
 }

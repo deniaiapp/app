@@ -12,7 +12,7 @@ export function createBrowseTool() {
     description:
       "Open a specific URL and read its page content as cleaned text. Use when the user provides a link, search snippets are insufficient, or you need details from a known page. Tries a direct fetch first, then falls back to a reader proxy if blocked.",
     inputSchema: z.object({
-      url: z.string().url().describe("The HTTP or HTTPS URL of the page to open and read"),
+      url: z.url().describe("The HTTP or HTTPS URL of the page to open and read"),
       maxChars: z
         .number()
         .int()

@@ -381,7 +381,11 @@ export function AppSidebar({ onOpenChatSearch }: { onOpenChatSearch: () => void 
               value={newFolderName}
               onChange={(event) => setNewFolderName(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === "Enter") {
+                if (
+                  event.key === "Enter" &&
+                  !event.nativeEvent.isComposing &&
+                  event.keyCode !== 229
+                ) {
                   handleCreateFolder();
                 }
               }}

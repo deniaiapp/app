@@ -6,7 +6,7 @@ import { AnimatePresence, LazyMotion, domAnimation, m, useReducedMotion } from "
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useExtracted } from "next-intl";
-import { startTransition, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { startTransition, useEffect, useState, useSyncExternalStore } from "react";
 import { authClient } from "@/lib/auth-client";
 import { isCheckoutSettingsRoute } from "@/lib/settings-routes";
 import { Button } from "@/components/ui/button";
@@ -52,6 +52,52 @@ function dismissTwoFactorBanner() {
   window.dispatchEvent(new Event(DISMISSED_EVENT));
 }
 
+function getAnnouncements(t: (key: string) => string, twoFactorEnabled: boolean): Announcement[] {
+  const items: Announcement[] = [
+    {
+      id: "terms",
+      message: t("Terms - We updated our Terms of Service."),
+      linkLabel: t("Read"),
+      href: "/legal/terms",
+      external: false,
+      icon: FileText,
+      iconClassName: "text-violet-500",
+    },
+    {
+      id: "flixa",
+      message: t("Flixa - A low-cost, high-performance coding agent"),
+      linkLabel: t("Download"),
+      href: "/flixa",
+      external: false,
+      icon: Code2,
+      iconClassName: "text-sky-500",
+    },
+    {
+      id: "api-credits",
+      message: t("API - API now available at 2/3 the price. Get $10 credit for just $1 now."),
+      linkLabel: t("Get it now"),
+      href: "https://platform.deniai.app/free-credits",
+      external: true,
+      icon: KeyRound,
+      iconClassName: "text-amber-500",
+    },
+  ];
+
+  if (!twoFactorEnabled) {
+    items.push({
+      id: "two-factor",
+      message: t("2FA - Enhance your security with two-factor authentication"),
+      linkLabel: t("Setup"),
+      href: "/account/settings",
+      external: false,
+      icon: ShieldCheck,
+      iconClassName: "text-emerald-500",
+    });
+  }
+
+  return items;
+}
+
 export function TwoFactorBanner() {
   const t = useExtracted();
   const pathname = usePathname();
@@ -66,51 +112,7 @@ export function TwoFactorBanner() {
   const [announcementIndex, setAnnouncementIndex] = useState(0);
   const twoFactorEnabled = Boolean(session.data?.user?.twoFactorEnabled);
 
-  const announcements: Announcement[] = useMemo(() => {
-    const items: Announcement[] = [
-      {
-        id: "terms",
-        message: t("Terms - We updated our Terms of Service."),
-        linkLabel: t("Read"),
-        href: "/legal/terms",
-        external: false,
-        icon: FileText,
-        iconClassName: "text-violet-500",
-      },
-      {
-        id: "flixa",
-        message: t("Flixa - A low-cost, high-performance coding agent"),
-        linkLabel: t("Download"),
-        href: "/flixa",
-        external: false,
-        icon: Code2,
-        iconClassName: "text-sky-500",
-      },
-      {
-        id: "api-credits",
-        message: t("API - API now available at 2/3 the price. Get $10 credit for just $1 now."),
-        linkLabel: t("Get it now"),
-        href: "https://platform.deniai.app/free-credits",
-        external: true,
-        icon: KeyRound,
-        iconClassName: "text-amber-500",
-      },
-    ];
-
-    if (!twoFactorEnabled) {
-      items.push({
-        id: "two-factor",
-        message: t("2FA - Enhance your security with two-factor authentication"),
-        linkLabel: t("Setup"),
-        href: "/account/settings",
-        external: false,
-        icon: ShieldCheck,
-        iconClassName: "text-emerald-500",
-      });
-    }
-
-    return items;
-  }, [t, twoFactorEnabled]);
+  const announcements = getAnnouncements(t, twoFactorEnabled);
 
   useEffect(() => {
     if (!visible || announcements.length <= 1) return;
@@ -119,8 +121,9 @@ export function TwoFactorBanner() {
       startTransition(() => {
         setAnnouncementIndex((currentIndex) => {
           const count = announcements.length;
+          const fromIndex = currentIndex < count ? currentIndex : 0;
           let nextIndex = Math.floor(Math.random() * count);
-          if (nextIndex === currentIndex) {
+          if (nextIndex === fromIndex) {
             nextIndex = (nextIndex + 1) % count;
           }
           return nextIndex;
@@ -128,19 +131,12 @@ export function TwoFactorBanner() {
       });
     };
 
-    shuffleAnnouncement();
     const intervalId = window.setInterval(shuffleAnnouncement, ANNOUNCEMENT_INTERVAL_MS);
     return () => window.clearInterval(intervalId);
   }, [visible, announcements.length]);
 
-  // Keep index in range when the announcement list shrinks (e.g. 2FA enabled).
-  useEffect(() => {
-    if (announcementIndex >= announcements.length) {
-      setAnnouncementIndex(0);
-    }
-  }, [announcementIndex, announcements.length]);
-
-  const announcement = announcements[announcementIndex] ?? announcements[0];
+  const visibleAnnouncementIndex = announcementIndex < announcements.length ? announcementIndex : 0;
+  const announcement = announcements[visibleAnnouncementIndex] ?? announcements[0];
   const AnnouncementIcon = announcement.icon;
 
   if (isCheckoutSettingsRoute(pathname) || pathname === "/account/settings") {

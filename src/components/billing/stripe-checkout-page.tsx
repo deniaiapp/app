@@ -14,6 +14,7 @@ import { stripeJsPromise } from "@/lib/stripe-js";
 import { makeTRPCClient } from "@/lib/trpc/client";
 import { type CheckoutSessionSummary as ReceiptCheckoutSessionSummary } from "@/lib/stripe-checkout-receipt";
 import { CheckoutReceiptForm, CheckoutReceiptFormPreview } from "./checkout-receipt-form";
+import { runWithLoading } from "@/lib/run-with-loading";
 import { SubscriptionShredder } from "./subscription-shredder";
 import { SubscriptionReceipt, type SubscriptionReceiptData } from "./subscription-receipt";
 import { Button } from "../ui/button";
@@ -21,6 +22,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui
 import { Spinner } from "../ui/spinner";
 
 type CheckoutSessionSummary = ReceiptCheckoutSessionSummary;
+
+const PREVIEW_PAID_AT = "2024-06-01T12:00:00.000Z";
 
 type BillingCheckoutProps = {
   scope: "billing";
@@ -250,6 +253,7 @@ function CheckoutForm({
   appearance,
   planId,
   plan,
+  sessionPaidAt,
 }: {
   backHref: string;
   returnLabel: string;
@@ -257,12 +261,14 @@ function CheckoutForm({
   appearance: Appearance;
   planId: BillingPlanId | null;
   plan: ClientPlan | null;
+  sessionPaidAt: string | null;
 }) {
   const t = useExtracted();
   const { replace } = useRouter();
   const checkoutState = useCheckout();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmedPaidAt, setConfirmedPaidAt] = useState<string | null>(null);
   const checkout = checkoutState.type === "success" ? checkoutState.checkout : null;
   const receiptHomeLabel = t("Home");
   const receiptCopy = useReceiptCopy()(planId, backHref, receiptHomeLabel);
@@ -318,7 +324,7 @@ function CheckoutForm({
       currency: activeCheckout.currency,
       paymentMethodBrand: savedCard?.brand ?? null,
       paymentMethodLast4: savedCard?.last4 ?? null,
-      paidAt: new Date().toISOString(),
+      paidAt: confirmedPaidAt ?? sessionPaidAt,
     };
 
     return <SubscriptionReceipt data={receipt} />;
@@ -330,31 +336,29 @@ function CheckoutForm({
     }
 
     setSubmitError(null);
-    setIsSubmitting(true);
+    await runWithLoading(setIsSubmitting, async () => {
+      try {
+        const result = await activeCheckout.confirm();
 
-    try {
-      const result = await activeCheckout.confirm();
+        if (result.type === "error") {
+          setSubmitError(result.error.message);
+          toast.error(result.error.message);
+          return;
+        }
 
-      if (result.type === "error") {
-        setSubmitError(result.error.message);
-        toast.error(result.error.message);
-        setIsSubmitting(false);
-        return;
+        setConfirmedPaidAt(new Date().toISOString());
+        startTransition(() => {
+          replace(returnUrl);
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : t("Unable to complete checkout. Please try again.");
+        setSubmitError(message);
+        toast.error(message);
       }
-
-      setIsSubmitting(false);
-      startTransition(() => {
-        replace(returnUrl);
-      });
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : t("Unable to complete checkout. Please try again.");
-      setSubmitError(message);
-      toast.error(message);
-      setIsSubmitting(false);
-    }
+    });
   }
 
   return (
@@ -433,7 +437,7 @@ function PreviewSubscriptionReceipt({
         currency: "usd",
         paymentMethodBrand: "visa",
         paymentMethodLast4: "4242",
-        paidAt: new Date().toISOString(),
+        paidAt: PREVIEW_PAID_AT,
       }}
     />
   );
@@ -462,7 +466,7 @@ function PreviewSubscriptionShred({
         currency: "usd",
         paymentMethodBrand: "visa",
         paymentMethodLast4: "4242",
-        paidAt: new Date().toISOString(),
+        paidAt: PREVIEW_PAID_AT,
       }}
       key={playId}
       onClose={() => setPlayId((current) => current + 1)}
@@ -730,6 +734,7 @@ export function StripeCheckoutPage(props: StripeCheckoutPageProps) {
             appearance={checkoutAppearance}
             planId={resolvedPlanId}
             plan={selectedPlan}
+            sessionPaidAt={session?.paidAt ?? null}
           />
         </CheckoutElementsProvider>
       ) : (

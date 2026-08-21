@@ -53,6 +53,8 @@ import { addOpenRouterCacheControl, ChatRouteError, resolveChatModelContext } fr
 import { buildChatSystemPrompt } from "./_lib/prompt";
 import { ChatRequestSchema, setPendingState } from "./_lib/schema";
 
+const tokenCountFormatter = new Intl.NumberFormat("en-US");
+
 function formatChatStreamError(error: unknown, modelId: string): string {
   console.error("Chat request error", error);
 
@@ -65,7 +67,7 @@ function formatChatStreamError(error: unknown, modelId: string): string {
   const contextWindow = getModelContextWindow(modelId);
 
   if (contextWindow) {
-    return `${modelName} exceeded its context window (${new Intl.NumberFormat("en-US").format(contextWindow)} tokens). Start a new chat or trim earlier messages/files.`;
+    return `${modelName} exceeded its context window (${tokenCountFormatter.format(contextWindow)} tokens). Start a new chat or trim earlier messages/files.`;
   }
 
   return `${modelName} exceeded its context window. Start a new chat or trim earlier messages/files.`;

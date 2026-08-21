@@ -357,9 +357,12 @@ export const shareRouter = router({
       .where(eq(chatShares.ownerId, ctx.userId));
 
     // Collect private share IDs to fetch recipients in a single query
-    const privateShareIds = myShares
-      .filter((item) => item.share.visibility === "private")
-      .map((item) => item.share.id);
+    const privateShareIds: string[] = [];
+    for (const item of myShares) {
+      if (item.share.visibility === "private") {
+        privateShareIds.push(item.share.id);
+      }
+    }
 
     const allRecipients =
       privateShareIds.length > 0

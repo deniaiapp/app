@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import type { ModelOption } from "@/components/chat/chat-composer";
 import { authClient } from "@/lib/auth-client";
 import { getModelsForPlanTier } from "@/lib/constants";
@@ -28,19 +27,13 @@ export function useAvailableModels() {
     staleTime: 30000,
   });
 
-  const availableModels = useMemo<ModelOption[]>(() => {
-    return getModelsForPlanTier(planTier);
-  }, [planTier]);
+  const availableModels: ModelOption[] = getModelsForPlanTier(planTier);
 
-  const providerSettings = useMemo(() => {
-    return new Map<string, ProviderSetting>(
-      (providersQuery.data?.settings ?? []).map((setting) => [setting.provider, setting]),
-    );
-  }, [providersQuery.data?.settings]);
+  const providerSettings = new Map<string, ProviderSetting>(
+    (providersQuery.data?.settings ?? []).map((setting) => [setting.provider, setting]),
+  );
 
-  const providerKeys = useMemo(() => {
-    return new Set((providersQuery.data?.keys ?? []).map((entry) => entry.provider));
-  }, [providersQuery.data?.keys]);
+  const providerKeys = new Set((providersQuery.data?.keys ?? []).map((entry) => entry.provider));
 
   return {
     availableModels,

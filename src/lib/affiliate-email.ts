@@ -1,17 +1,15 @@
 import { createElement } from "react";
-import {
-  AffiliateDiscountCouponEmail,
-  affiliateDiscountCouponEmailSubject,
-} from "@/emails/affiliate-discount-coupon-email";
-import {
-  AffiliateResetRewardEmail,
-  affiliateResetRewardEmailSubject,
-  type AffiliateResetRewardEmailStatus,
-} from "@/emails/affiliate-reset-reward-email";
+import { AffiliateDiscountCouponEmail } from "@/emails/affiliate-discount-coupon-email";
+import { affiliateDiscountCouponEmailSubject } from "@/emails/affiliate-discount-coupon-email-subject";
 import {
   AffiliatePlusCouponEmail,
   affiliatePlusCouponEmailSubject,
 } from "@/emails/affiliate-plus-coupon-email";
+import { AffiliateResetRewardEmail } from "@/emails/affiliate-reset-reward-email";
+import {
+  affiliateResetRewardEmailSubject,
+  type AffiliateResetRewardEmailStatus,
+} from "@/emails/affiliate-reset-reward-email-subject";
 import { AFFILIATE_DISCOUNT_PERCENT } from "@/lib/affiliate-types";
 import { sendEmail } from "@/lib/email";
 

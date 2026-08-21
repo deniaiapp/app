@@ -1,18 +1,11 @@
 import { Body, Container, Head, Heading, Html, Preview, Text } from "@react-email/components";
-
-export type AffiliateResetRewardEmailStatus = "approved" | "rejected";
+import type { AffiliateResetRewardEmailStatus } from "@/emails/affiliate-reset-reward-email-subject";
 
 type AffiliateResetRewardEmailProps = {
   name?: string | null;
   quantity: number;
   status: AffiliateResetRewardEmailStatus;
 };
-
-export function affiliateResetRewardEmailSubject(status: AffiliateResetRewardEmailStatus) {
-  return status === "approved"
-    ? "Your Deni AI referral reward was approved"
-    : "Update on your Deni AI referral reward";
-}
 
 export function AffiliateResetRewardEmail({
   name,

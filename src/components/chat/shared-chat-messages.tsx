@@ -48,20 +48,40 @@ function isTextPart(
   return part.type === "text";
 }
 
+function getPartRenderKeys(message: UIMessage): string[] {
+  const occurrences = new Map<string, number>();
+
+  return (message.parts ?? []).map((part) => {
+    const toolCallId =
+      "toolCallId" in part && typeof part.toolCallId === "string" ? part.toolCallId.trim() : "";
+    const baseKey =
+      toolCallId.length > 0
+        ? `${message.id}-${part.type}-${toolCallId}`
+        : `${message.id}-${part.type}`;
+    const duplicateCount = occurrences.get(baseKey) ?? 0;
+    occurrences.set(baseKey, duplicateCount + 1);
+    return duplicateCount === 0 ? baseKey : `${baseKey}-${duplicateCount}`;
+  });
+}
+
 function SharedAssistantParts({ message }: { message: UIMessage }) {
   const t = useExtracted();
+  const parts = message.parts ?? [];
+  const partRenderKeys = getPartRenderKeys(message);
 
   return (
     <div className="space-y-2">
-      {message.parts?.map((part, i) => {
+      {parts.map((part, position) => {
+        const renderKey = partRenderKeys[position];
+        const isLastPart = position === parts.length - 1;
         switch (part.type) {
           case "text":
             return (
-              <Message key={`${message.id}-${i}`} from={message.role}>
+              <Message key={renderKey} from={message.role}>
                 <MessageContent>
                   <MessageResponse>{part.text}</MessageResponse>
                 </MessageContent>
-                {i === (message.parts?.length ?? 0) - 1 && (
+                {isLastPart && (
                   <MessageActions>
                     <MessageAction
                       onClick={() => navigator.clipboard.writeText(part.text)}
@@ -75,7 +95,7 @@ function SharedAssistantParts({ message }: { message: UIMessage }) {
             );
           case "reasoning":
             return (
-              <Reasoning key={`${message.id}-${i}`} className="w-full">
+              <Reasoning key={renderKey} className="w-full">
                 <ReasoningTrigger />
                 <ReasoningContent>{part.text}</ReasoningContent>
               </Reasoning>
@@ -108,7 +128,7 @@ function SharedAssistantParts({ message }: { message: UIMessage }) {
             const searchResults = isSearchResultArray(part.output) ? part.output : [];
 
             return (
-              <div className="w-full my-4" key={`${message.id}-${i}`}>
+              <div className="w-full my-4" key={renderKey}>
                 <Collapsible>
                   <CollapsibleTrigger className="group flex items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground">
                     <Globe className="size-4" />
@@ -204,7 +224,7 @@ function SharedAssistantParts({ message }: { message: UIMessage }) {
 
             return (
               <div
-                key={part.toolCallId ?? `${message.id}-${i}`}
+                key={renderKey}
                 className="flex items-center gap-2 text-muted-foreground text-sm"
               >
                 <Globe className="size-4" />
@@ -228,7 +248,7 @@ function SharedAssistantParts({ message }: { message: UIMessage }) {
           case "tool-video": {
             if (part.state !== "output-available" && part.state !== "output-error") {
               return (
-                <Message key={`${message.id}-${i}`} from={message.role}>
+                <Message key={renderKey} from={message.role}>
                   <MessageContent className="w-full gap-2 rounded-lg border border-border/60 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
                     <div className="flex items-center gap-2">
                       <Spinner className="size-4" />
@@ -241,7 +261,7 @@ function SharedAssistantParts({ message }: { message: UIMessage }) {
 
             if (part.state === "output-error") {
               return (
-                <Message key={`${message.id}-${i}`} from={message.role}>
+                <Message key={renderKey} from={message.role}>
                   <MessageContent className="w-full text-sm text-destructive">
                     {t("Video generation failed.")}
                   </MessageContent>
@@ -253,7 +273,7 @@ function SharedAssistantParts({ message }: { message: UIMessage }) {
 
             if (!output) {
               return (
-                <Message key={`${message.id}-${i}`} from={message.role}>
+                <Message key={renderKey} from={message.role}>
                   <MessageContent className="w-full text-sm text-destructive">
                     {t("Video output unavailable.")}
                   </MessageContent>
@@ -264,7 +284,7 @@ function SharedAssistantParts({ message }: { message: UIMessage }) {
             const resolvedModelLabel = resolveVeoModelLabel(output.model, output.modelLabel, t);
 
             return (
-              <Message key={`${message.id}-${i}`} from={message.role}>
+              <Message key={renderKey} from={message.role}>
                 <MessageContent className="w-full gap-3 rounded-lg border border-border/60 bg-background/90 px-4 py-3">
                   {output.negativePrompt && (
                     <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs">
@@ -325,15 +345,20 @@ export interface SharedChatMessagesProps {
 }
 
 export function SharedChatMessages({ messages, messageRenderKeys }: SharedChatMessagesProps) {
+  const keyedMessages = messages.map((message, position) => ({
+    message,
+    renderKey: messageRenderKeys[position] ?? message.id,
+  }));
+
   return (
     <Conversation className="flex-1 min-h-0 h-full">
       <ConversationContent>
-        {messages.map((message, index) => {
+        {keyedMessages.map(({ message, renderKey }) => {
           const fileParts = message.parts.filter(isFilePart);
           const textParts = message.parts.filter(isTextPart);
 
           return (
-            <div key={messageRenderKeys[index]}>
+            <div key={renderKey}>
               {message.role === "user" && (
                 <Message from="user">
                   <MessageContent>
