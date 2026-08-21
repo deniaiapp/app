@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { m } from "motion/react";
 import Link from "next/link";
@@ -18,7 +18,7 @@ const AnimatedGradient = dynamic(() => import("@/components/animated-gradient"),
   loading: () => <div className="absolute inset-0 bg-background" aria-hidden />,
 });
 
-export function HomeHeroSection() {
+export function HomeHeroSection({ featuredBadge }: { featuredBadge?: ReactNode }) {
   const t = useExtracted();
 
   const aiLogos = [
@@ -44,6 +44,7 @@ export function HomeHeroSection() {
       <section className="min-h-[100vh] relative px-4 pt-32 pb-20 md:pt-48 md:pb-32">
         <div className="mx-auto max-w-5xl">
           <div className="flex flex-col items-center text-center">
+            {featuredBadge}
             <h1 className="mb-8 text-4xl font-semibold leading-[1.02] tracking-tight sm:text-6xl md:text-8xl">
               <BlurReveal className="block" delay={0.2}>
                 {t("The AI Assistant")}

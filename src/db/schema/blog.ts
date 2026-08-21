@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, pgEnum, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { boolean, index, pgEnum, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { user } from "./auth-schema";
 
 export const blogPostStatusEnum = pgEnum("blog_post_status", ["draft", "published"]);
@@ -19,6 +19,7 @@ export const blogPost = pgTable(
     descriptionJa: text("description_ja").notNull().default(""),
     bodyJa: text("body_ja").notNull().default(""),
     author: text("author").notNull().default("Deni AI team"),
+    featured: boolean("featured").notNull().default(false),
     publishedAt: timestamp("published_at"),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -30,5 +31,6 @@ export const blogPost = pgTable(
   (table) => [
     uniqueIndex("blog_post_slug_idx").on(table.slug),
     index("blog_post_status_published_at_idx").on(table.status, table.publishedAt),
+    index("blog_post_featured_status_idx").on(table.featured, table.status),
   ],
 );

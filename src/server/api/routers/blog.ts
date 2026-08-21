@@ -37,6 +37,8 @@ function requireBlogAdmin(email: string | null | undefined) {
 
 function revalidateBlog(slug: string, previousSlug?: string) {
   revalidateTag(BLOG_CACHE_TAG, "max");
+  revalidatePath("/");
+  revalidatePath("/home");
   revalidatePath("/blog");
   revalidatePath(`/blog/${slug}`);
   revalidatePath("/blog/rss.xml");
@@ -206,7 +208,7 @@ export const blogRouter = router({
 
       const [updated] = await ctx.db
         .update(blogPost)
-        .set({ status: "draft" })
+        .set({ status: "draft", featured: false })
         .where(eq(blogPost.id, input.id))
         .returning();
 
@@ -214,6 +216,46 @@ export const blogRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Could not unpublish the post.",
+        });
+      }
+
+      revalidateBlog(updated.slug);
+      return updated;
+    }),
+
+  setFeatured: protectedProcedure
+    .input(z.object({ id: z.string().min(1), featured: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      requireBlogAdmin(ctx.session?.user?.email);
+      const [existing] = await ctx.db
+        .select()
+        .from(blogPost)
+        .where(eq(blogPost.id, input.id))
+        .limit(1);
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Post not found." });
+      }
+      if (input.featured && existing.status !== "published") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Publish the post before featuring it on the homepage.",
+        });
+      }
+
+      if (input.featured) {
+        await ctx.db.update(blogPost).set({ featured: false }).where(eq(blogPost.featured, true));
+      }
+
+      const [updated] = await ctx.db
+        .update(blogPost)
+        .set({ featured: input.featured })
+        .where(eq(blogPost.id, input.id))
+        .returning();
+
+      if (!updated) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Could not update featured state.",
         });
       }
 

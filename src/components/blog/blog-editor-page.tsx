@@ -80,6 +80,16 @@ export function BlogEditorPage({ postId }: { postId?: string }) {
     },
     onError: (error) => toast.error(error.message),
   });
+  const setFeatured = trpc.blog.setFeatured.useMutation({
+    onSuccess: async (post) => {
+      toast.success(post.featured ? t("Featured on the homepage") : t("Removed from homepage"));
+      await Promise.all([
+        utils.blog.list.invalidate(),
+        postId ? utils.blog.get.invalidate({ id: postId }) : null,
+      ]);
+    },
+    onError: (error) => toast.error(error.message),
+  });
   const unpublishPost = trpc.blog.unpublish.useMutation({
     onSuccess: async () => {
       toast.success(t("Moved to draft"));
@@ -156,13 +166,27 @@ export function BlogEditorPage({ postId }: { postId?: string }) {
             {isSaving ? t("Saving…") : t("Save draft")}
           </Button>
           {postId && status === "published" ? (
-            <Button
-              variant="outline"
-              disabled={isPublishing}
-              onClick={() => unpublishPost.mutate({ id: postId })}
-            >
-              {t("Unpublish")}
-            </Button>
+            <>
+              <Button
+                variant={postQuery.data?.featured ? "secondary" : "outline"}
+                disabled={setFeatured.isPending}
+                onClick={() =>
+                  setFeatured.mutate({
+                    id: postId,
+                    featured: !postQuery.data?.featured,
+                  })
+                }
+              >
+                {postQuery.data?.featured ? t("Unfeature") : t("Feature on homepage")}
+              </Button>
+              <Button
+                variant="outline"
+                disabled={isPublishing}
+                onClick={() => unpublishPost.mutate({ id: postId })}
+              >
+                {t("Unpublish")}
+              </Button>
+            </>
           ) : null}
           {postId ? (
             <Button

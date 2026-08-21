@@ -1,6 +1,6 @@
 "use client";
 
-import { FilePlus2, Newspaper, Pencil, Trash2 } from "lucide-react";
+import { FilePlus2, Newspaper, Pencil, Star, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useExtracted, useLocale } from "next-intl";
 import { useState } from "react";
@@ -31,6 +31,14 @@ export function BlogSettingsPage() {
     enabled: canManage.data === true,
   });
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const setFeatured = trpc.blog.setFeatured.useMutation({
+    onSuccess: async (post) => {
+      toast.success(post.featured ? t("Featured on the homepage") : t("Removed from homepage"));
+      await utils.blog.list.invalidate();
+    },
+    onError: (error) => toast.error(error.message),
+  });
 
   const deletePost = trpc.blog.delete.useMutation({
     onSuccess: async () => {
@@ -96,6 +104,7 @@ export function BlogSettingsPage() {
                   <Badge variant={post.status === "published" ? "default" : "secondary"}>
                     {post.status === "published" ? t("Published") : t("Draft")}
                   </Badge>
+                  {post.featured ? <Badge variant="outline">{t("Featured")}</Badge> : null}
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">/{post.slug}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -104,11 +113,22 @@ export function BlogSettingsPage() {
               </div>
               <div className="flex items-center gap-2">
                 {post.status === "published" ? (
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={`/blog/${post.slug}`} target="_blank">
-                      {t("View")}
-                    </Link>
-                  </Button>
+                  <>
+                    <Button
+                      variant={post.featured ? "secondary" : "outline"}
+                      size="sm"
+                      disabled={setFeatured.isPending}
+                      onClick={() => setFeatured.mutate({ id: post.id, featured: !post.featured })}
+                    >
+                      <Star className={post.featured ? "size-3.5 fill-current" : "size-3.5"} />
+                      {post.featured ? t("Unfeature") : t("Feature")}
+                    </Button>
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/blog/${post.slug}`} target="_blank">
+                        {t("View")}
+                      </Link>
+                    </Button>
+                  </>
                 ) : null}
                 <Button variant="outline" size="sm" asChild>
                   <Link href={`/settings/blog/${post.id}`}>

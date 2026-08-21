@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getExtracted } from "next-intl/server";
 import { Suspense } from "react";
+import { HomeFeaturedBadge } from "./home-featured-badge";
 import { ClientHome } from "./home-client";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -114,7 +115,13 @@ export default function Home() {
       <Suspense fallback={null}>
         <HomeJsonLd />
       </Suspense>
-      <ClientHome />
+      <ClientHome
+        featuredBadge={
+          <Suspense fallback={null}>
+            <HomeFeaturedBadge />
+          </Suspense>
+        }
+      />
     </>
   );
 }

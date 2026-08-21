@@ -138,6 +138,7 @@ export default async function BlogPage() {
             fallback={<div className="h-40 rounded-[1.5rem] border border-border/70 bg-card" />}
           >
             <BlogIndexList
+              featuredLabel={t("Featured")}
               locale={locale}
               readLabel={t("Read article")}
               staticPosts={staticPosts}
@@ -184,10 +185,12 @@ export default async function BlogPage() {
 }
 
 async function BlogIndexList({
+  featuredLabel,
   locale,
   readLabel,
   staticPosts,
 }: {
+  featuredLabel: string;
   locale: string;
   readLabel: string;
   staticPosts: Array<{
@@ -196,6 +199,7 @@ async function BlogIndexList({
     description: string;
     date: string;
     href: string;
+    featured?: boolean;
   }>;
 }) {
   const managed = await listPublishedManagedPosts();
@@ -207,11 +211,15 @@ async function BlogIndexList({
       description: copy.description,
       date: toIsoDate(post.publishedAt ?? post.createdAt),
       href: getBlogPostPath(post.slug),
+      featured: post.featured,
     };
   });
-  const datedPosts = [...managedPosts, ...staticPosts].sort((left, right) =>
-    right.date.localeCompare(left.date),
-  );
+  const datedPosts = [...managedPosts, ...staticPosts].sort((left, right) => {
+    if (Boolean(left.featured) !== Boolean(right.featured)) {
+      return left.featured ? -1 : 1;
+    }
+    return right.date.localeCompare(left.date);
+  });
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -238,8 +246,13 @@ async function BlogIndexList({
           key={post.href}
           className="rounded-[1.5rem] border border-border/70 bg-card p-6 transition-colors hover:border-foreground/30"
         >
-          <p className="text-sm text-muted-foreground">
+          <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <time dateTime={post.date}>{formatAppDate(post.date, locale)}</time>
+            {post.featured ? (
+              <span className="rounded-full bg-foreground px-2 py-0.5 text-[10px] font-semibold tracking-[0.16em] text-background uppercase">
+                {featuredLabel}
+              </span>
+            ) : null}
           </p>
           <h2 className="mt-3 text-2xl font-semibold tracking-tight">
             <Link href={post.href} className="hover:underline">

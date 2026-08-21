@@ -19,6 +19,21 @@ export async function listPublishedManagedPosts() {
     .orderBy(desc(blogPost.publishedAt), desc(blogPost.updatedAt));
 }
 
+export async function getFeaturedPublishedPost() {
+  "use cache";
+  cacheTag(BLOG_CACHE_TAG);
+  cacheLife("hours");
+
+  const [post] = await db
+    .select()
+    .from(blogPost)
+    .where(and(eq(blogPost.status, "published"), eq(blogPost.featured, true)))
+    .orderBy(desc(blogPost.publishedAt), desc(blogPost.updatedAt))
+    .limit(1);
+
+  return post ?? null;
+}
+
 export async function getPublishedManagedPost(slug: string) {
   "use cache";
   cacheTag(BLOG_CACHE_TAG, `${BLOG_CACHE_TAG}:${slug}`);
