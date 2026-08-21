@@ -7,7 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     description:
       "Access GPT, Claude, Gemini and more AI models in one place. Free, fast, and private AI chat for everyone.",
     id: "/",
-    start_url: "/home",
+    start_url: "/",
     scope: "/",
     display: "standalone",
     orientation: "any",
