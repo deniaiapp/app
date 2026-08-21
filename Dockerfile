@@ -146,8 +146,9 @@ ENV PORT=3000 \
   NEXT_TELEMETRY_DISABLED=1 \
   NODE_ENV=production
 
-RUN adduser --system --uid 1001 nextjs && \
-      usermod -aG bun nextjs
+# oven/bun images have adduser but not usermod (no passwd extras).
+# Create nextjs in the existing bun group so COPY --chown=nextjs:bun works.
+RUN adduser --system --uid 1001 --ingroup bun nextjs
 
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:bun /app/.next/standalone ./
