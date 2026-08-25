@@ -102,7 +102,7 @@ Details: [SETUP.md](SETUP.md).
 
 ### Before you start
 
-1. Check existing [issues](https://github.com/teamzisty/deni-ai/issues) and [pull requests](https://github.com/teamzisty/deni-ai/pulls)
+1. Check existing [issues](https://github.com/deniaiapp/app/issues) and [pull requests](https://github.com/deniaiapp/app/pulls)
 2. For major changes, open an issue first
 3. Keep PRs focused; avoid unrelated refactors
 
@@ -238,7 +238,7 @@ Do **not** file public issues for vulnerabilities. Follow [SECURITY.md](SECURITY
 
 ## Questions?
 
-- [Discussions](https://github.com/teamzisty/deni-ai/discussions)
+- [Discussions](https://github.com/deniaiapp/app/discussions)
 - [SETUP.md](SETUP.md) and [README.md](README.md)
 - Maintainers via issues/PRs
 

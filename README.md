@@ -38,7 +38,7 @@ Deni AI is a multi-model AI chat app for people who want strong model choice wit
 
 ```bash
 # Clone
-git clone https://github.com/teamzisty/deni-ai.git
+git clone https://github.com/deniaiapp/app.git
 cd deni-ai
 
 # Install
@@ -108,6 +108,6 @@ Sponsorships help cover hosting, infrastructure, and ongoing maintenance so we c
 
 ## Support
 
-For issues, questions, or suggestions, please open a GitHub [issue](https://github.com/teamzisty/deni-ai/issues) or [discussion](https://github.com/teamzisty/deni-ai/discussions).
+For issues, questions, or suggestions, please open a GitHub [issue](https://github.com/deniaiapp/app/issues) or [discussion](https://github.com/deniaiapp/app/discussions).
 
 Security vulnerabilities: report privately per [SECURITY.md](SECURITY.md) — do not use public issues.

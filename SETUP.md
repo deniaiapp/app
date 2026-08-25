@@ -19,7 +19,7 @@ Source of truth for validated env vars: [`src/env.ts`](src/env.ts). Starter temp
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/teamzisty/deni-ai.git
+git clone https://github.com/deniaiapp/app.git
 cd deni-ai
 ```
 
