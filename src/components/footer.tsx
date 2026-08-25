@@ -107,7 +107,7 @@ const Footer = () => {
 
         <div className="mt-10 border-t border-border/40 pt-6">
           <p className="text-center text-xs text-muted-foreground md:text-left">
-            {t("© 2026 Zisty. All rights reserved.")}
+            {t("© 2026 Deni AI team. All rights reserved.")}
           </p>
         </div>
       </div>
