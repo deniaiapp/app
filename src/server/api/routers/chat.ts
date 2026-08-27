@@ -1,7 +1,7 @@
 import type { UIMessage } from "ai";
 import { safeValidateUIMessages } from "ai";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import type { db as Db } from "@/db/drizzle";
 import { chats, projects } from "@/db/schema";
@@ -14,6 +14,7 @@ export type ChatPagePayload = {
   title: string | null;
   projectId: string | null;
   projectName: string | null;
+  projectDefaultModel: string | null;
   messages: UIMessage[];
 };
 
@@ -29,6 +30,7 @@ async function loadChatPage(
       projectId: chats.projectId,
       messages: chats.messages,
       projectName: projects.name,
+      projectDefaultModel: projects.defaultModel,
     })
     .from(chats)
     .leftJoin(projects, and(eq(projects.id, chats.projectId), eq(projects.userId, userId)))
@@ -48,6 +50,7 @@ async function loadChatPage(
     title: row.title,
     projectId: row.projectId,
     projectName: row.projectName ?? null,
+    projectDefaultModel: row.projectDefaultModel ?? null,
     messages: validated.success ? validated.data : [],
   };
 }
@@ -145,7 +148,13 @@ export const chatRouter = router({
         const [owned] = await ctx.db
           .select({ id: projects.id })
           .from(projects)
-          .where(and(eq(projects.id, rawProjectId), eq(projects.userId, ctx.userId)))
+          .where(
+            and(
+              eq(projects.id, rawProjectId),
+              eq(projects.userId, ctx.userId),
+              isNull(projects.archivedAt),
+            ),
+          )
           .limit(1);
         if (owned) {
           projectId = owned.id;

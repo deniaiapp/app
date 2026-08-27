@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { chats, projectFiles, projects } from "@/db/schema";
 import { protectedProcedure, router } from "../trpc";
@@ -8,16 +8,24 @@ const projectInputSchema = z.object({
   description: z.string().trim().max(240).nullable(),
   instructions: z.string().trim().max(4000),
   color: z.string().trim().min(1).max(32),
+  defaultModel: z.string().trim().min(1).max(80).nullable().optional(),
 });
 
 export const projectsRouter = router({
-  list: protectedProcedure.query(async ({ ctx }) => {
-    return ctx.db
-      .select()
-      .from(projects)
-      .where(eq(projects.userId, ctx.userId))
-      .orderBy(asc(projects.name));
-  }),
+  list: protectedProcedure
+    .input(z.object({ includeArchived: z.boolean().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      return ctx.db
+        .select()
+        .from(projects)
+        .where(
+          and(
+            eq(projects.userId, ctx.userId),
+            input?.includeArchived ? undefined : isNull(projects.archivedAt),
+          ),
+        )
+        .orderBy(asc(projects.name));
+    }),
 
   get: protectedProcedure
     .input(z.object({ id: z.string().min(1) }))
@@ -65,9 +73,34 @@ export const projectsRouter = router({
         .set({
           ...fields,
           description: fields.description ?? null,
+          defaultModel: fields.defaultModel ?? null,
           updatedAt: new Date(),
         })
         .where(and(eq(projects.id, id), eq(projects.userId, ctx.userId)))
+        .returning();
+
+      return project ?? null;
+    }),
+
+  archive: protectedProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      const [project] = await ctx.db
+        .update(projects)
+        .set({ archivedAt: new Date(), updatedAt: new Date() })
+        .where(and(eq(projects.id, input.id), eq(projects.userId, ctx.userId)))
+        .returning();
+
+      return project ?? null;
+    }),
+
+  restore: protectedProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      const [project] = await ctx.db
+        .update(projects)
+        .set({ archivedAt: null, updatedAt: new Date() })
+        .where(and(eq(projects.id, input.id), eq(projects.userId, ctx.userId)))
         .returning();
 
       return project ?? null;

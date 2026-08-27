@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { TRPCError } from "@trpc/server";
 import { alias } from "drizzle-orm/pg-core";
 import { desc, eq, inArray } from "drizzle-orm";
@@ -103,7 +103,9 @@ export const affiliateRouter = router({
       }
 
       try {
-        const result = await claimAffiliateReferral({ userId: ctx.userId, code });
+        const headerStore = await headers();
+        const claimIp = headerStore.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+        const result = await claimAffiliateReferral({ userId: ctx.userId, code, claimIp });
         cookieStore.delete(AFFILIATE_COOKIE_NAME);
         return result;
       } catch (error) {

@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { ActiveSessions } from "./active-sessions";
 import { ChangePassword } from "./change-password";
 import { LinkedAccounts } from "./linked-accounts";
+import { SecurityActivity } from "./security-activity";
 
 export type SecuritySettingsProps = {
   className?: string;
@@ -27,6 +28,7 @@ export function SecuritySettings({ className }: SecuritySettingsProps) {
       {emailAndPassword?.enabled && <ChangePassword />}
       {!!socialProviders?.length && <LinkedAccounts />}
       <ActiveSessions />
+      <SecurityActivity />
       {plugins.flatMap(
         (plugin) =>
           plugin.securityCards?.map((Card, index) => (

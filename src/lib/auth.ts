@@ -4,7 +4,6 @@ import { APIError, createAuthMiddleware } from "better-auth/api";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import {
   anonymous,
-  bearer,
   captcha,
   haveIBeenPwned,
   lastLoginMethod,
@@ -27,6 +26,11 @@ import {
   signupEmailDenialCode,
   signupEmailDenialMessage,
 } from "@/lib/email-domain-policy";
+import {
+  isAnonymousUser,
+  recordSecurityActivity,
+  securityActionForAuthPath,
+} from "@/lib/security-activity";
 import {
   cancelPersonalSubscription,
   cancelTeamSubscriptionForDeletion,
@@ -81,6 +85,25 @@ export const auth = betterAuth({
       }
 
       assertAllowedSignupEmail(email);
+    }),
+    after: createAuthMiddleware(async (ctx) => {
+      const action = securityActionForAuthPath(ctx.path);
+      if (!action) return;
+
+      const sessionUser = ctx.context.session?.user ?? ctx.context.newSession?.user ?? null;
+      const userId = sessionUser?.id ?? ctx.context.session?.session?.userId;
+      if (!userId || sessionUser?.isAnonymous) return;
+
+      const session = ctx.context.session?.session ?? ctx.context.newSession?.session;
+      void recordSecurityActivity({
+        userId,
+        action,
+        ipAddress: session?.ipAddress ?? null,
+        userAgent: session?.userAgent ?? null,
+        metadata: { path: ctx.path },
+      }).catch((error) => {
+        console.error("Failed to record security activity", error);
+      });
     }),
   },
   emailAndPassword: {
@@ -238,7 +261,6 @@ export const auth = betterAuth({
         "/sign-in/magic-link",
       ],
     }),
-    bearer(),
     ...(emailEnabled
       ? [
           magicLink({
@@ -322,6 +344,24 @@ export const auth = betterAuth({
           const email = typeof data.email === "string" ? data.email : undefined;
           if (!email) return;
           assertAllowedSignupEmail(email);
+        },
+      },
+    },
+    session: {
+      create: {
+        after: async (session) => {
+          if (!session.userId) return;
+          try {
+            if (await isAnonymousUser(session.userId)) return;
+            await recordSecurityActivity({
+              userId: session.userId,
+              action: "signed_in",
+              ipAddress: session.ipAddress,
+              userAgent: session.userAgent,
+            });
+          } catch (error) {
+            console.error("Failed to record sign-in activity", error);
+          }
         },
       },
     },

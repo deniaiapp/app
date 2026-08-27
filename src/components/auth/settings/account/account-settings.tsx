@@ -5,6 +5,7 @@ import type { ComponentProps } from "react";
 
 import { cn } from "@/lib/utils";
 import { ChangeEmail } from "./change-email";
+import { ExportData } from "./export-data";
 import { UserProfile } from "./user-profile";
 
 export type AccountSettingsProps = {
@@ -34,6 +35,7 @@ export function AccountSettings({
     <div className={cn("flex w-full flex-col gap-4 md:gap-6", className)} {...props}>
       <UserProfile />
       {(emailAndPassword?.enabled || hasMagicLink) && <ChangeEmail />}
+      <ExportData />
       {plugins.flatMap(
         (plugin) =>
           plugin.accountCards?.map((Card, index) => (

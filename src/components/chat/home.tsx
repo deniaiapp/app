@@ -86,6 +86,15 @@ export default function ChatHome() {
     setModel(availableModels[0].value);
   }
 
+  const handleProjectChange = (nextProjectId: string | null) => {
+    setProjectId(nextProjectId);
+    const nextProject = projectsQuery.data?.find((project) => project.id === nextProjectId);
+    const nextModel = nextProject?.defaultModel;
+    if (nextModel && availableModels.some((entry) => entry.value === nextModel)) {
+      setModel(nextModel);
+    }
+  };
+
   const handleSubmit = (
     message: ComposerMessage,
     options: {
@@ -220,7 +229,7 @@ export default function ChatHome() {
             <ProjectSelect
               projects={projectsQuery.data ?? []}
               value={projectId}
-              onValueChange={setProjectId}
+              onValueChange={handleProjectChange}
               onCreateClick={() => push("/settings/projects")}
             />
           </div>

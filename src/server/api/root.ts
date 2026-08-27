@@ -1,3 +1,4 @@
+import { accountRouter } from "./routers/account";
 import { apiKeysRouter } from "./routers/api-keys";
 import { affiliateRouter } from "./routers/affiliate";
 import { billingRouter } from "./routers/billing";
@@ -12,6 +13,7 @@ import { shareRouter } from "./routers/share";
 import { router } from "./trpc";
 
 export const appRouter = router({
+  account: accountRouter,
   apiKeys: apiKeysRouter,
   affiliate: affiliateRouter,
   blog: blogRouter,

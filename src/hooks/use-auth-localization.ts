@@ -69,6 +69,13 @@ export function useAuthLocalization() {
       accountUnlinked: t("Account unlinked"),
       active: t("Active"),
       activeSessions: t("Active sessions"),
+      freshSessionTitle: t("Confirm it's you"),
+      freshSessionDescription: t(
+        "For your security, please verify your identity again before continuing.",
+      ),
+      freshSessionSubmit: t("Confirm and continue"),
+      freshSessionSignIn: t("Please sign out and sign in again to continue."),
+      freshSessionSuccess: t("Your identity was confirmed."),
       avatar: t("Avatar"),
       currentSession: t("Current session"),
       avatarChangedSuccess: t("Avatar changed successfully"),

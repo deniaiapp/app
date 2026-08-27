@@ -15,13 +15,18 @@ export const projects = pgTable(
     description: text("description"),
     instructions: text("instructions").notNull().default(""),
     color: text("color").notNull().default("amber"),
+    defaultModel: text("default_model"),
+    archivedAt: timestamp("archived_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
       .notNull()
       .$onUpdate(() => new Date()),
   },
-  (table) => [index("projects_user_id_idx").on(table.userId)],
+  (table) => [
+    index("projects_user_id_idx").on(table.userId),
+    index("projects_user_archived_idx").on(table.userId, table.archivedAt),
+  ],
 );
 
 export const projectFiles = pgTable(

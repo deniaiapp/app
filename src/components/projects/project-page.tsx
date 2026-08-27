@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArchiveIcon,
   FileIcon,
   MessageSquareIcon,
   PlusIcon,
@@ -9,13 +10,23 @@ import {
   UploadIcon,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useExtracted } from "next-intl";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { useAvailableModels } from "@/hooks/use-available-models";
 import { useNewChat } from "@/hooks/use-new-chat";
 import { trpc } from "@/lib/trpc/react";
 
@@ -46,7 +57,10 @@ async function uploadProjectFile(file: File) {
 }
 
 export function ProjectPage({ projectId, initialProjectName }: ProjectPageProps) {
+  const t = useExtracted();
+  const { push } = useRouter();
   const utils = trpc.useUtils();
+  const { availableModels } = useAvailableModels();
 
   const projectQuery = trpc.projects.get.useQuery({ id: projectId });
   const chatsQuery = trpc.projects.getProjectChats.useQuery({ projectId });
@@ -58,6 +72,7 @@ export function ProjectPage({ projectId, initialProjectName }: ProjectPageProps)
   const [name, setName] = useState(project?.name ?? initialProjectName);
   const [description, setDescription] = useState(project?.description ?? "");
   const [instructions, setInstructions] = useState(project?.instructions ?? "");
+  const [defaultModel, setDefaultModel] = useState(project?.defaultModel ?? "");
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -68,14 +83,23 @@ export function ProjectPage({ projectId, initialProjectName }: ProjectPageProps)
     setName(project.name);
     setDescription(project.description ?? "");
     setInstructions(project.instructions);
+    setDefaultModel(project.defaultModel ?? "");
     setSynced(true);
   }
 
   const updateProject = trpc.projects.update.useMutation({
     onSuccess: () => {
-      toast.success("Project saved");
+      toast.success(t("Project saved"));
       void utils.projects.list.invalidate();
       void utils.projects.get.invalidate({ id: projectId });
+    },
+  });
+
+  const archiveProject = trpc.projects.archive.useMutation({
+    onSuccess: () => {
+      toast.success(t("Project archived"));
+      void utils.projects.list.invalidate();
+      push("/settings/projects");
     },
   });
 
@@ -106,6 +130,7 @@ export function ProjectPage({ projectId, initialProjectName }: ProjectPageProps)
       description: description.trim() || null,
       instructions,
       color: project?.color ?? "amber",
+      defaultModel: defaultModel || null,
     });
   };
 
@@ -180,40 +205,80 @@ export function ProjectPage({ projectId, initialProjectName }: ProjectPageProps)
           </h2>
 
           <div className="space-y-2">
-            <Label htmlFor="proj-name">Name</Label>
+            <Label htmlFor="proj-name">{t("Name")}</Label>
             <Input
               id="proj-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Project name"
+              placeholder={t("Project name")}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="proj-desc">Description</Label>
+            <Label htmlFor="proj-desc">{t("Description")}</Label>
             <Input
               id="proj-desc"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Short description (optional)"
+              placeholder={t("Short description (optional)")}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="proj-instructions">Custom instructions</Label>
+            <Label htmlFor="proj-instructions">{t("Custom instructions")}</Label>
             <Textarea
               id="proj-instructions"
               rows={8}
               value={instructions}
               onChange={(e) => setInstructions(e.target.value)}
-              placeholder="Tell the AI how to behave in this project — goals, tone, constraints, output format, etc."
+              placeholder={t(
+                "Tell the AI how to behave in this project — goals, tone, constraints, output format, etc.",
+              )}
             />
           </div>
 
-          <div className="flex justify-end">
+          <div className="space-y-2">
+            <Label htmlFor="proj-model">{t("Default model")}</Label>
+            <Select
+              value={defaultModel || "__none__"}
+              onValueChange={(value) => setDefaultModel(value === "__none__" ? "" : value)}
+            >
+              <SelectTrigger id="proj-model">
+                <SelectValue placeholder={t("Use the usual chat model")}>
+                  {availableModels.find((model) => model.value === defaultModel)?.name ??
+                    t("Use the usual chat model")}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">{t("Use the usual chat model")}</SelectItem>
+                {availableModels.map((model) => (
+                  <SelectItem key={model.value} value={model.value}>
+                    {model.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {t("New chats in this project start with this model. You can still switch per chat.")}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={archiveProject.isPending || Boolean(project?.archivedAt)}
+              onClick={() => {
+                if (!window.confirm(t("Archive this project?"))) return;
+                archiveProject.mutate({ id: projectId });
+              }}
+            >
+              {archiveProject.isPending ? <Spinner /> : <ArchiveIcon className="size-4" />}
+              {t("Archive")}
+            </Button>
             <Button onClick={handleSave} disabled={updateProject.isPending}>
               {updateProject.isPending ? <Spinner /> : <SaveIcon className="size-4" />}
-              Save
+              {t("Save")}
             </Button>
           </div>
         </section>

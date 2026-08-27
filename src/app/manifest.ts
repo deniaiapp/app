@@ -14,6 +14,20 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#ffffff",
     theme_color: "#171717",
     categories: ["productivity", "utilities"],
+    shortcuts: [
+      {
+        name: "New chat",
+        short_name: "Chat",
+        description: "Start a new Deni AI chat",
+        url: "/chat",
+      },
+      {
+        name: "Settings",
+        short_name: "Settings",
+        description: "Open Deni AI settings",
+        url: "/settings/appearance",
+      },
+    ],
     icons: [
       {
         src: "/icon-192x192",

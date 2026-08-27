@@ -7,8 +7,8 @@ export const migrationRouter = router({
   import: protectedProcedure
     .input(
       z.object({
-        payload: z.unknown().refine((val) => JSON.stringify(val).length <= 10_000_000, {
-          message: "Payload too large (max 10 MB)",
+        payload: z.unknown().refine((val) => JSON.stringify(val).length <= 25_000_000, {
+          message: "Payload too large (max 25 MB)",
         }),
       }),
     )

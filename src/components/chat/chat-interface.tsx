@@ -43,6 +43,7 @@ interface ChatInterfaceProps {
   initialTitle?: string | null;
   initialProjectId?: string | null;
   initialProjectName?: string | null;
+  initialProjectDefaultModel?: string | null;
 }
 
 type UploadableFileUIPart = FileUIPart & { file?: File };
@@ -210,6 +211,7 @@ export function ChatInterface({
   initialTitle = null,
   initialProjectId = null,
   initialProjectName = null,
+  initialProjectDefaultModel = null,
 }: ChatInterfaceProps) {
   const t = useExtracted();
   const session = authClient.useSession();
@@ -239,17 +241,23 @@ export function ChatInterface({
     transport,
   });
 
+  const projectDefaultModel =
+    initialProjectDefaultModel &&
+    availableModels.some((entry) => entry.value === initialProjectDefaultModel)
+      ? initialProjectDefaultModel
+      : null;
+
   const seed = useInitialMessage({
     id,
     initialMessagesLength: initialMessages.length,
-    model: modelOverride ?? defaultModel.value,
+    model: modelOverride ?? projectDefaultModel ?? defaultModel.value,
     sendMessage,
     onMessageSent: () => {
       void utils.chat.getChats.invalidate();
     },
   });
 
-  const model = modelOverride ?? seed?.model ?? defaultModel.value;
+  const model = modelOverride ?? seed?.model ?? projectDefaultModel ?? defaultModel.value;
   const webSearch = webSearchOverride ?? seed?.webSearch ?? false;
   const videoMode = videoModeOverride ?? seed?.videoMode ?? false;
   const imageMode = imageModeOverride ?? seed?.imageMode ?? false;

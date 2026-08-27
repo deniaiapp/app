@@ -101,6 +101,11 @@ export default function SettingsWrapper({ children }: { children: React.ReactNod
       value: "sharing",
       href: "/settings/sharing",
     },
+    {
+      label: t("Import"),
+      value: "import",
+      href: "/settings/import",
+    },
   ].filter((tab) => !billingDisabled || tab.value !== "billing");
 
   const currentTab =

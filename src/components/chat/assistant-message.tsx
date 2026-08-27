@@ -9,8 +9,11 @@ import {
   Globe,
   ListFilterIcon,
   RefreshCcwIcon,
+  SquareIcon,
+  Volume2Icon,
 } from "lucide-react";
-import { useExtracted } from "next-intl";
+import { useExtracted, useLocale } from "next-intl";
+import { useSpeechSynthesis } from "@/hooks/use-speech-synthesis";
 import { useState } from "react";
 import {
   Message,
@@ -84,6 +87,8 @@ export function AssistantMessage({
   onWebSearchChange,
 }: AssistantMessageProps) {
   const t = useExtracted();
+  const locale = useLocale();
+  const speech = useSpeechSynthesis();
   const isStreamingThis = state.isStreaming && state.isLastMessage;
   const [retryMenuOpen, setRetryMenuOpen] = useState(false);
   const [additionalInstruction, setAdditionalInstruction] = useState("");
@@ -261,6 +266,29 @@ export function AssistantMessage({
                   </DropdownMenuSub>
                 </DropdownMenuContent>
               </DropdownMenu>
+              {speech.supported ? (
+                <MessageAction
+                  onClick={() =>
+                    speech.toggle(
+                      `${message.id}-${i}`,
+                      part.text,
+                      locale === "ja" ? "ja-JP" : "en-US",
+                    )
+                  }
+                  label={
+                    speech.speakingId === `${message.id}-${i}` ? t("Stop reading") : t("Read aloud")
+                  }
+                  tooltip={
+                    speech.speakingId === `${message.id}-${i}` ? t("Stop reading") : t("Read aloud")
+                  }
+                >
+                  {speech.speakingId === `${message.id}-${i}` ? (
+                    <SquareIcon className="size-3.5" />
+                  ) : (
+                    <Volume2Icon className="size-3.5" />
+                  )}
+                </MessageAction>
+              ) : null}
               <MessageAction
                 onClick={() => navigator.clipboard.writeText(part.text)}
                 label={t("Copy")}
