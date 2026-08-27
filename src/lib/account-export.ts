@@ -168,6 +168,7 @@ export async function buildAccountExport(userId: string) {
       instructions: project.instructions,
       color: project.color,
       defaultModel: project.defaultModel,
+      organizationId: project.organizationId,
       archivedAt: project.archivedAt,
       createdAt: project.createdAt,
       files: fileRows

@@ -3,6 +3,7 @@ import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { db } from "@/db/drizzle";
 import { billing, member, teamUsageAuditLog } from "@/db/schema";
 import { stripe } from "@/lib/stripe";
+import { getLicensedSubscriptionItem } from "@/lib/stripe-subscriptions";
 
 const ACTIVE_SUB_STATUSES = new Set(["trialing", "active", "past_due"]);
 
@@ -33,7 +34,7 @@ export async function updateTeamSeatCount(organizationId: string) {
     const subscription = await stripe.subscriptions.retrieve(teamBilling.stripeSubscriptionId, {
       expand: ["items"],
     });
-    const item = subscription.items.data[0];
+    const item = getLicensedSubscriptionItem(subscription) ?? subscription.items.data[0];
     if (!item) return;
 
     if (item.quantity === memberCount) return;

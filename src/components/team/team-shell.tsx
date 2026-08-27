@@ -1,6 +1,6 @@
 "use client";
 
-import { CreditCard, History, Home, Users } from "lucide-react";
+import { CreditCard, FolderKanban, History, Home, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useExtracted } from "next-intl";
@@ -29,6 +29,7 @@ export function TeamShell({ children }: { children: ReactNode }) {
   const navItems = [
     { href: "/settings/team", label: t("Home"), icon: Home, exact: true },
     { href: "/settings/team/members", label: t("Members"), icon: Users, exact: false },
+    { href: "/settings/projects", label: t("Projects"), icon: FolderKanban, exact: false },
     ...(isAdmin
       ? [
           { href: "/settings/team/billing", label: t("Billing"), icon: CreditCard, exact: false },

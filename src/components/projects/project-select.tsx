@@ -16,6 +16,7 @@ export type ProjectOption = {
   id: string;
   name: string;
   color?: string | null;
+  organizationName?: string | null;
 };
 
 const projectAccentMap: Record<string, string> = {
@@ -68,7 +69,10 @@ export function ProjectSelect({
                     projectAccentMap[project.color ?? "amber"] ?? "bg-amber-500",
                   )}
                 />
-                <span>{project.name}</span>
+                <span className="truncate">{project.name}</span>
+                {project.organizationName ? (
+                  <span className="text-xs text-muted-foreground">{project.organizationName}</span>
+                ) : null}
               </span>
             </SelectItem>
           ))}

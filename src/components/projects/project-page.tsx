@@ -8,12 +8,14 @@ import {
   SaveIcon,
   Trash2Icon,
   UploadIcon,
+  UsersIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useExtracted } from "next-intl";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -64,6 +66,7 @@ export function ProjectPage({ projectId, initialProjectName }: ProjectPageProps)
 
   const projectQuery = trpc.projects.get.useQuery({ id: projectId });
   const chatsQuery = trpc.projects.getProjectChats.useQuery({ projectId });
+  const orgsQuery = trpc.projects.organizations.useQuery();
 
   const project = projectQuery.data?.project;
   const files = projectQuery.data?.files ?? [];
@@ -102,6 +105,25 @@ export function ProjectPage({ projectId, initialProjectName }: ProjectPageProps)
       push("/settings/projects");
     },
   });
+
+  const shareProject = trpc.projects.share.useMutation({
+    onSuccess: () => {
+      toast.success(t("Project shared with the team."));
+      void utils.projects.list.invalidate();
+      void utils.projects.get.invalidate({ id: projectId });
+    },
+  });
+
+  const unshareProject = trpc.projects.unshare.useMutation({
+    onSuccess: () => {
+      toast.success(t("Project is personal again."));
+      void utils.projects.list.invalidate();
+      void utils.projects.get.invalidate({ id: projectId });
+    },
+  });
+
+  const canManage = project?.canManage ?? false;
+  const organizations = orgsQuery.data ?? [];
 
   const startNewChat = useNewChat();
   const [isStartingChat, setIsStartingChat] = useState(false);
@@ -201,7 +223,13 @@ export function ProjectPage({ projectId, initialProjectName }: ProjectPageProps)
         <section className="space-y-4">
           <h2 className="flex items-center gap-2 text-sm font-semibold">
             <MessageSquareIcon className="size-4" />
-            Project settings
+            {t("Project settings")}
+            {project?.organizationName ? (
+              <Badge variant="outline" className="gap-1 font-normal">
+                <UsersIcon className="size-3" />
+                {project.organizationName}
+              </Badge>
+            ) : null}
           </h2>
 
           <div className="space-y-2">
@@ -211,6 +239,7 @@ export function ProjectPage({ projectId, initialProjectName }: ProjectPageProps)
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={t("Project name")}
+              disabled={!canManage}
             />
           </div>
 
@@ -221,6 +250,7 @@ export function ProjectPage({ projectId, initialProjectName }: ProjectPageProps)
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder={t("Short description (optional)")}
+              disabled={!canManage}
             />
           </div>
 
@@ -234,6 +264,7 @@ export function ProjectPage({ projectId, initialProjectName }: ProjectPageProps)
               placeholder={t(
                 "Tell the AI how to behave in this project — goals, tone, constraints, output format, etc.",
               )}
+              disabled={!canManage}
             />
           </div>
 
@@ -242,6 +273,7 @@ export function ProjectPage({ projectId, initialProjectName }: ProjectPageProps)
             <Select
               value={defaultModel || "__none__"}
               onValueChange={(value) => setDefaultModel(value === "__none__" ? "" : value)}
+              disabled={!canManage}
             >
               <SelectTrigger id="proj-model">
                 <SelectValue placeholder={t("Use the usual chat model")}>
@@ -263,24 +295,68 @@ export function ProjectPage({ projectId, initialProjectName }: ProjectPageProps)
             </p>
           </div>
 
-          <div className="flex flex-wrap justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={archiveProject.isPending || Boolean(project?.archivedAt)}
-              onClick={() => {
-                if (!window.confirm(t("Archive this project?"))) return;
-                archiveProject.mutate({ id: projectId });
-              }}
-            >
-              {archiveProject.isPending ? <Spinner /> : <ArchiveIcon className="size-4" />}
-              {t("Archive")}
-            </Button>
-            <Button onClick={handleSave} disabled={updateProject.isPending}>
-              {updateProject.isPending ? <Spinner /> : <SaveIcon className="size-4" />}
-              {t("Save")}
-            </Button>
-          </div>
+          {canManage && organizations.length > 0 ? (
+            <div className="space-y-2">
+              <Label htmlFor="proj-share">{t("Team sharing")}</Label>
+              <Select
+                value={project?.organizationId ?? "__personal__"}
+                onValueChange={(value) => {
+                  if (value === "__personal__") {
+                    unshareProject.mutate({ id: projectId });
+                    return;
+                  }
+                  shareProject.mutate({ id: projectId, organizationId: value });
+                }}
+              >
+                <SelectTrigger id="proj-share">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__personal__">{t("Only you")}</SelectItem>
+                  {organizations.map((org) => (
+                    <SelectItem key={org.id} value={org.id}>
+                      {org.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {t(
+                  "Team members get the instructions, files, and default model. Their chats stay private.",
+                )}
+              </p>
+            </div>
+          ) : null}
+
+          {canManage ? (
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={
+                  archiveProject.isPending ||
+                  Boolean(project?.archivedAt) ||
+                  shareProject.isPending ||
+                  unshareProject.isPending
+                }
+                onClick={() => {
+                  if (!window.confirm(t("Archive this project?"))) return;
+                  archiveProject.mutate({ id: projectId });
+                }}
+              >
+                {archiveProject.isPending ? <Spinner /> : <ArchiveIcon className="size-4" />}
+                {t("Archive")}
+              </Button>
+              <Button onClick={handleSave} disabled={updateProject.isPending}>
+                {updateProject.isPending ? <Spinner /> : <SaveIcon className="size-4" />}
+                {t("Save")}
+              </Button>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              {t("You can use this team project. Only owners, admins, or the creator can edit it.")}
+            </p>
+          )}
         </section>
 
         <section className="space-y-4">

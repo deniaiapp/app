@@ -96,7 +96,7 @@ export function BillingMaxModeCard({
         </div>
         <p className="text-xs text-muted-foreground">
           {t(
-            "Max Mode charges are billed at the end of each billing cycle. Pricing: $0.01 per 1K basic tokens, $0.05 per 1K premium tokens.",
+            "Overage is billed monthly on Stripe, including if your plan is yearly. Pricing: $0.01 per 1K basic tokens, $0.05 per 1K premium tokens.",
           )}
         </p>
       </CardContent>
