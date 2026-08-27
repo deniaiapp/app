@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Settings, UserIcon, Zap } from "lucide-react";
+import { LogOut, Settings, UserIcon, Users, Zap } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -292,6 +292,14 @@ export function AccountMenu() {
             <Link href="/settings/appearance" className="flex w-full">
               <Settings className="size-4" />
               <span className="flex-1">{t("Settings")}</span>
+            </Link>
+          </DropdownMenuItem>
+        )}
+        {!isAnonymous && !billingDisabled && (
+          <DropdownMenuItem className="gap-2 text-sm" asChild>
+            <Link href="/settings/team" className="flex w-full">
+              <Users className="size-4" />
+              <span className="flex-1">{t("Team")}</span>
             </Link>
           </DropdownMenuItem>
         )}

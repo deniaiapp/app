@@ -27,9 +27,16 @@ import {
   signupEmailDenialCode,
   signupEmailDenialMessage,
 } from "@/lib/email-domain-policy";
-import { cancelPersonalSubscription, updateTeamSeatCount } from "@/lib/team-billing";
+import {
+  cancelPersonalSubscription,
+  cancelTeamSubscriptionForDeletion,
+  recordTeamAuditEvent,
+  updateTeamSeatCount,
+} from "@/lib/team-billing";
 
 const emailEnabled = isEmailConfigured();
+
+type OrgUpdateAuditMarker = { name: boolean; logo: boolean };
 
 function assertAllowedSignupEmail(email: string) {
   const result = checkSignupEmail(email);
@@ -121,12 +128,88 @@ export const auth = betterAuth({
       allowUserToCreateOrganization: true,
       membershipLimit: 50,
       organizationHooks: {
-        afterAcceptInvitation: async ({ organization, member }) => {
+        afterCreateOrganization: async ({ organization, user }) => {
+          await recordTeamAuditEvent({
+            organizationId: organization.id,
+            actorUserId: user.id,
+            action: "org_created",
+            metadata: { name: organization.name },
+          });
+        },
+        afterAcceptInvitation: async ({ organization, member, user }) => {
           await updateTeamSeatCount(organization.id);
           await cancelPersonalSubscription(member.userId);
+          await recordTeamAuditEvent({
+            organizationId: organization.id,
+            actorUserId: user.id,
+            targetUserId: user.id,
+            action: "member_joined",
+            metadata: { role: member.role },
+          });
         },
         afterRemoveMember: async ({ organization }) => {
           await updateTeamSeatCount(organization.id);
+        },
+        afterCreateInvitation: async ({ invitation, inviter, organization }) => {
+          await recordTeamAuditEvent({
+            organizationId: organization.id,
+            actorUserId: inviter.id,
+            action: "member_invited",
+            metadata: { email: invitation.email, role: invitation.role },
+          });
+        },
+        afterCancelInvitation: async ({ invitation, cancelledBy, organization }) => {
+          await recordTeamAuditEvent({
+            organizationId: organization.id,
+            actorUserId: cancelledBy.id,
+            action: "invitation_canceled",
+            metadata: { email: invitation.email },
+          });
+        },
+        afterRejectInvitation: async ({ invitation, user, organization }) => {
+          // The invitee themselves declines — actor and target are the same
+          // person (self-action), same shape as afterAcceptInvitation above.
+          await recordTeamAuditEvent({
+            organizationId: organization.id,
+            actorUserId: user.id,
+            targetUserId: user.id,
+            action: "invitation_declined",
+            metadata: { email: invitation.email },
+          });
+        },
+        beforeUpdateOrganization: async ({ organization, member }) => {
+          // afterUpdateOrganization only receives the updated row, not which fields
+          // the request actually touched — `organization.name` is always present on
+          // the row, so we can't tell a name change from e.g. a logo-only change
+          // from there alone. This hook *does* receive the update payload (only the
+          // fields being changed), so stash a marker directly on `member` — the
+          // same object instance is passed to afterUpdateOrganization for this same
+          // request — and read it back there to build precise audit metadata.
+          (member as unknown as Record<string, unknown>).__auditChangedFields = {
+            name: "name" in organization,
+            logo: "logo" in organization,
+          } satisfies OrgUpdateAuditMarker;
+        },
+        afterUpdateOrganization: async ({ organization, user, member }) => {
+          if (!organization) return;
+          const changedFields = (member as unknown as Record<string, unknown>)
+            .__auditChangedFields as OrgUpdateAuditMarker | undefined;
+          const metadata: Record<string, unknown> = {};
+          if (changedFields?.name) metadata.name = organization.name;
+          if (changedFields?.logo) metadata.logoChanged = true;
+          await recordTeamAuditEvent({
+            organizationId: organization.id,
+            actorUserId: user.id,
+            action: "org_updated",
+            metadata,
+          });
+        },
+        beforeDeleteOrganization: async ({ organization }) => {
+          // billing.organizationId has no DB-level FK/cascade, so this must run
+          // before the organization row (and its cascading member/invitation rows)
+          // is removed. If Stripe cancellation fails, this throws and blocks the
+          // deletion rather than leaving an orphaned, unmanageable subscription.
+          await cancelTeamSubscriptionForDeletion(organization.id);
         },
       },
       sendInvitationEmail: emailEnabled

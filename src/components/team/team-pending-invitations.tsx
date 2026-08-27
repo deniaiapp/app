@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Invitation } from "./team-types";
 import { monthDayFormatter } from "./team-utils";
+import { useRoleLabel } from "./use-role-label";
 
 export function TeamPendingInvitations({
   invitations,
@@ -17,6 +18,7 @@ export function TeamPendingInvitations({
   onCancel: (invitationId: string) => void;
 }) {
   const t = useExtracted();
+  const roleLabel = useRoleLabel();
 
   if (invitations.length === 0) {
     return null;
@@ -38,7 +40,7 @@ export function TeamPendingInvitations({
                 <div>
                   <p className="text-sm font-medium">{inv.email}</p>
                   <p className="text-xs text-muted-foreground">
-                    {inv.role ?? t("Member")} · {t("Expires")}{" "}
+                    {roleLabel(inv.role ?? "member")} · {t("Expires")}{" "}
                     {monthDayFormatter.format(new Date(inv.expiresAt))}
                   </p>
                 </div>

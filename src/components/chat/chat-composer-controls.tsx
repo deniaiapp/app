@@ -56,30 +56,6 @@ function ToolChip({ icon: Icon, label, onRemove }: ToolChipProps) {
   );
 }
 
-function getReasoningEffortLabel(
-  effort: ReasoningEffort,
-  t: ReturnType<typeof useExtracted>,
-): string {
-  switch (effort) {
-    case "none":
-      return t("None");
-    case "minimal":
-      return t("Minimal");
-    case "low":
-      return t("Low");
-    case "medium":
-      return t("Medium");
-    case "high":
-      return t("High");
-    case "xhigh":
-      return t("X-High");
-    case "max":
-      return t("Max");
-    default:
-      return effort;
-  }
-}
-
 function ChatComposerReasoningSelect({
   reasoningEffort,
   onReasoningEffortChange,
@@ -94,7 +70,16 @@ function ChatComposerReasoningSelect({
   triggerClassName?: string;
 }) {
   const t = useExtracted();
-  const reasoningEffortLabel = getReasoningEffortLabel(reasoningEffort, t);
+  const reasoningEffortLabels: Record<ReasoningEffort, string> = {
+    none: t("None"),
+    minimal: t("Minimal"),
+    low: t("Low"),
+    medium: t("Medium"),
+    high: t("High"),
+    xhigh: t("X-High"),
+    max: t("Max"),
+  };
+  const reasoningEffortLabel = reasoningEffortLabels[reasoningEffort] ?? reasoningEffort;
 
   return (
     <PromptInputSelect
@@ -116,7 +101,7 @@ function ChatComposerReasoningSelect({
         {supportedEfforts !== false &&
           supportedEfforts.map((effort) => (
             <PromptInputSelectItem key={effort} value={effort}>
-              {getReasoningEffortLabel(effort, t)}
+              {reasoningEffortLabels[effort] ?? effort}
             </PromptInputSelectItem>
           ))}
       </PromptInputSelectContent>

@@ -27,6 +27,18 @@ export type Invitation = {
   expiresAt: Date;
 };
 
+// An invitation addressed to the current user (any organization), as returned by
+// `authClient.organization.listUserInvitations()` — distinct from `Invitation`
+// above, which is an outgoing invite the active org sent to someone else.
+export type ReceivedInvitation = {
+  id: string;
+  organizationId: string;
+  organizationName: string;
+  role: string | null;
+  status: string;
+  expiresAt: Date;
+};
+
 export function isMember(value: unknown): value is Member {
   if (!value || typeof value !== "object") {
     return false;

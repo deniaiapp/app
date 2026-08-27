@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import {
   billing,
@@ -87,8 +88,58 @@ async function verifyOrgOwner(ctx: ProtectedContext, organizationId: string) {
   }
 }
 
+// Same as verifyOrgOwner, but also allows the "admin" role for non-financial
+// settings (Max Mode policy, audit log viewing, cancel/resume of an existing
+// subscription). Purchasing, changing plans, and the Stripe billing portal
+// stay owner-only via verifyOrgOwner.
+async function verifyOrgOwnerOrAdmin(ctx: ProtectedContext, organizationId: string) {
+  const [memberRecord] = await ctx.db
+    .select({ role: member.role })
+    .from(member)
+    .where(and(eq(member.organizationId, organizationId), eq(member.userId, ctx.userId)))
+    .limit(1);
+
+  if (!memberRecord || (memberRecord.role !== "owner" && memberRecord.role !== "admin")) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Only organization owners or admins can manage this.",
+    });
+  }
+}
+
+// For audit-log-recording mutations that follow an already-authorized
+// better-auth call (updateMemberRole/removeMember), rather than performing the
+// state change themselves. Re-checking "is still owner/admin *right now*"
+// breaks self-actions: an admin demoting themselves to member, or removing
+// themselves from the team, is no longer owner/admin by the time this runs
+// (their role already changed / their member row is already gone), so the
+// strict check would throw FORBIDDEN and silently drop the audit entry even
+// though the underlying action legitimately succeeded. Self-target is always
+// allowed since the caller is authenticated as exactly the person the entry
+// is about; anyone else still needs to currently be an owner/admin.
+async function verifyOrgManagerOrSelf(
+  ctx: ProtectedContext,
+  organizationId: string,
+  targetUserId: string,
+) {
+  if (ctx.userId === targetUserId) return;
+
+  const [memberRecord] = await ctx.db
+    .select({ role: member.role })
+    .from(member)
+    .where(and(eq(member.organizationId, organizationId), eq(member.userId, ctx.userId)))
+    .limit(1);
+
+  if (!memberRecord || (memberRecord.role !== "owner" && memberRecord.role !== "admin")) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Only organization owners or admins can manage this.",
+    });
+  }
+}
+
 async function getOwnedTeamBillingRecord(ctx: ProtectedContext, organizationId: string) {
-  await verifyOrgOwner(ctx, organizationId);
+  await verifyOrgOwnerOrAdmin(ctx, organizationId);
   const subscription = await syncTeamSubscription(ctx, ctx.userId, organizationId);
   if (!subscription.planId || !isTeamPlan(subscription.planId)) {
     throw new TRPCError({
@@ -411,7 +462,7 @@ export const organizationRouter = router({
   teamBillingStatus: billingEnabledProcedure
     .input(z.object({ organizationId: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
-      await verifyOrgOwner(ctx, input.organizationId);
+      await verifyOrgOwnerOrAdmin(ctx, input.organizationId);
       const [subscription, memberCount] = await Promise.all([
         syncTeamSubscription(ctx, ctx.userId, input.organizationId),
         getOrgMemberCount(input.organizationId),
@@ -431,7 +482,9 @@ export const organizationRouter = router({
   teamMaxModeSettings: billingEnabledProcedure
     .input(z.object({ organizationId: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
-      await verifyOrgOwner(ctx, input.organizationId);
+      await verifyOrgOwnerOrAdmin(ctx, input.organizationId);
+      const auditActorUser = alias(user, "audit_actor_user");
+      const auditTargetUser = alias(user, "audit_target_user");
       const [subscription, defaultPolicy, members, auditLog] = await Promise.all([
         syncTeamSubscription(ctx, ctx.userId, input.organizationId),
         ensureTeamUsagePolicy(ctx, input.organizationId),
@@ -460,15 +513,21 @@ export const organizationRouter = router({
           .select({
             id: teamUsageAuditLog.id,
             actorUserId: teamUsageAuditLog.actorUserId,
+            actorName: auditActorUser.name,
+            actorEmail: auditActorUser.email,
             targetUserId: teamUsageAuditLog.targetUserId,
+            targetName: auditTargetUser.name,
+            targetEmail: auditTargetUser.email,
             action: teamUsageAuditLog.action,
             metadata: teamUsageAuditLog.metadata,
             createdAt: teamUsageAuditLog.createdAt,
           })
           .from(teamUsageAuditLog)
+          .innerJoin(auditActorUser, eq(auditActorUser.id, teamUsageAuditLog.actorUserId))
+          .leftJoin(auditTargetUser, eq(auditTargetUser.id, teamUsageAuditLog.targetUserId))
           .where(eq(teamUsageAuditLog.organizationId, input.organizationId))
           .orderBy(desc(teamUsageAuditLog.createdAt))
-          .limit(10),
+          .limit(5),
       ]);
 
       const memberIds = members.map((m) => m.userId);
@@ -531,6 +590,54 @@ export const organizationRouter = router({
       };
     }),
 
+  teamAuditLog: billingEnabledProcedure
+    .input(
+      z.object({
+        organizationId: z.string().min(1),
+        cursor: z.string().nullish(),
+        limit: z.number().int().min(1).max(50).default(20),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      await verifyOrgOwnerOrAdmin(ctx, input.organizationId);
+
+      const actorUser = alias(user, "actor_user");
+      const targetUser = alias(user, "target_user");
+
+      const rows = await ctx.db
+        .select({
+          id: teamUsageAuditLog.id,
+          action: teamUsageAuditLog.action,
+          metadata: teamUsageAuditLog.metadata,
+          createdAt: teamUsageAuditLog.createdAt,
+          actorId: teamUsageAuditLog.actorUserId,
+          actorName: actorUser.name,
+          actorEmail: actorUser.email,
+          actorImage: actorUser.image,
+          targetId: teamUsageAuditLog.targetUserId,
+          targetName: targetUser.name,
+          targetEmail: targetUser.email,
+          targetImage: targetUser.image,
+        })
+        .from(teamUsageAuditLog)
+        .innerJoin(actorUser, eq(actorUser.id, teamUsageAuditLog.actorUserId))
+        .leftJoin(targetUser, eq(targetUser.id, teamUsageAuditLog.targetUserId))
+        .where(
+          and(
+            eq(teamUsageAuditLog.organizationId, input.organizationId),
+            input.cursor ? lt(teamUsageAuditLog.createdAt, new Date(input.cursor)) : undefined,
+          ),
+        )
+        .orderBy(desc(teamUsageAuditLog.createdAt))
+        .limit(input.limit + 1);
+
+      const hasMore = rows.length > input.limit;
+      const items = hasMore ? rows.slice(0, input.limit) : rows;
+      const nextCursor = hasMore ? (items.at(-1)?.createdAt.toISOString() ?? null) : null;
+
+      return { items, nextCursor };
+    }),
+
   updateTeamMaxModeDefaultPolicy: billingEnabledProcedure
     .input(
       z.object({
@@ -541,7 +648,9 @@ export const organizationRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      await verifyOrgOwner(ctx, input.organizationId);
+      await verifyOrgOwnerOrAdmin(ctx, input.organizationId);
+      const previousPolicy = await ensureTeamUsagePolicy(ctx, input.organizationId);
+
       await ctx.db
         .insert(teamUsagePolicy)
         .values({
@@ -565,9 +674,16 @@ export const organizationRouter = router({
         organizationId: input.organizationId,
         action: "default_policy_updated",
         metadata: {
-          maxModeEnabled: input.maxModeEnabled,
-          maxModeLimitBasic: input.maxModeLimitBasic,
-          maxModeLimitPremium: input.maxModeLimitPremium,
+          previous: {
+            maxModeEnabled: previousPolicy.defaultMaxModeEnabled,
+            maxModeLimitBasic: previousPolicy.defaultMaxModeLimitBasic,
+            maxModeLimitPremium: previousPolicy.defaultMaxModeLimitPremium,
+          },
+          next: {
+            maxModeEnabled: input.maxModeEnabled,
+            maxModeLimitBasic: input.maxModeLimitBasic,
+            maxModeLimitPremium: input.maxModeLimitPremium,
+          },
         },
       });
 
@@ -598,7 +714,10 @@ export const organizationRouter = router({
         ctx,
         organizationId: input.organizationId,
         action: input.enabled ? "max_mode_enabled" : "max_mode_disabled",
-        metadata: { enabled: input.enabled },
+        metadata: {
+          previous: { maxModeEnabled: Boolean(subscription.maxModeEnabled) },
+          next: { maxModeEnabled: input.enabled },
+        },
       });
       return { success: true };
     }),
@@ -614,7 +733,7 @@ export const organizationRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      await verifyOrgOwner(ctx, input.organizationId);
+      await verifyOrgOwnerOrAdmin(ctx, input.organizationId);
       const [targetMember] = await ctx.db
         .select({ id: member.id })
         .from(member)
@@ -629,6 +748,22 @@ export const organizationRouter = router({
           message: "Member does not belong to this organization.",
         });
       }
+
+      const [previousMemberPolicy] = await ctx.db
+        .select({
+          maxModeEnabled: teamMemberUsagePolicy.maxModeEnabled,
+          maxModeLimitBasic: teamMemberUsagePolicy.maxModeLimitBasic,
+          maxModeLimitPremium: teamMemberUsagePolicy.maxModeLimitPremium,
+        })
+        .from(teamMemberUsagePolicy)
+        .where(
+          and(
+            eq(teamMemberUsagePolicy.organizationId, input.organizationId),
+            eq(teamMemberUsagePolicy.userId, input.userId),
+          ),
+        )
+        .limit(1);
+      const defaultPolicy = await ensureTeamUsagePolicy(ctx, input.organizationId);
 
       await ctx.db
         .insert(teamMemberUsagePolicy)
@@ -654,9 +789,67 @@ export const organizationRouter = router({
         action: "member_policy_updated",
         targetUserId: input.userId,
         metadata: {
-          maxModeEnabled: input.maxModeEnabled,
-          maxModeLimitBasic: input.maxModeLimitBasic,
-          maxModeLimitPremium: input.maxModeLimitPremium,
+          previous: {
+            maxModeEnabled:
+              previousMemberPolicy?.maxModeEnabled ?? defaultPolicy.defaultMaxModeEnabled,
+            maxModeLimitBasic:
+              previousMemberPolicy?.maxModeLimitBasic ?? defaultPolicy.defaultMaxModeLimitBasic,
+            maxModeLimitPremium:
+              previousMemberPolicy?.maxModeLimitPremium ?? defaultPolicy.defaultMaxModeLimitPremium,
+          },
+          next: {
+            maxModeEnabled: input.maxModeEnabled,
+            maxModeLimitBasic: input.maxModeLimitBasic,
+            maxModeLimitPremium: input.maxModeLimitPremium,
+          },
+        },
+      });
+
+      return { success: true };
+    }),
+
+  recordMemberRoleChanged: billingEnabledProcedure
+    .input(
+      z.object({
+        organizationId: z.string().min(1),
+        targetUserId: z.string().min(1),
+        previousRole: z.string().min(1),
+        newRole: z.string().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await verifyOrgManagerOrSelf(ctx, input.organizationId, input.targetUserId);
+      await recordTeamUsageAuditLog({
+        ctx,
+        organizationId: input.organizationId,
+        action: "member_role_updated",
+        targetUserId: input.targetUserId,
+        metadata: {
+          previousRole: input.previousRole,
+          newRole: input.newRole,
+        },
+      });
+
+      return { success: true };
+    }),
+
+  recordMemberRemoved: billingEnabledProcedure
+    .input(
+      z.object({
+        organizationId: z.string().min(1),
+        targetUserId: z.string().min(1),
+        role: z.string().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await verifyOrgManagerOrSelf(ctx, input.organizationId, input.targetUserId);
+      await recordTeamUsageAuditLog({
+        ctx,
+        organizationId: input.organizationId,
+        action: "member_removed",
+        targetUserId: input.targetUserId,
+        metadata: {
+          role: input.role,
         },
       });
 
@@ -926,6 +1119,18 @@ export const organizationRouter = router({
         })
         .returning();
 
+      if (subscriptionState.planId && subscriptionState.planId !== plan.id) {
+        await recordTeamUsageAuditLog({
+          ctx,
+          organizationId: input.organizationId,
+          action: "plan_changed",
+          metadata: {
+            previous: { planId: subscriptionState.planId },
+            next: { planId: plan.id },
+          },
+        });
+      }
+
       return {
         planId: saved.planId ?? null,
         status: saved.status ?? null,
@@ -936,7 +1141,7 @@ export const organizationRouter = router({
   cancelTeamSubscription: billingEnabledProcedure
     .input(z.object({ organizationId: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
-      await verifyOrgOwner(ctx, input.organizationId);
+      await verifyOrgOwnerOrAdmin(ctx, input.organizationId);
 
       const subscriptionState = await syncTeamSubscription(ctx, ctx.userId, input.organizationId);
       if (!subscriptionState.stripeSubscriptionId) {
@@ -976,6 +1181,13 @@ export const organizationRouter = router({
         })
         .returning();
 
+      await recordTeamUsageAuditLog({
+        ctx,
+        organizationId: input.organizationId,
+        action: "subscription_canceled",
+        metadata: { planId: saved.planId, cancelAt: saved.cancelAt },
+      });
+
       return {
         planId: saved.planId ?? null,
         status: saved.status ?? null,
@@ -987,7 +1199,7 @@ export const organizationRouter = router({
   resumeTeamSubscription: billingEnabledProcedure
     .input(z.object({ organizationId: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
-      await verifyOrgOwner(ctx, input.organizationId);
+      await verifyOrgOwnerOrAdmin(ctx, input.organizationId);
 
       const subscriptionState = await syncTeamSubscription(ctx, ctx.userId, input.organizationId);
       if (!subscriptionState.stripeSubscriptionId) {
@@ -1034,6 +1246,13 @@ export const organizationRouter = router({
         })
         .returning();
 
+      await recordTeamUsageAuditLog({
+        ctx,
+        organizationId: input.organizationId,
+        action: "subscription_resumed",
+        metadata: { planId: saved.planId },
+      });
+
       return {
         planId: saved.planId ?? null,
         status: saved.status ?? null,
@@ -1046,6 +1265,13 @@ export const organizationRouter = router({
     .mutation(async ({ ctx, input }) => {
       await verifyOrgOwner(ctx, input.organizationId);
       await updateTeamSeatCount(input.organizationId);
+      const memberCount = await getOrgMemberCount(input.organizationId);
+      await recordTeamUsageAuditLog({
+        ctx,
+        organizationId: input.organizationId,
+        action: "seats_synced",
+        metadata: { memberCount },
+      });
       return { success: true };
     }),
 });

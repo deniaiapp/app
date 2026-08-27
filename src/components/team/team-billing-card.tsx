@@ -23,6 +23,7 @@ type BillingStatus = {
 };
 
 export function TeamBillingCard({
+  isOwner,
   isLoading,
   billingStatus,
   monthlyPlan,
@@ -39,6 +40,7 @@ export function TeamBillingCard({
   onCancel,
   onResume,
 }: {
+  isOwner: boolean;
   isLoading: boolean;
   billingStatus?: BillingStatus | null;
   monthlyPlan?: TeamPlan;
@@ -109,9 +111,11 @@ export function TeamBillingCard({
                 </p>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={onManage}>
-                  {t("Manage")}
-                </Button>
+                {isOwner && (
+                  <Button variant="outline" size="sm" onClick={onManage}>
+                    {t("Manage")}
+                  </Button>
+                )}
                 {isCanceled ? (
                   <Button size="sm" onClick={onResume} disabled={resumePending}>
                     {resumePending && <Spinner className="size-3.5" />}
@@ -131,7 +135,7 @@ export function TeamBillingCard({
               </div>
             </div>
           </div>
-        ) : (
+        ) : isOwner ? (
           <div className="grid gap-3 sm:grid-cols-2">
             {monthlyPlan && (
               <Card className="flex flex-col border-muted">
@@ -213,6 +217,10 @@ export function TeamBillingCard({
               </Card>
             )}
           </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            {t("Ask a team owner to subscribe to a plan.")}
+          </p>
         )}
       </CardContent>
     </Card>

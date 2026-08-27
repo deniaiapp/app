@@ -7,8 +7,15 @@ import { startTransition, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 import { useBillingPlanCopy } from "@/lib/billing-plan-copy";
+import { useReloadCooldown } from "@/hooks/use-reload-cooldown";
 import { trpc } from "@/lib/trpc/react";
-import { isInvitation, isMember, type Member, type Organization } from "./team-types";
+import {
+  isInvitation,
+  isMember,
+  type Member,
+  type Organization,
+  type ReceivedInvitation,
+} from "./team-types";
 import { runWithLoading } from "@/lib/run-with-loading";
 import { createTeamSlug, escapeCsvCell, parseTokenLimit } from "./team-utils";
 
@@ -29,7 +36,14 @@ export function useTeamSettings() {
   const [isInviting, setIsInviting] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<Member | null>(null);
   const [isRemovingMember, setIsRemovingMember] = useState(false);
+  const [updatingMemberRoleId, setUpdatingMemberRoleId] = useState<string | null>(null);
   const [shredOpen, setShredOpen] = useState(false);
+  const [orgNameDraft, setOrgNameDraft] = useState("");
+  const [isSavingOrgName, setIsSavingOrgName] = useState(false);
+  const [isSavingOrgLogo, setIsSavingOrgLogo] = useState(false);
+  const [respondingInvitationId, setRespondingInvitationId] = useState<string | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeletingOrg, setIsDeletingOrg] = useState(false);
   const currentUserId = session.data?.user?.id ?? null;
 
   const { data: organizationsData, isLoading: organizationsLoading } = useQuery({
@@ -40,6 +54,17 @@ export function useTeamSettings() {
       return (result.data ?? []) as Organization[];
     },
   });
+  const { data: myInvitationsData } = useQuery({
+    queryKey: ["team", "my-invitations", currentUserId],
+    enabled: !session.isPending && Boolean(currentUserId),
+    queryFn: async () => {
+      const result = await authClient.organization.listUserInvitations();
+      // Not every account has a verified email (invitation lookup requires one) —
+      // fail quietly here instead of surfacing an error for what is a secondary list.
+      return (result.data ?? []) as ReceivedInvitation[];
+    },
+  });
+  const myPendingInvitations = (myInvitationsData ?? []).filter((inv) => inv.status === "pending");
   const activeOrganizationId = session.data?.session?.activeOrganizationId ?? null;
   const organizations = organizationsData ?? [];
   const activeOrg =
@@ -47,7 +72,7 @@ export function useTeamSettings() {
     organizations.find((org) => org.id === activeOrganizationId) ??
     organizations[0] ??
     null;
-  const { data: orgDetailsData } = useQuery({
+  const { data: orgDetailsData, refetch: refetchOrgDetails } = useQuery({
     queryKey: ["team", "organization", currentUserId, activeOrg?.id],
     enabled: Boolean(activeOrg?.id),
     queryFn: async () => {
@@ -57,6 +82,11 @@ export function useTeamSettings() {
       return result.data ?? null;
     },
   });
+  const {
+    reload: reloadMembers,
+    isReloading: isReloadingMembers,
+    isCoolingDown: isMembersReloadCoolingDown,
+  } = useReloadCooldown(() => refetchOrgDetails());
   const monthlyPlanCopy = useBillingPlanCopy("pro_team_monthly");
   const yearlyPlanCopy = useBillingPlanCopy("pro_team_yearly");
 
@@ -68,25 +98,26 @@ export function useTeamSettings() {
   const updateTeamMaxModeDefaultPolicy =
     trpc.organization.updateTeamMaxModeDefaultPolicy.useMutation();
   const updateMemberMaxModePolicy = trpc.organization.updateTeamMemberMaxModePolicy.useMutation();
+  const recordMemberRoleChanged = trpc.organization.recordMemberRoleChanged.useMutation();
+  const recordMemberRemoved = trpc.organization.recordMemberRemoved.useMutation();
   const utils = trpc.useUtils();
   const members = (orgDetailsData?.members ?? []).filter(isMember);
   const invitations = (orgDetailsData?.invitations ?? []).filter(isInvitation);
   const pendingInvitations = invitations.filter((inv) => inv.status === "pending");
   const currentUserRole = members.find((member) => member.userId === currentUserId)?.role ?? null;
+  const isOwner = currentUserRole === "owner";
+  const isAdmin = currentUserRole === "admin" || isOwner;
   const teamBillingQuery = trpc.organization.teamBillingStatus.useQuery(
     { organizationId: activeOrg?.id ?? "" },
-    { enabled: Boolean(activeOrg?.id) && currentUserRole === "owner" },
+    { enabled: Boolean(activeOrg?.id) && isAdmin },
   );
   const teamMaxModeQuery = trpc.organization.teamMaxModeSettings.useQuery(
     { organizationId: activeOrg?.id ?? "" },
-    { enabled: Boolean(activeOrg?.id) && currentUserRole === "owner" },
+    { enabled: Boolean(activeOrg?.id) && isAdmin },
   );
   const teamPlansQuery = trpc.organization.teamPlans.useQuery(undefined, {
-    enabled: Boolean(activeOrg?.id) && currentUserRole === "owner",
+    enabled: Boolean(activeOrg?.id) && isAdmin,
   });
-
-  const isOwner = currentUserRole === "owner";
-  const isAdmin = currentUserRole === "admin" || isOwner;
 
   async function selectOrg(org: Organization, options?: { persistActive?: boolean }) {
     setSelectedOrgId(org.id);
@@ -192,6 +223,21 @@ export function useTeamSettings() {
           organizationId: activeOrg.id,
         });
         toast.success(t("Member removed"));
+        if (memberToRemove) {
+          // Best-effort: better-auth's afterRemoveMember hook has no way to know
+          // who performed the removal, so this is recorded from the client using
+          // the actor's own authenticated session. A failure here shouldn't block
+          // the (already successful) removal or surface as a user-facing error.
+          recordMemberRemoved
+            .mutateAsync({
+              organizationId: activeOrg.id,
+              targetUserId: memberToRemove.userId,
+              role: memberToRemove.role,
+            })
+            .catch((error) => {
+              console.error("Failed to record member removal audit log", error);
+            });
+        }
         await queryClient.invalidateQueries({
           queryKey: ["team", "organization", currentUserId, activeOrg.id],
         });
@@ -201,6 +247,134 @@ export function useTeamSettings() {
         toast.error(t("Failed to remove member"));
       }
     });
+  }
+
+  async function handleUpdateMemberRole(member: Member, role: "admin" | "member") {
+    if (!activeOrg) return;
+    setUpdatingMemberRoleId(member.id);
+    try {
+      const result = await authClient.organization.updateMemberRole({
+        memberId: member.id,
+        role,
+        organizationId: activeOrg.id,
+      });
+      if (result.error) {
+        toast.error(result.error.message || t("Failed to update role"));
+        return;
+      }
+      toast.success(t("Role updated"));
+      // Best-effort: better-auth's afterUpdateMemberRole hook only exposes the
+      // target member, not the admin/owner performing the change, so the audit
+      // entry is recorded here from the actor's own authenticated session.
+      recordMemberRoleChanged
+        .mutateAsync({
+          organizationId: activeOrg.id,
+          targetUserId: member.userId,
+          previousRole: member.role,
+          newRole: role,
+        })
+        .catch((error) => {
+          console.error("Failed to record member role change audit log", error);
+        });
+      await queryClient.invalidateQueries({
+        queryKey: ["team", "organization", currentUserId, activeOrg.id],
+      });
+    } catch (error) {
+      console.error("Failed to update member role", error);
+      toast.error(t("Failed to update role"));
+    } finally {
+      setUpdatingMemberRoleId(null);
+    }
+  }
+
+  async function handleUpdateOrgName() {
+    const trimmedName = orgNameDraft.trim();
+    if (!activeOrg || !trimmedName || trimmedName === activeOrg.name) return;
+    await runWithLoading(setIsSavingOrgName, async () => {
+      try {
+        const result = await authClient.organization.update({
+          organizationId: activeOrg.id,
+          data: { name: trimmedName },
+        });
+        if (result.error) {
+          toast.error(result.error.message || t("Failed to update team name"));
+          return;
+        }
+        queryClient.setQueryData<Organization[]>(
+          ["team", "organizations", currentUserId],
+          (current) =>
+            (current ?? []).map((org) =>
+              org.id === activeOrg.id ? { ...org, name: trimmedName } : org,
+            ),
+        );
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["team", "organizations", currentUserId] }),
+          queryClient.invalidateQueries({
+            queryKey: ["team", "organization", currentUserId, activeOrg.id],
+          }),
+        ]);
+        toast.success(t("Team name updated"));
+      } catch (error) {
+        console.error("Failed to update team name", error);
+        toast.error(t("Failed to update team name"));
+      }
+    });
+  }
+
+  async function updateOrgLogo(logo: string | null) {
+    if (!activeOrg) return;
+    await runWithLoading(setIsSavingOrgLogo, async () => {
+      try {
+        const result = await authClient.organization.update({
+          organizationId: activeOrg.id,
+          data: { logo },
+        });
+        if (result.error) {
+          toast.error(
+            result.error.message ||
+              (logo ? t("Failed to update team icon") : t("Failed to remove team icon")),
+          );
+          return;
+        }
+        queryClient.setQueryData<Organization[]>(
+          ["team", "organizations", currentUserId],
+          (current) =>
+            (current ?? []).map((org) => (org.id === activeOrg.id ? { ...org, logo } : org)),
+        );
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["team", "organizations", currentUserId] }),
+          queryClient.invalidateQueries({
+            queryKey: ["team", "organization", currentUserId, activeOrg.id],
+          }),
+        ]);
+        toast.success(logo ? t("Team icon updated") : t("Team icon removed"));
+      } catch (error) {
+        console.error("Failed to update team icon", error);
+        toast.error(logo ? t("Failed to update team icon") : t("Failed to remove team icon"));
+      }
+    });
+  }
+
+  async function handleUpdateOrgLogo(file: File) {
+    const logo = await new Promise<string | null>((resolve) => {
+      const reader = new FileReader();
+      reader.onerror = () => {
+        console.error("Failed to read team icon file", reader.error);
+        toast.error(t("Failed to update team icon"));
+        resolve(null);
+      };
+      reader.onload = () => {
+        const result = reader.result;
+        resolve(typeof result === "string" ? result : null);
+      };
+      reader.readAsDataURL(file);
+    });
+    if (!logo) return;
+    await updateOrgLogo(logo);
+  }
+
+  async function handleRemoveOrgLogo() {
+    await updateOrgLogo(null);
   }
 
   async function handleCancelInvitation(invitationId: string) {
@@ -216,6 +390,77 @@ export function useTeamSettings() {
       console.error("Failed to cancel invitation", error);
       toast.error(t("Failed to cancel invitation"));
     }
+  }
+
+  async function handleAcceptMyInvitation(invitationId: string) {
+    setRespondingInvitationId(invitationId);
+    try {
+      const result = await authClient.organization.acceptInvitation({ invitationId });
+      if (result.error) {
+        toast.error(result.error.message || t("Failed to accept invitation"));
+        return;
+      }
+      toast.success(t("Invitation accepted"));
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["team", "organizations", currentUserId] }),
+        queryClient.invalidateQueries({ queryKey: ["team", "my-invitations", currentUserId] }),
+        session.refetch(),
+      ]);
+    } catch (error) {
+      console.error("Failed to accept invitation", error);
+      toast.error(t("Failed to accept invitation"));
+    } finally {
+      setRespondingInvitationId(null);
+    }
+  }
+
+  async function handleRejectMyInvitation(invitationId: string) {
+    setRespondingInvitationId(invitationId);
+    try {
+      const result = await authClient.organization.rejectInvitation({ invitationId });
+      if (result.error) {
+        toast.error(result.error.message || t("Failed to decline invitation"));
+        return;
+      }
+      toast.success(t("Invitation declined"));
+      await queryClient.invalidateQueries({ queryKey: ["team", "my-invitations", currentUserId] });
+    } catch (error) {
+      console.error("Failed to decline invitation", error);
+      toast.error(t("Failed to decline invitation"));
+    } finally {
+      setRespondingInvitationId(null);
+    }
+  }
+
+  async function handleDeleteOrg() {
+    if (!activeOrg) return;
+    const deletedOrgId = activeOrg.id;
+    await runWithLoading(setIsDeletingOrg, async () => {
+      try {
+        const result = await authClient.organization.delete({ organizationId: deletedOrgId });
+        if (result.error) {
+          toast.error(result.error.message || t("Failed to delete team"));
+          return;
+        }
+        toast.success(t("Team deleted"));
+        setIsDeleteDialogOpen(false);
+        setSelectedOrgId(null);
+        queryClient.setQueryData<Organization[]>(
+          ["team", "organizations", currentUserId],
+          (current) => (current ?? []).filter((org) => org.id !== deletedOrgId),
+        );
+        queryClient.removeQueries({
+          queryKey: ["team", "organization", currentUserId, deletedOrgId],
+        });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["team", "organizations", currentUserId] }),
+          session.refetch(),
+        ]);
+      } catch (error) {
+        console.error("Failed to delete team", error);
+        toast.error(t("Failed to delete team"));
+      }
+    });
   }
 
   async function handleSubscribe(planId: "pro_team_monthly" | "pro_team_yearly") {
@@ -450,7 +695,12 @@ export function useTeamSettings() {
     organizations,
     activeOrg,
     members,
+    reloadMembers,
+    isReloadingMembers,
+    isMembersReloadCoolingDown,
     pendingInvitations,
+    myPendingInvitations,
+    respondingInvitationId,
     isOwner,
     isAdmin,
     monthlyPlanCopy,
@@ -481,11 +731,26 @@ export function useTeamSettings() {
     memberToRemove,
     setMemberToRemove,
     isRemovingMember,
+    orgNameDraft,
+    setOrgNameDraft,
+    isSavingOrgName,
+    isSavingOrgLogo,
     selectOrg,
     handleCreateOrg,
+    handleUpdateOrgName,
+    handleUpdateOrgLogo,
+    handleRemoveOrgLogo,
     handleInvite,
     handleRemoveMember,
+    updatingMemberRoleId,
+    handleUpdateMemberRole,
     handleCancelInvitation,
+    handleAcceptMyInvitation,
+    handleRejectMyInvitation,
+    isDeleteDialogOpen,
+    setIsDeleteDialogOpen,
+    isDeletingOrg,
+    handleDeleteOrg,
     handleSubscribe,
     handleManage,
     handleCancel,

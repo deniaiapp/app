@@ -10,7 +10,11 @@ import { isAffiliatePaidStatus, processAffiliatePurchase } from "@/lib/affiliate
 import { resetMaxModeUsage } from "@/lib/max-mode";
 import { stripe } from "@/lib/stripe";
 import { getSubscriptionPeriodEnd } from "@/lib/stripe-subscriptions";
-import { cancelOrgMembersPersonalSubscriptions } from "@/lib/team-billing";
+import {
+  cancelOrgMembersPersonalSubscriptions,
+  getTeamBilling,
+  recordTeamAuditEvent,
+} from "@/lib/team-billing";
 
 type SubscriptionPayload = {
   userId: string;
@@ -219,11 +223,35 @@ export async function POST(req: Request) {
           break;
         }
 
+        // Read the plan before clearPlanData wipes it, for the audit log below.
+        const previousTeamBilling = organizationId ? await getTeamBilling(organizationId) : null;
+
         await clearPlanData({
           userId,
           customerId,
           organizationId,
         });
+
+        if (organizationId) {
+          // Best-effort: if the organization was deleted as part of this same
+          // cancellation (beforeDeleteOrganization cancels the subscription,
+          // which triggers this webhook asynchronously afterwards), the
+          // organizationId FK may already be gone by the time this runs — the
+          // audit trail is moot in that case since the org's log is gone too.
+          try {
+            await recordTeamAuditEvent({
+              organizationId,
+              actorUserId: userId,
+              action: "subscription_expired",
+              metadata: { planId: previousTeamBilling?.planId ?? null },
+            });
+          } catch (error) {
+            console.warn("[stripe:webhook] Failed to record subscription_expired audit event", {
+              organizationId,
+              error,
+            });
+          }
+        }
         break;
       }
       case "customer.subscription.created":
@@ -263,6 +291,11 @@ export async function POST(req: Request) {
           break;
         }
 
+        // Read the previous status before saveSubscription overwrites it, so we
+        // can tell a *transition* into past_due from a status that was already
+        // past_due (this event also fires on unrelated renewals/updates).
+        const previousTeamBilling = organizationId ? await getTeamBilling(organizationId) : null;
+
         await saveSubscription({
           userId,
           customerId,
@@ -282,6 +315,26 @@ export async function POST(req: Request) {
           isTeamPlan(findPlanByLookupKey(lookupKey)?.id ?? "")
         ) {
           await cancelOrgMembersPersonalSubscriptions(organizationId);
+        }
+
+        if (
+          organizationId &&
+          computedStatus === "past_due" &&
+          previousTeamBilling?.status !== "past_due"
+        ) {
+          try {
+            await recordTeamAuditEvent({
+              organizationId,
+              actorUserId: userId,
+              action: "payment_failed",
+              metadata: { planId: findPlanByLookupKey(lookupKey)?.id ?? null },
+            });
+          } catch (error) {
+            console.warn("[stripe:webhook] Failed to record payment_failed audit event", {
+              organizationId,
+              error,
+            });
+          }
         }
         break;
       }
@@ -321,6 +374,16 @@ export async function POST(req: Request) {
               currentPeriodEnd: getSubscriptionPeriodEnd(subscription),
               organizationId,
             });
+
+            if (organizationId) {
+              const plan = findPlanByLookupKey(price?.lookup_key ?? undefined);
+              await recordTeamAuditEvent({
+                organizationId,
+                actorUserId: userId,
+                action: "subscription_purchased",
+                metadata: { planId: plan?.id ?? null },
+              });
+            }
           }
         } else if (session.mode === "payment" && session.payment_status === "paid") {
           const userId =

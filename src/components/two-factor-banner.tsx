@@ -52,8 +52,21 @@ function dismissTwoFactorBanner() {
   window.dispatchEvent(new Event(DISMISSED_EVENT));
 }
 
-function getAnnouncements(t: (key: string) => string, twoFactorEnabled: boolean): Announcement[] {
-  const items: Announcement[] = [
+export function TwoFactorBanner() {
+  const t = useExtracted();
+  const pathname = usePathname();
+  const session = authClient.useSession();
+  const dismissed = useSyncExternalStore(
+    subscribeDismissed,
+    getDismissedSnapshot,
+    getServerDismissedSnapshot,
+  );
+  const visible = !dismissed;
+  const shouldReduceMotion = useReducedMotion();
+  const [announcementIndex, setAnnouncementIndex] = useState(0);
+  const twoFactorEnabled = Boolean(session.data?.user?.twoFactorEnabled);
+
+  const announcements: Announcement[] = [
     {
       id: "terms",
       message: t("Terms - We updated our Terms of Service."),
@@ -81,38 +94,20 @@ function getAnnouncements(t: (key: string) => string, twoFactorEnabled: boolean)
       icon: KeyRound,
       iconClassName: "text-amber-500",
     },
+    ...(!twoFactorEnabled
+      ? [
+          {
+            id: "two-factor",
+            message: t("2FA - Enhance your security with two-factor authentication"),
+            linkLabel: t("Setup"),
+            href: "/account/settings",
+            external: false,
+            icon: ShieldCheck,
+            iconClassName: "text-emerald-500",
+          },
+        ]
+      : []),
   ];
-
-  if (!twoFactorEnabled) {
-    items.push({
-      id: "two-factor",
-      message: t("2FA - Enhance your security with two-factor authentication"),
-      linkLabel: t("Setup"),
-      href: "/account/settings",
-      external: false,
-      icon: ShieldCheck,
-      iconClassName: "text-emerald-500",
-    });
-  }
-
-  return items;
-}
-
-export function TwoFactorBanner() {
-  const t = useExtracted();
-  const pathname = usePathname();
-  const session = authClient.useSession();
-  const dismissed = useSyncExternalStore(
-    subscribeDismissed,
-    getDismissedSnapshot,
-    getServerDismissedSnapshot,
-  );
-  const visible = !dismissed;
-  const shouldReduceMotion = useReducedMotion();
-  const [announcementIndex, setAnnouncementIndex] = useState(0);
-  const twoFactorEnabled = Boolean(session.data?.user?.twoFactorEnabled);
-
-  const announcements = getAnnouncements(t, twoFactorEnabled);
 
   useEffect(() => {
     if (!visible || announcements.length <= 1) return;

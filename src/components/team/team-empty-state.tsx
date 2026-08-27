@@ -2,6 +2,7 @@
 
 import { Plus, Users } from "lucide-react";
 import { useExtracted } from "next-intl";
+import type { ReactNode } from "react";
 import { SettingsPageShell } from "@/components/settings-page-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,6 +15,7 @@ export function TeamEmptyState({
   onNewOrgNameChange,
   onCreate,
   isCreating,
+  topSlot,
 }: {
   isCreateDialogOpen: boolean;
   onCreateDialogOpenChange: (open: boolean) => void;
@@ -21,6 +23,7 @@ export function TeamEmptyState({
   onNewOrgNameChange: (value: string) => void;
   onCreate: () => void;
   isCreating: boolean;
+  topSlot?: ReactNode;
 }) {
   const t = useExtracted();
 
@@ -29,6 +32,7 @@ export function TeamEmptyState({
       title={t("Team")}
       description={t("Create a team to share Pro access with your members.")}
     >
+      {topSlot}
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-12 text-center">
           <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted">

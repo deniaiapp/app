@@ -1,11 +1,13 @@
 "use client";
 
-import { Download, History, ShieldCheck, Zap } from "lucide-react";
+import { ChevronRight, Download, History, ShieldCheck, Zap } from "lucide-react";
+import Link from "next/link";
 import { useExtracted } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
+import { useAuditActionSentence } from "./team-audit-utils";
 import { TeamMaxModeDefaultPolicySection } from "./team-max-mode-default-policy";
 import { TeamMaxModeMemberRow, type TeamMaxModeMemberPolicy } from "./team-max-mode-member-row";
 import { dateTimeFormatter, numberFormatter } from "./team-utils";
@@ -19,6 +21,10 @@ type DefaultPolicy = {
 type AuditEntry = {
   id: string;
   action: string;
+  actorName?: string | null;
+  actorEmail?: string | null;
+  targetName?: string | null;
+  targetEmail?: string | null;
   createdAt: Date | string;
 };
 
@@ -80,6 +86,7 @@ export function TeamMaxModeCard({
   onExportCsv: () => void;
 }) {
   const t = useExtracted();
+  const getActionSentence = useAuditActionSentence();
 
   return (
     <Card>
@@ -172,25 +179,24 @@ export function TeamMaxModeCard({
               <div className="space-y-2 rounded-lg border p-3">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <History className="size-3.5 text-muted-foreground" />
-                  {t("Recent policy changes")}
+                  {t("Recent activity")}
                 </div>
                 <div className="space-y-2">
                   {settings.auditLog.map((entry) => {
-                    const actionLabel =
-                      entry.action === "max_mode_enabled"
-                        ? t("Team Max Mode enabled")
-                        : entry.action === "max_mode_disabled"
-                          ? t("Team Max Mode disabled")
-                          : entry.action === "default_policy_updated"
-                            ? t("Default policy updated")
-                            : t("Member policy updated");
+                    const targetLabel = entry.targetName || entry.targetEmail || null;
+                    const sentence = getActionSentence(entry.action, targetLabel);
 
                     return (
                       <div
                         key={entry.id}
                         className="flex items-center justify-between gap-3 text-xs"
                       >
-                        <span className="text-muted-foreground">{actionLabel}</span>
+                        <span className="text-muted-foreground">
+                          <span className="font-medium text-foreground">
+                            {entry.actorName || entry.actorEmail}
+                          </span>{" "}
+                          {sentence}
+                        </span>
                         <span className="shrink-0 text-muted-foreground">
                           {dateTimeFormatter.format(new Date(entry.createdAt))}
                         </span>
@@ -198,6 +204,12 @@ export function TeamMaxModeCard({
                     );
                   })}
                 </div>
+                <Button variant="ghost" size="sm" className="w-full justify-between" asChild>
+                  <Link href="/settings/team/audit-log">
+                    {t("View full audit log")}
+                    <ChevronRight className="size-3.5" />
+                  </Link>
+                </Button>
               </div>
             ) : null}
           </>
