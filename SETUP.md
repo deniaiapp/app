@@ -233,6 +233,25 @@ NEXT_PUBLIC_BILLING_DISABLED=true
 
 Optional flash offer coupon: `STRIPE_FLASH_OFFER_COUPON_ID`.
 
+### Max Mode metered billing
+
+Max Mode overage is billed **monthly** through [Stripe Billing Meters](https://docs.stripe.com/billing/subscriptions/usage-based/recording-usage-api), even when the plan subscription is yearly. Monthly plans get meter items on the same subscription. Yearly plans get a separate monthly Max Mode subscription so Stripe can invoice overage every month.
+
+Create the meters and prices once (idempotent):
+
+```bash
+bun --env-file=.env.local ./tools/stripe-max-mode-setup.ts
+```
+
+That script creates:
+
+| Meter event name   | Lookup key               | Rate                   |
+| ------------------ | ------------------------ | ---------------------- |
+| `max_mode_basic`   | `max_mode_basic_month`   | $0.01 per 1,000 tokens |
+| `max_mode_premium` | `max_mode_premium_month` | $0.05 per 1,000 tokens |
+
+Without these lookup keys, Max Mode can still record usage locally but enabling it (and invoicing) fails until the prices exist.
+
 ## Database schema
 
 Schemas live under `src/db/schema/`. Main domains:

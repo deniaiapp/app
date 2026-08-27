@@ -1,5 +1,3 @@
-import { appCodename, appDate, appVersion } from "@/lib/version";
-
 export type ChangelogHighlight = {
   title: string;
   body: string;
@@ -15,23 +13,39 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
-    version: "7.8",
+    version: "7.8.0",
     codename: "Golden Arrow",
     date: "2026-08-27",
     summary:
       "Team controls, safer chats, and a tighter security loop around how you sign in and manage memory.",
     highlights: [
       {
-        title: "Team settings and audit log",
-        body: "Owners and admins can review billing and policy changes from a dedicated team dashboard.",
+        title: "Chat & Memory Enhancements",
+        body: "You can now have assistant messages read aloud and search through memory.",
       },
       {
-        title: "Safer outbound links",
-        body: "External links in chat now ask before leaving Deni AI, so surprise redirects are harder to miss.",
+        title: "Security Enhancements",
+        body: "You can now view your sign-in and account action history, as well as log out of sessions even for accounts that have been logged in for several days.",
       },
       {
-        title: "Memory and 2FA hardening",
-        body: "Automatic memory saves skip near-duplicates, and two-factor verification is stricter on sensitive account actions.",
+        title: "Project Enhancements",
+        body: "You can now archive projects, configure default models, and share them with your team.",
+      },
+      {
+        title: "Data Exporting",
+        body: "You can now export your Deni AI data (e.g., chats, memory, projects, profile).",
+      },
+      {
+        title: "Chat Importing",
+        body: "You can migrate data from external sources and export data.",
+      },
+      {
+        title: "Team Management",
+        body: "Administrators and owners can now manage billing, share projects with their teams, review audit logs, and change user roles.",
+      },
+      {
+        title: "Other changes",
+        body: "PWA feature expansion, Max Mode bug fixes, and other bug fixes and UI updates.",
       },
     ],
   },

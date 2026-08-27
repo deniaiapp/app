@@ -24,7 +24,15 @@ import { escapeStripeSearchValue } from "@/lib/stripe-search";
 import { stripe } from "@/lib/stripe";
 import { customCheckoutRequestOptions } from "@/lib/stripe-checkout";
 import { checkoutSessionExpand, summarizeCheckoutSession } from "@/lib/stripe-checkout-receipt";
-import { getSubscriptionPeriodEndDate } from "@/lib/stripe-subscriptions";
+import { attachMaxModeMeteredItems } from "@/lib/max-mode-stripe";
+import {
+  getLicensedPrice,
+  getLicensedSubscriptionItem,
+  getSubscriptionPeriodEndDate,
+  isMaxModeOnlySubscription,
+  isMeteredMaxModePrice,
+  pickLicensedSubscription,
+} from "@/lib/stripe-subscriptions";
 import { getOrgMemberCount, updateTeamSeatCount } from "@/lib/team-billing";
 import { getUsageLimitConfig } from "@/lib/usage";
 import { type ProtectedContext, protectedProcedure, router } from "../trpc";
@@ -315,10 +323,9 @@ async function syncTeamSubscription(ctx: ProtectedContext, userId: string, organ
     expand: ["data.default_payment_method"],
   });
 
-  // Prefer active/trialing/past_due subscriptions over canceled ones
-  const bestSub =
-    subscriptions.data.find((sub) => ACTIVE_SUB_STATUSES.has(sub.status)) ??
-    subscriptions.data.at(0);
+  const bestSub = pickLicensedSubscription(subscriptions.data, (status) =>
+    ACTIVE_SUB_STATUSES.has(status),
+  );
   const subscriptionId = bestSub?.id;
   if (!subscriptionId) {
     return billingRecord;
@@ -328,7 +335,7 @@ async function syncTeamSubscription(ctx: ProtectedContext, userId: string, organ
   const updates: Partial<BillingRecord> = {};
 
   if (subscription) {
-    const price = subscription.items.data.at(0)?.price ?? null;
+    const price = getLicensedPrice(subscription) ?? subscription.items.data.at(0)?.price ?? null;
     const plan =
       findPlanById(subscription.metadata?.planId ?? "") ??
       billingPlans.find((p) => p.lookupKey === price?.lookup_key);
@@ -694,7 +701,7 @@ export const organizationRouter = router({
     .input(z.object({ organizationId: z.string().min(1), enabled: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
       const subscription = await getOwnedTeamBillingRecord(ctx, input.organizationId);
-      const updates = input.enabled
+      const updates: Partial<BillingRecord> = input.enabled
         ? {
             maxModeEnabled: true,
             maxModePeriodStart: subscription.maxModeEnabled
@@ -708,6 +715,16 @@ export const organizationRouter = router({
             maxModeEnabled: false,
             updatedAt: new Date(),
           };
+
+      if (input.enabled) {
+        const attached = await attachMaxModeMeteredItems(subscription, ctx.userId);
+        if (!attached.ok) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: attached.error });
+        }
+        updates.stripeSubscriptionId = attached.subscriptionId;
+        updates.stripeMeteredBasicItemId = attached.basicItemId;
+        updates.stripeMeteredPremiumItemId = attached.premiumItemId;
+      }
 
       await ctx.db.update(billing).set(updates).where(eq(billing.id, subscription.id));
       await recordTeamUsageAuditLog({
@@ -912,7 +929,9 @@ export const organizationRouter = router({
       });
 
       const activeSub = existingSubs.data.find(
-        (sub) => ACTIVE_SUB_STATUSES.has(sub.status) || sub.cancel_at_period_end === true,
+        (sub) =>
+          !isMaxModeOnlySubscription(sub) &&
+          (ACTIVE_SUB_STATUSES.has(sub.status) || sub.cancel_at_period_end === true),
       );
 
       if (activeSub) {
@@ -1074,8 +1093,8 @@ export const organizationRouter = router({
         { expand: ["items"] },
       );
 
-      const item = subscription.items.data.at(0);
-      if (!item?.id) {
+      const item = getLicensedSubscriptionItem(subscription) ?? subscription.items.data.at(0);
+      if (!item?.id || isMeteredMaxModePrice(item.price)) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Subscription has no billable items to update.",
@@ -1118,6 +1137,10 @@ export const organizationRouter = router({
           },
         })
         .returning();
+
+      if (saved?.maxModeEnabled) {
+        await attachMaxModeMeteredItems(saved, ctx.userId);
+      }
 
       if (subscriptionState.planId && subscriptionState.planId !== plan.id) {
         await recordTeamUsageAuditLog({
@@ -1213,7 +1236,7 @@ export const organizationRouter = router({
         cancel_at_period_end: false,
       });
 
-      const price = resumed.items.data.at(0)?.price ?? null;
+      const price = getLicensedPrice(resumed) ?? resumed.items.data.at(0)?.price ?? null;
       const plan =
         billingPlans.find((p) => p.lookupKey === price?.lookup_key) ??
         findPlanById(resumed.metadata?.planId ?? "") ??

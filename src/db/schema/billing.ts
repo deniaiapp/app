@@ -45,6 +45,8 @@ export const billing = pgTable(
     maxModeUsagePremium: integer("max_mode_usage_premium").default(0).notNull(),
     maxModePeriodStart: timestamp("max_mode_period_start"),
     stripeMeteredSubscriptionItemId: text("stripe_metered_subscription_item_id"),
+    stripeMeteredBasicItemId: text("stripe_metered_basic_item_id"),
+    stripeMeteredPremiumItemId: text("stripe_metered_premium_item_id"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

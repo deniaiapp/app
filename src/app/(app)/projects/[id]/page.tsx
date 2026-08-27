@@ -1,11 +1,10 @@
-import { and, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { ProjectPage } from "@/components/projects/project-page";
 import { Spinner } from "@/components/ui/spinner";
 import { db } from "@/db/drizzle";
-import { projects } from "@/db/schema";
 import { getSession } from "@/lib/get-session";
+import { getAccessibleProject } from "@/lib/project-access";
 
 type ProjectDetailPageProps = {
   params: Promise<{ id: string }>;
@@ -25,12 +24,7 @@ async function ProjectDetailContent({ params }: ProjectDetailPageProps) {
     notFound();
   }
 
-  const [project] = await db
-    .select()
-    .from(projects)
-    .where(and(eq(projects.id, id), eq(projects.userId, session.user.id)))
-    .limit(1);
-
+  const project = await getAccessibleProject(db, session.user.id, id);
   if (!project) {
     notFound();
   }

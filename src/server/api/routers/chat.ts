@@ -1,7 +1,8 @@
 import type { UIMessage } from "ai";
 import { safeValidateUIMessages } from "ai";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
+import { getAccessibleProject } from "@/lib/project-access";
 import { z } from "zod";
 import type { db as Db } from "@/db/drizzle";
 import { chats, projects } from "@/db/schema";
@@ -33,12 +34,22 @@ async function loadChatPage(
       projectDefaultModel: projects.defaultModel,
     })
     .from(chats)
-    .leftJoin(projects, and(eq(projects.id, chats.projectId), eq(projects.userId, userId)))
+    .leftJoin(projects, eq(projects.id, chats.projectId))
     .where(and(eq(chats.id, id), eq(chats.uid, userId)))
     .limit(1);
 
   if (!row) {
     return null;
+  }
+
+  let projectName = row.projectName ?? null;
+  let projectDefaultModel = row.projectDefaultModel ?? null;
+  if (row.projectId) {
+    const accessible = await getAccessibleProject(database, userId, row.projectId);
+    if (!accessible) {
+      projectName = null;
+      projectDefaultModel = null;
+    }
   }
 
   const validated = await safeValidateUIMessages<UIMessage>({
@@ -49,8 +60,8 @@ async function loadChatPage(
     id: row.id,
     title: row.title,
     projectId: row.projectId,
-    projectName: row.projectName ?? null,
-    projectDefaultModel: row.projectDefaultModel ?? null,
+    projectName,
+    projectDefaultModel,
     messages: validated.success ? validated.data : [],
   };
 }
@@ -145,19 +156,9 @@ export const chatRouter = router({
       let projectId: string | null = null;
       const rawProjectId = input.projectId ?? null;
       if (rawProjectId && UUID_RE.test(rawProjectId)) {
-        const [owned] = await ctx.db
-          .select({ id: projects.id })
-          .from(projects)
-          .where(
-            and(
-              eq(projects.id, rawProjectId),
-              eq(projects.userId, ctx.userId),
-              isNull(projects.archivedAt),
-            ),
-          )
-          .limit(1);
-        if (owned) {
-          projectId = owned.id;
+        const accessible = await getAccessibleProject(ctx.db, ctx.userId, rawProjectId);
+        if (accessible && !accessible.archivedAt) {
+          projectId = accessible.id;
         }
       }
 

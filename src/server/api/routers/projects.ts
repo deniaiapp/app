@@ -1,6 +1,14 @@
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { chats, projectFiles, projects } from "@/db/schema";
+import {
+  getAccessibleProject,
+  listUserMemberships,
+  projectAccessWhere,
+  userIsOrgMember,
+  withProjectAccess,
+} from "@/lib/project-access";
 import { protectedProcedure, router } from "../trpc";
 
 const projectInputSchema = z.object({
@@ -11,31 +19,61 @@ const projectInputSchema = z.object({
   defaultModel: z.string().trim().min(1).max(80).nullable().optional(),
 });
 
+async function requireAccessibleProject(
+  ctx: { db: typeof import("@/db/drizzle").db; userId: string },
+  projectId: string,
+) {
+  const project = await getAccessibleProject(ctx.db, ctx.userId, projectId);
+  if (!project) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
+  }
+  return project;
+}
+
+async function requireManageableProject(
+  ctx: { db: typeof import("@/db/drizzle").db; userId: string },
+  projectId: string,
+) {
+  const project = await requireAccessibleProject(ctx, projectId);
+  if (!project.canManage) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "You do not have permission to manage this project.",
+    });
+  }
+  return project;
+}
+
 export const projectsRouter = router({
+  organizations: protectedProcedure.query(async ({ ctx }) => {
+    const memberships = await listUserMemberships(ctx.db, ctx.userId);
+    return memberships.map((entry) => ({
+      id: entry.organizationId,
+      name: entry.organizationName,
+      role: entry.role,
+    }));
+  }),
+
   list: protectedProcedure
     .input(z.object({ includeArchived: z.boolean().optional() }).optional())
     .query(async ({ ctx, input }) => {
-      return ctx.db
+      const memberships = await listUserMemberships(ctx.db, ctx.userId);
+      const organizationIds = memberships.map((entry) => entry.organizationId);
+      const rows = await ctx.db
         .select()
         .from(projects)
-        .where(
-          and(
-            eq(projects.userId, ctx.userId),
-            input?.includeArchived ? undefined : isNull(projects.archivedAt),
-          ),
-        )
+        .where(projectAccessWhere(ctx.userId, organizationIds, Boolean(input?.includeArchived)))
         .orderBy(asc(projects.name));
+
+      return rows
+        .map((row) => withProjectAccess(row, ctx.userId, memberships))
+        .filter((row): row is NonNullable<typeof row> => row !== null);
     }),
 
   get: protectedProcedure
     .input(z.object({ id: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
-      const [project] = await ctx.db
-        .select()
-        .from(projects)
-        .where(and(eq(projects.id, input.id), eq(projects.userId, ctx.userId)))
-        .limit(1);
-
+      const project = await getAccessibleProject(ctx.db, ctx.userId, input.id);
       if (!project) {
         return null;
       }
@@ -43,30 +81,42 @@ export const projectsRouter = router({
       const files = await ctx.db
         .select()
         .from(projectFiles)
-        .where(and(eq(projectFiles.projectId, input.id), eq(projectFiles.userId, ctx.userId)))
+        .where(eq(projectFiles.projectId, input.id))
         .orderBy(asc(projectFiles.createdAt));
 
       return { project, files };
     }),
 
-  create: protectedProcedure.input(projectInputSchema).mutation(async ({ ctx, input }) => {
-    const [project] = await ctx.db
-      .insert(projects)
-      .values({
-        userId: ctx.userId,
-        name: input.name,
-        description: input.description ?? null,
-        instructions: input.instructions,
-        color: input.color,
-      })
-      .returning();
+  create: protectedProcedure
+    .input(projectInputSchema.extend({ organizationId: z.string().min(1).nullable().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const organizationId = input.organizationId ?? null;
+      if (organizationId && !(await userIsOrgMember(ctx.db, ctx.userId, organizationId))) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not a member of that team.",
+        });
+      }
 
-    return project;
-  }),
+      const [project] = await ctx.db
+        .insert(projects)
+        .values({
+          userId: ctx.userId,
+          organizationId,
+          name: input.name,
+          description: input.description ?? null,
+          instructions: input.instructions,
+          color: input.color,
+        })
+        .returning();
+
+      return project;
+    }),
 
   update: protectedProcedure
     .input(projectInputSchema.extend({ id: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
+      await requireManageableProject(ctx, input.id);
       const { id, ...fields } = input;
       const [project] = await ctx.db
         .update(projects)
@@ -76,19 +126,56 @@ export const projectsRouter = router({
           defaultModel: fields.defaultModel ?? null,
           updatedAt: new Date(),
         })
-        .where(and(eq(projects.id, id), eq(projects.userId, ctx.userId)))
+        .where(eq(projects.id, id))
         .returning();
 
       return project ?? null;
     }),
 
+  share: protectedProcedure
+    .input(z.object({ id: z.string().min(1), organizationId: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      const project = await requireManageableProject(ctx, input.id);
+      if (project.organizationId === input.organizationId) {
+        return project;
+      }
+      if (!(await userIsOrgMember(ctx.db, ctx.userId, input.organizationId))) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not a member of that team.",
+        });
+      }
+
+      const [updated] = await ctx.db
+        .update(projects)
+        .set({ organizationId: input.organizationId, updatedAt: new Date() })
+        .where(eq(projects.id, input.id))
+        .returning();
+
+      return updated ?? null;
+    }),
+
+  unshare: protectedProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      await requireManageableProject(ctx, input.id);
+      const [updated] = await ctx.db
+        .update(projects)
+        .set({ organizationId: null, updatedAt: new Date() })
+        .where(eq(projects.id, input.id))
+        .returning();
+
+      return updated ?? null;
+    }),
+
   archive: protectedProcedure
     .input(z.object({ id: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
+      await requireManageableProject(ctx, input.id);
       const [project] = await ctx.db
         .update(projects)
         .set({ archivedAt: new Date(), updatedAt: new Date() })
-        .where(and(eq(projects.id, input.id), eq(projects.userId, ctx.userId)))
+        .where(eq(projects.id, input.id))
         .returning();
 
       return project ?? null;
@@ -97,10 +184,11 @@ export const projectsRouter = router({
   restore: protectedProcedure
     .input(z.object({ id: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
+      await requireManageableProject(ctx, input.id);
       const [project] = await ctx.db
         .update(projects)
         .set({ archivedAt: null, updatedAt: new Date() })
-        .where(and(eq(projects.id, input.id), eq(projects.userId, ctx.userId)))
+        .where(eq(projects.id, input.id))
         .returning();
 
       return project ?? null;
@@ -109,10 +197,8 @@ export const projectsRouter = router({
   delete: protectedProcedure
     .input(z.object({ id: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
-      const [deleted] = await ctx.db
-        .delete(projects)
-        .where(and(eq(projects.id, input.id), eq(projects.userId, ctx.userId)))
-        .returning();
+      await requireManageableProject(ctx, input.id);
+      const [deleted] = await ctx.db.delete(projects).where(eq(projects.id, input.id)).returning();
 
       return deleted ?? null;
     }),
@@ -120,12 +206,11 @@ export const projectsRouter = router({
   listFiles: protectedProcedure
     .input(z.object({ projectId: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
+      await requireAccessibleProject(ctx, input.projectId);
       return ctx.db
         .select()
         .from(projectFiles)
-        .where(
-          and(eq(projectFiles.projectId, input.projectId), eq(projectFiles.userId, ctx.userId)),
-        )
+        .where(eq(projectFiles.projectId, input.projectId))
         .orderBy(asc(projectFiles.createdAt));
     }),
 
@@ -140,16 +225,7 @@ export const projectsRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      // Verify project ownership
-      const [project] = await ctx.db
-        .select({ id: projects.id })
-        .from(projects)
-        .where(and(eq(projects.id, input.projectId), eq(projects.userId, ctx.userId)))
-        .limit(1);
-
-      if (!project) {
-        throw new Error("Project not found");
-      }
+      await requireAccessibleProject(ctx, input.projectId);
 
       const [file] = await ctx.db
         .insert(projectFiles)
@@ -169,9 +245,26 @@ export const projectsRouter = router({
   deleteFile: protectedProcedure
     .input(z.object({ id: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
+      const [file] = await ctx.db
+        .select()
+        .from(projectFiles)
+        .where(eq(projectFiles.id, input.id))
+        .limit(1);
+      if (!file) {
+        return null;
+      }
+
+      const project = await requireAccessibleProject(ctx, file.projectId);
+      if (file.userId !== ctx.userId && !project.canManage) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You can only delete files you uploaded.",
+        });
+      }
+
       const [deleted] = await ctx.db
         .delete(projectFiles)
-        .where(and(eq(projectFiles.id, input.id), eq(projectFiles.userId, ctx.userId)))
+        .where(eq(projectFiles.id, input.id))
         .returning();
 
       return deleted ?? null;
@@ -180,6 +273,7 @@ export const projectsRouter = router({
   getProjectChats: protectedProcedure
     .input(z.object({ projectId: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
+      await requireAccessibleProject(ctx, input.projectId);
       return ctx.db
         .select({
           id: chats.id,

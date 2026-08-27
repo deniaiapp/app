@@ -9,7 +9,11 @@ import { getBillingFingerprintUpdates } from "@/lib/billing-card-usage";
 import { isAffiliatePaidStatus, processAffiliatePurchase } from "@/lib/affiliate";
 import { resetMaxModeUsage } from "@/lib/max-mode";
 import { stripe } from "@/lib/stripe";
-import { getSubscriptionPeriodEnd } from "@/lib/stripe-subscriptions";
+import {
+  getLicensedPrice,
+  getSubscriptionPeriodEnd,
+  isMaxModeOnlySubscription,
+} from "@/lib/stripe-subscriptions";
 import {
   cancelOrgMembersPersonalSubscriptions,
   getTeamBilling,
@@ -213,6 +217,10 @@ export async function POST(req: Request) {
           break;
         }
 
+        if (isMaxModeOnlySubscription(subscription)) {
+          break;
+        }
+
         const userId = await resolveUserIdFromCustomer(customerId, subscription.metadata?.userId);
         const organizationId = resolveOrganizationId(subscription.metadata);
 
@@ -273,7 +281,12 @@ export async function POST(req: Request) {
           break;
         }
 
-        const price = subscription.items?.data?.[0]?.price ?? null;
+        if (isMaxModeOnlySubscription(subscription)) {
+          break;
+        }
+
+        const price =
+          getLicensedPrice(subscription) ?? subscription.items?.data?.[0]?.price ?? null;
         const priceId = price?.id ?? null;
         const lookupKey = price?.lookup_key ?? null;
         const userId = await resolveUserIdFromCustomer(customerId, subscription.metadata?.userId);

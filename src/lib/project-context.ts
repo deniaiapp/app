@@ -1,28 +1,19 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/db/drizzle";
-import { projectFiles, projects } from "@/db/schema";
+import { projectFiles } from "@/db/schema";
+import { getAccessibleProject } from "@/lib/project-access";
 
 export async function buildProjectPrompt(projectId: string | null | undefined, userId: string) {
   if (!projectId) {
     return null;
   }
 
-  const [project, files] = await Promise.all([
-    db
-      .select()
-      .from(projects)
-      .where(and(eq(projects.id, projectId), eq(projects.userId, userId)))
-      .limit(1)
-      .then((rows) => rows[0] ?? null),
-    db
-      .select()
-      .from(projectFiles)
-      .where(and(eq(projectFiles.projectId, projectId), eq(projectFiles.userId, userId))),
-  ]);
-
-  if (!project) {
+  const project = await getAccessibleProject(db, userId, projectId);
+  if (!project || project.archivedAt) {
     return null;
   }
+
+  const files = await db.select().from(projectFiles).where(eq(projectFiles.projectId, projectId));
 
   const filesSummary =
     files.length > 0

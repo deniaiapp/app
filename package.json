@@ -19,6 +19,7 @@
     "db:migrate:dev": "bun run --env-file=.env.local db:migrate",
     "db:push": "drizzle-kit push",
     "tools:codename": "bun ./tools/codename-generator.ts",
+    "tools:stripe-max-mode": "bun ./tools/stripe-max-mode-setup.ts",
     "tools:commit": "bun ./tools/commit.ts",
     "tools:purge-anonymous": "bun --env-file=.env.production ./tools/purge-anonymous.ts",
     "disposable:refresh": "bun run --filter @deni-ai/disposable-email-domains refresh",
