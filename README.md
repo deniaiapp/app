@@ -12,7 +12,7 @@ Deni AI is a multi-model AI chat app for people who want strong model choice wit
 - **BYOK** — connect your own provider API keys (encrypted at rest); model tokens are not counted against platform limits. Web search still uses platform quota.
 - **Tools** — web search (Exa) is available on every chat and used when current information is needed; each search call consumes a fixed amount of basic usage (Search mode forces a lookup). Page browse, image generation, and video (Veo) where enabled
 - **Memory & projects** — personalization memories and project-scoped context; projects can be shared with a team
-- **Teams** — organizations, seats, shared Pro access, and team projects
+- **Teams** — organizations, seats, shared Pro or Max access (per-seat billing), and team projects
 - **Billing** — Stripe subscriptions (personal and team) plus Max Mode metered overage; optional self-host disable via `NEXT_PUBLIC_BILLING_DISABLED`
 - **Affiliate referrals** — shareable invite links, QR codes, milestone reset credits, and selectable paid-plan rewards (three resets or a manually sent 30% OFF coupon)
 - **Auth** — Google / GitHub OAuth, magic link, anonymous guest, passkeys, and 2FA (better-auth)

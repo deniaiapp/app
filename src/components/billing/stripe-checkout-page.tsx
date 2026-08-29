@@ -10,7 +10,7 @@ import { startTransition, useEffect, useReducer, useState } from "react";
 import { toast } from "sonner";
 import { usePlatformCapabilities } from "@/components/platform-capabilities-provider";
 import type { BillingPlanId, ClientPlan, IndividualPlanId, TeamPlanId } from "@/lib/billing";
-import { findPlanById, getPlanTier } from "@/lib/billing";
+import { findPlanById, getPlanTier, isMaxTeamPlan } from "@/lib/billing";
 import { stripeJsPromise } from "@/lib/stripe-js";
 import { makeTRPCClient } from "@/lib/trpc/client";
 import { type CheckoutSessionSummary as ReceiptCheckoutSessionSummary } from "@/lib/stripe-checkout-receipt";
@@ -102,7 +102,7 @@ function useTierLabelValue() {
   return (planId: string) => {
     const tier = getPlanTier(planId);
     if (tier === "team") {
-      return t("Pro for Teams");
+      return isMaxTeamPlan(planId) ? t("Max for Teams") : t("Pro for Teams");
     }
     if (tier === "max") {
       return t("Max");
@@ -149,8 +149,10 @@ function usePlanLabel() {
       : planId.endsWith("_lifetime")
         ? t("Lifetime")
         : t("Monthly");
-    if (planId.startsWith("pro_team")) {
-      return t("Pro for Teams {name}", { name: interval });
+    if (planId.startsWith("pro_team") || planId.startsWith("max_team")) {
+      return isMaxTeamPlan(planId)
+        ? t("Max for Teams {name}", { name: interval })
+        : t("Pro for Teams {name}", { name: interval });
     }
 
     return t("{tier} {name}", {
@@ -169,8 +171,8 @@ function useTierLabel() {
       return t("Checkout");
     }
 
-    if (planId.startsWith("pro_team")) {
-      return t("Pro for Teams");
+    if (planId.startsWith("pro_team") || planId.startsWith("max_team")) {
+      return isMaxTeamPlan(planId) ? t("Max for Teams") : t("Pro for Teams");
     }
 
     return getTierLabel(planId);

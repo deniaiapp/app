@@ -18,20 +18,19 @@ export function TeamBillingPage() {
     isOwner,
     isAdmin,
     activeOrg,
-    monthlyPlanCopy,
-    yearlyPlanCopy,
     teamBillingQuery,
     teamMaxModeQuery,
-    monthlyPlan,
-    yearlyPlan,
+    teamPlans,
     teamTrialDays,
     createTeamCheckout,
+    changeTeamPlan,
     cancelSub,
     resumeSub,
     updateTeamMaxMode,
     updateTeamMaxModeDefaultPolicy,
     updateMemberMaxModePolicy,
     handleSubscribe,
+    handleChangePlan,
     handleManage,
     handleCancel,
     confirmCancel,
@@ -47,7 +46,7 @@ export function TeamBillingPage() {
   } = useTeamSettingsContext();
 
   const teamPlanId = teamBillingQuery.data?.planId ?? "pro_team_monthly";
-  const teamPlan = teamPlanId.endsWith("yearly") ? yearlyPlan : monthlyPlan;
+  const teamPlan = teamPlans.find((plan) => plan.id === teamPlanId) ?? teamPlans[0];
 
   if (!features.billing) {
     return (
@@ -79,16 +78,16 @@ export function TeamBillingPage() {
         isOwner={isOwner}
         isLoading={teamBillingQuery.isLoading}
         billingStatus={teamBillingQuery.data}
-        monthlyPlan={monthlyPlan}
-        yearlyPlan={yearlyPlan}
-        monthlyPlanCopy={monthlyPlanCopy}
-        yearlyPlanCopy={yearlyPlanCopy}
+        plans={teamPlans}
         teamTrialDays={teamTrialDays}
         checkoutPending={createTeamCheckout.isPending}
         checkoutPlanId={createTeamCheckout.variables?.planId}
+        changePending={changeTeamPlan.isPending}
+        changePlanId={changeTeamPlan.variables?.planId}
         cancelPending={cancelSub.isPending || shredOpen}
         resumePending={resumeSub.isPending}
         onSubscribe={handleSubscribe}
+        onChangePlan={handleChangePlan}
         onManage={handleManage}
         onCancel={handleCancel}
         onResume={handleResume}

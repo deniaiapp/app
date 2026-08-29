@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, isNull, like, sql } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, like, or, sql } from "drizzle-orm";
 
 import { db } from "@/db/drizzle";
 import { billing, member, teamMemberUsagePolicy, teamUsagePolicy } from "@/db/schema";
@@ -64,7 +64,7 @@ async function getEffectiveBillingRecord(userId: string) {
       and(
         eq(member.userId, userId),
         isNotNull(billing.organizationId),
-        like(billing.planId, "pro_team%"),
+        or(like(billing.planId, "pro_team%"), like(billing.planId, "max_team%")),
       ),
     );
 

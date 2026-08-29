@@ -112,7 +112,7 @@ export default function FaqPage() {
         {
           question: t("Is there a team plan?"),
           answer: t(
-            "Yes. Team features are designed for shared access, usage visibility, and a consistent workspace so members do not need separate personal tools for the same workflow.",
+            "Yes. Teams can subscribe to Pro for Teams or Max for Teams with per-seat billing, shared access, usage visibility, and a consistent workspace so members do not need separate personal tools for the same workflow.",
           ),
         },
       ],

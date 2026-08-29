@@ -6,7 +6,7 @@ import { useExtracted } from "next-intl";
 import { startTransition, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
-import { useBillingPlanCopy } from "@/lib/billing-plan-copy";
+import type { TeamPlanId } from "@/lib/billing";
 import { useReloadCooldown } from "@/hooks/use-reload-cooldown";
 import { usePlatformCapabilities } from "@/components/platform-capabilities-provider";
 import { trpc } from "@/lib/trpc/react";
@@ -89,11 +89,9 @@ export function useTeamSettings() {
     isReloading: isReloadingMembers,
     isCoolingDown: isMembersReloadCoolingDown,
   } = useReloadCooldown(() => refetchOrgDetails());
-  const monthlyPlanCopy = useBillingPlanCopy("pro_team_monthly");
-  const yearlyPlanCopy = useBillingPlanCopy("pro_team_yearly");
-
   const createPortal = trpc.organization.createTeamPortalSession.useMutation();
   const createTeamCheckout = trpc.organization.createTeamCheckoutSession.useMutation();
+  const changeTeamPlan = trpc.organization.changeTeamPlan.useMutation();
   const cancelSub = trpc.organization.cancelTeamSubscription.useMutation();
   const resumeSub = trpc.organization.resumeTeamSubscription.useMutation();
   const updateTeamMaxMode = trpc.organization.updateTeamMaxModeEnabled.useMutation();
@@ -473,7 +471,7 @@ export function useTeamSettings() {
     });
   }
 
-  async function handleSubscribe(planId: "pro_team_monthly" | "pro_team_yearly") {
+  async function handleSubscribe(planId: TeamPlanId) {
     if (!activeOrg) return;
     try {
       const result = await createTeamCheckout.mutateAsync({
@@ -486,6 +484,26 @@ export function useTeamSettings() {
     } catch (error) {
       console.error("Failed to create checkout session", error);
       toast.error(error instanceof Error ? error.message : t("Unable to load checkout."));
+    }
+  }
+
+  async function handleChangePlan(planId: TeamPlanId) {
+    if (!activeOrg) return;
+    try {
+      await changeTeamPlan.mutateAsync({
+        organizationId: activeOrg.id,
+        planId,
+      });
+      toast.success(t("Team plan updated."));
+      await Promise.all([
+        utils.organization.teamBillingStatus.invalidate({ organizationId: activeOrg.id }),
+        utils.organization.teamPlans.invalidate(),
+        utils.billing.status.invalidate(),
+        utils.billing.usage.invalidate(),
+      ]);
+    } catch (error) {
+      console.error("Failed to change team plan", error);
+      toast.error(error instanceof Error ? error.message : t("Failed to change team plan."));
     }
   }
 
@@ -695,9 +713,7 @@ export function useTeamSettings() {
 
   const isLoading = session.isPending || (organizationsLoading && organizations.length === 0);
   const teamPlans = teamPlansQuery.data?.plans ?? [];
-  const monthlyPlan = teamPlans.find((p) => p.id === "pro_team_monthly");
-  const yearlyPlan = teamPlans.find((p) => p.id === "pro_team_yearly");
-  const teamTrialDays = monthlyPlan?.trialDays ?? yearlyPlan?.trialDays ?? null;
+  const teamTrialDays = teamPlans.find((plan) => plan.trialDays)?.trialDays ?? null;
 
   return {
     t,
@@ -713,14 +729,12 @@ export function useTeamSettings() {
     respondingInvitationId,
     isOwner,
     isAdmin,
-    monthlyPlanCopy,
-    yearlyPlanCopy,
     teamBillingQuery,
     teamMaxModeQuery,
-    monthlyPlan,
-    yearlyPlan,
+    teamPlans,
     teamTrialDays,
     createTeamCheckout,
+    changeTeamPlan,
     cancelSub,
     resumeSub,
     updateTeamMaxMode,
@@ -762,6 +776,7 @@ export function useTeamSettings() {
     isDeletingOrg,
     handleDeleteOrg,
     handleSubscribe,
+    handleChangePlan,
     handleManage,
     handleCancel,
     confirmCancel,

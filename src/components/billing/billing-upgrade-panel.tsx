@@ -17,7 +17,7 @@ export function UpgradeDecisionPanel({
       icon: Sparkles,
       label: t("Start with the plan that matches your usage"),
       description: t(
-        "Plus is for trying Deni AI, Pro is for daily work, and Max is for heavy premium usage.",
+        "Plus is for trying Deni AI, Pro is for daily work, Max is for heavy premium usage, and Teams can take Pro or Max per seat.",
       ),
     },
     {

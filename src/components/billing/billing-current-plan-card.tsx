@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useExtracted, useLocale } from "next-intl";
 import type { BillingPlanId, ClientPlan } from "@/lib/billing";
+import { isMaxTeamPlan } from "@/lib/billing";
 import { formatAppDate } from "@/lib/format-date";
 import { usePlanIntervalLabel, useTierLabel } from "./billing-utils";
 import { Button } from "../ui/button";
@@ -52,9 +53,13 @@ export function BillingCurrentPlanCard({
           <CardTitle className="text-sm font-medium">{t("Current Plan")}</CardTitle>
           <CardDescription>
             {isOnTeamPlan
-              ? t("Pro for Teams {name}", {
-                  name: rawPlanId ? getPlanIntervalLabel(rawPlanId) : "",
-                })
+              ? isMaxTeamPlan(rawPlanId)
+                ? t("Max for Teams {name}", {
+                    name: rawPlanId ? getPlanIntervalLabel(rawPlanId) : "",
+                  })
+                : t("Pro for Teams {name}", {
+                    name: rawPlanId ? getPlanIntervalLabel(rawPlanId) : "",
+                  })
               : currentPlan
                 ? t("{tier} {name}", {
                     tier: activePlanId ? getTierLabel(activePlanId) : t("Plus"),

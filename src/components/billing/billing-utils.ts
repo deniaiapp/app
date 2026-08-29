@@ -1,5 +1,5 @@
 import type { BillingPlanId, ClientPlan } from "@/lib/billing";
-import { getPlanTier } from "@/lib/billing";
+import { getPlanTier, isMaxTeamPlan } from "@/lib/billing";
 import { formatMinorCurrency } from "@/lib/currency";
 import { useExtracted, useLocale } from "next-intl";
 
@@ -96,7 +96,11 @@ export function useBillingReceiptCopy() {
   return (planId: string | null | undefined, homeHref: string, homeLabel: string) => {
     const tierLabel = planId ? getTierLabel(planId) : t("Checkout");
     const planTitle =
-      getPlanTier(planId) === "team" ? t("Pro for Teams") : t("{tier} plan", { tier: tierLabel });
+      getPlanTier(planId) === "team"
+        ? isMaxTeamPlan(planId)
+          ? t("Max for Teams")
+          : t("Pro for Teams")
+        : t("{tier} plan", { tier: tierLabel });
     const planDescription = planId?.endsWith("_yearly")
       ? t("Annual subscription")
       : planId?.endsWith("_lifetime")
@@ -144,7 +148,9 @@ export function usePlanFitCopy() {
       return t("Best for regular projects and premium model usage.");
     }
     if (tier === "team") {
-      return t("Best for shared workspaces and centralized billing.");
+      return isMaxTeamPlan(planId)
+        ? t("Best for teams that need Max-tier usage.")
+        : t("Best for shared workspaces and centralized billing.");
     }
 
     return t("Best first upgrade from the free plan.");

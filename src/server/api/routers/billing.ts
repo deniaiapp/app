@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, eq, isNotNull, isNull, like, sql } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, like, or, sql } from "drizzle-orm";
 import type Stripe from "stripe";
 import { z } from "zod";
 import { billing, member, user } from "@/db/schema";
@@ -422,7 +422,7 @@ export const billingRouter = router({
           and(
             eq(member.userId, ctx.userId),
             isNotNull(billing.organizationId),
-            like(billing.planId, "pro_team%"),
+            or(like(billing.planId, "pro_team%"), like(billing.planId, "max_team%")),
           ),
         ),
     ]);

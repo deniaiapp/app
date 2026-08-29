@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
+import { type TeamPlanId, isMaxTeamPlan, isTeamPlanId } from "@/lib/billing";
+import { useBillingPlanCopy } from "@/lib/billing-plan-copy";
 import { formatCurrency, monthDayFormatter, monthDayYearFormatter } from "./team-utils";
 
 type TeamPlan = {
@@ -16,26 +18,109 @@ type TeamPlan = {
 };
 
 type BillingStatus = {
+  planId?: string | null;
   status?: string | null;
   memberCount?: number | null;
   currentPeriodEnd?: Date | string | null;
   cancelAt?: number | null;
 };
 
+const TEAM_PLAN_ORDER: TeamPlanId[] = [
+  "pro_team_monthly",
+  "pro_team_yearly",
+  "max_team_monthly",
+  "max_team_yearly",
+];
+
+function TeamPlanOfferCard({
+  plan,
+  isCurrent,
+  checkoutPending,
+  checkoutPlanId,
+  changePending,
+  changePlanId,
+  canSwitch,
+  onSelect,
+}: {
+  plan: TeamPlan;
+  isCurrent: boolean;
+  checkoutPending: boolean;
+  checkoutPlanId?: string;
+  changePending: boolean;
+  changePlanId?: string;
+  canSwitch: boolean;
+  onSelect: (planId: TeamPlanId) => void;
+}) {
+  const t = useExtracted();
+  const planId = isTeamPlanId(plan.id) ? plan.id : null;
+  const copy = useBillingPlanCopy(planId);
+  if (!planId || !copy) {
+    return null;
+  }
+
+  const isMax = isMaxTeamPlan(planId);
+  const isYearly = planId.endsWith("_yearly");
+  const title = isMax ? t("Max for Teams") : t("Pro for Teams");
+  const intervalLabel = isYearly ? t("year") : t("month");
+  const isSelecting =
+    (checkoutPending && checkoutPlanId === planId) || (changePending && changePlanId === planId);
+  const busy = checkoutPending || changePending;
+
+  return (
+    <Card className="flex flex-col border-muted">
+      <CardHeader className="pb-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-base">{title}</CardTitle>
+              {copy.badge ? (
+                <Badge variant="secondary" className="text-xs">
+                  {copy.badge}
+                </Badge>
+              ) : null}
+            </div>
+            <CardDescription className="text-sm">{copy.tagline}</CardDescription>
+          </div>
+          <Badge variant="secondary" className="text-xs">
+            {isYearly ? t("Yearly") : t("Monthly")}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-1 flex-col pt-0">
+        <p className="text-2xl font-bold">
+          {formatCurrency(plan.amount, plan.currency)}
+          <span className="text-sm font-normal text-muted-foreground">
+            /{t("seat")}/{intervalLabel}
+          </span>
+        </p>
+        <PlanHighlights items={copy.highlights} className="mt-5 flex-1" />
+        <Button
+          className="mt-5 w-full"
+          disabled={busy || isCurrent}
+          onClick={() => onSelect(planId)}
+        >
+          {isSelecting ? <Spinner className="size-3.5" /> : null}
+          {isCurrent ? t("Current plan") : canSwitch ? t("Switch") : t("Subscribe")}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function TeamBillingCard({
   isOwner,
   isLoading,
   billingStatus,
-  monthlyPlan,
-  yearlyPlan,
-  monthlyPlanCopy,
-  yearlyPlanCopy,
+  plans,
   teamTrialDays,
   checkoutPending,
   checkoutPlanId,
+  changePending,
+  changePlanId,
   cancelPending,
   resumePending,
   onSubscribe,
+  onChangePlan,
   onManage,
   onCancel,
   onResume,
@@ -43,16 +128,16 @@ export function TeamBillingCard({
   isOwner: boolean;
   isLoading: boolean;
   billingStatus?: BillingStatus | null;
-  monthlyPlan?: TeamPlan;
-  yearlyPlan?: TeamPlan;
-  monthlyPlanCopy: { tagline: string; highlights: string[] };
-  yearlyPlanCopy: { tagline: string; badge?: string | null; highlights: string[] };
+  plans: TeamPlan[];
   teamTrialDays: number | null;
   checkoutPending: boolean;
   checkoutPlanId?: string;
+  changePending: boolean;
+  changePlanId?: string;
   cancelPending: boolean;
   resumePending: boolean;
-  onSubscribe: (planId: "pro_team_monthly" | "pro_team_yearly") => void;
+  onSubscribe: (planId: TeamPlanId) => void;
+  onChangePlan: (planId: TeamPlanId) => void;
   onManage: () => void;
   onCancel: () => void;
   onResume: () => void;
@@ -64,13 +149,19 @@ export function TeamBillingCard({
       billingStatus.status,
     );
   const isCanceled = Boolean(billingStatus?.cancelAt) || billingStatus?.status === "canceled";
+  const currentPlanId = billingStatus?.planId ?? null;
+  const currentTitle = isMaxTeamPlan(currentPlanId) ? t("Max for Teams") : t("Pro for Teams");
+  const orderedPlans = TEAM_PLAN_ORDER.map((id) => plans.find((plan) => plan.id === id)).filter(
+    (plan): plan is TeamPlan => Boolean(plan),
+  );
+  const canSwitch = Boolean(hasActivePlan && isOwner && !isCanceled);
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">{t("Team Billing")}</CardTitle>
         <CardDescription>
-          {t("Pro for Teams gives every member Pro-tier access with per-seat pricing.")}
+          {t("Team plans give every member Pro or Max access with per-seat pricing.")}
         </CardDescription>
         {teamTrialDays && (
           <div className="pt-2 space-y-2">
@@ -91,7 +182,7 @@ export function TeamBillingCard({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium mb-1.5">
-                  Pro for Teams
+                  {currentTitle}
                   {isCanceled && (
                     <Badge variant="secondary">
                       {t("Cancels")}{" "}
@@ -134,88 +225,38 @@ export function TeamBillingCard({
                 )}
               </div>
             </div>
+            {isOwner && orderedPlans.length > 0 && !isCanceled ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {orderedPlans.map((plan) => (
+                  <TeamPlanOfferCard
+                    key={plan.id}
+                    plan={plan}
+                    isCurrent={plan.id === currentPlanId}
+                    checkoutPending={checkoutPending}
+                    checkoutPlanId={checkoutPlanId}
+                    changePending={changePending}
+                    changePlanId={changePlanId}
+                    canSwitch={canSwitch}
+                    onSelect={canSwitch ? onChangePlan : onSubscribe}
+                  />
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : isOwner ? (
           <div className="grid gap-3 sm:grid-cols-2">
-            {monthlyPlan && (
-              <Card className="flex flex-col border-muted">
-                <CardHeader className="pb-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <CardTitle className="text-base">{t("Pro for Teams")}</CardTitle>
-                      <CardDescription className="text-sm">
-                        {monthlyPlanCopy.tagline}
-                      </CardDescription>
-                    </div>
-                    <Badge variant="secondary" className="text-xs">
-                      {t("Monthly")}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex flex-1 flex-col pt-0">
-                  <p className="text-2xl font-bold">
-                    {formatCurrency(monthlyPlan.amount, monthlyPlan.currency)}
-                    <span className="text-sm font-normal text-muted-foreground">
-                      /{t("seat")}/{t("month")}
-                    </span>
-                  </p>
-                  <PlanHighlights items={monthlyPlanCopy.highlights} className="mt-5 flex-1" />
-                  <Button
-                    className="mt-5 w-full"
-                    disabled={checkoutPending}
-                    onClick={() => onSubscribe("pro_team_monthly")}
-                  >
-                    {checkoutPending && checkoutPlanId === "pro_team_monthly" ? (
-                      <Spinner className="size-3.5" />
-                    ) : null}
-                    {t("Subscribe")}
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-            {yearlyPlan && (
-              <Card className="flex flex-col border-muted">
-                <CardHeader className="pb-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-base">{t("Pro for Teams")}</CardTitle>
-                        {yearlyPlanCopy.badge ? (
-                          <Badge variant="secondary" className="text-xs">
-                            {yearlyPlanCopy.badge}
-                          </Badge>
-                        ) : null}
-                      </div>
-                      <CardDescription className="text-sm">
-                        {yearlyPlanCopy.tagline}
-                      </CardDescription>
-                    </div>
-                    <Badge variant="secondary" className="text-xs">
-                      {t("Yearly")}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex flex-1 flex-col pt-0">
-                  <p className="text-2xl font-bold">
-                    {formatCurrency(yearlyPlan.amount, yearlyPlan.currency)}
-                    <span className="text-sm font-normal text-muted-foreground">
-                      /{t("seat")}/{t("year")}
-                    </span>
-                  </p>
-                  <PlanHighlights items={yearlyPlanCopy.highlights} className="mt-5 flex-1" />
-                  <Button
-                    className="mt-5 w-full"
-                    disabled={checkoutPending}
-                    onClick={() => onSubscribe("pro_team_yearly")}
-                  >
-                    {checkoutPending && checkoutPlanId === "pro_team_yearly" ? (
-                      <Spinner className="size-3.5" />
-                    ) : null}
-                    {t("Subscribe")}
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
+            {orderedPlans.map((plan) => (
+              <TeamPlanOfferCard
+                key={plan.id}
+                plan={plan}
+                isCurrent={false}
+                checkoutPending={checkoutPending}
+                checkoutPlanId={checkoutPlanId}
+                changePending={false}
+                canSwitch={false}
+                onSelect={onSubscribe}
+              />
+            ))}
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">

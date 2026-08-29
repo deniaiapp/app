@@ -65,7 +65,7 @@ function TeamDashboardContent({ children }: { children: ReactNode }) {
       <div>
         <h1 className="text-xl font-semibold tracking-tight">{t("Team")}</h1>
         <p className="text-sm text-muted-foreground">
-          {t("Manage your team and Pro for Teams subscription.")}
+          {t("Manage your team and team subscription.")}
         </p>
       </div>
       {receivedInvitations}

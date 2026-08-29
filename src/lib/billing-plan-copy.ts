@@ -192,6 +192,43 @@ export function useBillingPlanCopy(planId: BillingPlanId | null): BillingPlanCop
           t("Centralized billing and member management"),
         ],
       };
+    case "max_team_monthly":
+      return {
+        tagline: t("Give your whole team Max-tier access with per-seat pricing."),
+        highlights: [
+          t("Max benefits for every team member"),
+          t("{multiplier}× more basic-model usage than {plan}", {
+            multiplier: String(PLAN_USAGE_MULTIPLIERS.max.basic),
+            plan: PLAN_USAGE_MULTIPLIERS.max.vs,
+          }),
+          t("{multiplier}× more premium-model usage than {plan}", {
+            multiplier: String(PLAN_USAGE_MULTIPLIERS.max.premium),
+            plan: PLAN_USAGE_MULTIPLIERS.max.vs,
+          }),
+          t("Max Mode pay-per-use available"),
+          t("Per-seat billing — pay only for active members"),
+          t("Centralized billing and member management"),
+        ],
+      };
+    case "max_team_yearly":
+      return {
+        tagline: t("Give your whole team Max-tier access with per-seat pricing."),
+        badge: t("Most cost-effective"),
+        highlights: [
+          t("Max benefits for every team member"),
+          t("{multiplier}× more basic-model usage than {plan}", {
+            multiplier: String(PLAN_USAGE_MULTIPLIERS.max.basic),
+            plan: PLAN_USAGE_MULTIPLIERS.max.vs,
+          }),
+          t("{multiplier}× more premium-model usage than {plan}", {
+            multiplier: String(PLAN_USAGE_MULTIPLIERS.max.premium),
+            plan: PLAN_USAGE_MULTIPLIERS.max.vs,
+          }),
+          t("Max Mode pay-per-use available"),
+          t("Per-seat billing — pay only for active members"),
+          t("Centralized billing and member management"),
+        ],
+      };
     default:
       return null;
   }

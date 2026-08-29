@@ -193,7 +193,7 @@ export function BillingPlansSection({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <Users className="size-4 text-muted-foreground" />
-              <CardTitle className="text-sm font-medium">{t("Pro for Teams")}</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("Teams")}</CardTitle>
               {isOnTeamPlan && (
                 <Badge variant="secondary" className="text-xs">
                   {t("Current plan")}
@@ -201,7 +201,7 @@ export function BillingPlansSection({
               )}
             </div>
             <CardDescription>
-              {t("Give your whole team Pro-tier access with per-seat pricing.")}
+              {t("Give your whole team Pro or Max access with per-seat pricing.")}
             </CardDescription>
           </div>
           <Button asChild size="sm">
@@ -211,7 +211,7 @@ export function BillingPlansSection({
         <CardContent>
           <PlanHighlights
             items={[
-              t("Pro benefits for every team member"),
+              t("Pro or Max benefits for every team member"),
               t("Per-seat billing — pay only for active members"),
               t("Centralized billing and member management"),
             ]}

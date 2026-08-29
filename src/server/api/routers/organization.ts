@@ -39,7 +39,12 @@ import { type ProtectedContext, protectedProcedure, router } from "../trpc";
 
 import type Stripe from "stripe";
 
-const teamPlanIdSchema = z.enum(["pro_team_monthly", "pro_team_yearly"]);
+const teamPlanIdSchema = z.enum([
+  "pro_team_monthly",
+  "pro_team_yearly",
+  "max_team_monthly",
+  "max_team_yearly",
+]);
 const maxModeLimitSchema = z.number().int().min(0).nullable();
 
 type BillingRecord = typeof billing.$inferSelect;
@@ -63,14 +68,17 @@ function deriveModeFromPrice(price: Stripe.Price | null | undefined): "subscript
   return price.recurring ? "subscription" : "payment";
 }
 
-async function getPriceForPlan(plan: BillingPlan) {
+async function findPriceForPlan(plan: BillingPlan) {
   const prices = await stripe.prices.list({
     lookup_keys: [plan.lookupKey],
     active: true,
     limit: 1,
   });
+  return prices.data.at(0) ?? null;
+}
 
-  const price = prices.data.at(0);
+async function getPriceForPlan(plan: BillingPlan) {
+  const price = await findPriceForPlan(plan);
   if (!price) {
     throw new TRPCError({
       code: "BAD_REQUEST",
@@ -445,24 +453,29 @@ export const organizationRouter = router({
         }))
       : false;
     const showTrial = trialEligible && memberCount > 0 && memberCount <= TEAM_TRIAL_MAX_SEATS;
-    const plans = await Promise.all(
-      teamPlans.map(async (plan) => {
-        const price = await getPriceForPlan(plan);
-        const mode = deriveModeFromPrice(price);
-        return {
-          id: plan.id,
-          lookupKey: plan.lookupKey,
-          mode,
-          priceId: price.id,
-          amount: price.unit_amount,
-          currency: price.currency,
-          interval: price.recurring?.interval ?? null,
-          intervalCount: price.recurring?.interval_count ?? 1,
-          isTeamPlan: true,
-          trialDays: showTrial ? TEAM_SUBSCRIPTION_TRIAL_DAYS : null,
-        };
-      }),
-    );
+    const plans = (
+      await Promise.all(
+        teamPlans.map(async (plan) => {
+          const price = await findPriceForPlan(plan);
+          if (!price) {
+            return null;
+          }
+          const mode = deriveModeFromPrice(price);
+          return {
+            id: plan.id,
+            lookupKey: plan.lookupKey,
+            mode,
+            priceId: price.id,
+            amount: price.unit_amount,
+            currency: price.currency,
+            interval: price.recurring?.interval ?? null,
+            intervalCount: price.recurring?.interval_count ?? 1,
+            isTeamPlan: true,
+            trialDays: showTrial ? TEAM_SUBSCRIPTION_TRIAL_DAYS : null,
+          };
+        }),
+      )
+    ).filter((plan) => plan !== null);
     return { plans };
   }),
 
@@ -1104,8 +1117,9 @@ export const organizationRouter = router({
         });
       }
 
+      const memberCount = await getOrgMemberCount(input.organizationId);
       const updated = await stripe.subscriptions.update(subscription.id, {
-        items: [{ id: item.id, price: price.id }],
+        items: [{ id: item.id, price: price.id, quantity: memberCount }],
         metadata: {
           userId: ctx.userId,
           planId: plan.id,

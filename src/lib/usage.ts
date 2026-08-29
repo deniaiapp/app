@@ -1,8 +1,8 @@
-import { and, eq, isNotNull, isNull, like, sql } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, like, or, sql } from "drizzle-orm";
 
 import { db } from "@/db/drizzle";
 import { billing, member, teamMemberUsagePolicy, teamUsagePolicy, usageQuota } from "@/db/schema";
-import { getPlanTier } from "@/lib/billing";
+import { getPlanTier, isMaxTeamPlan } from "@/lib/billing";
 
 import { isMaxModeEligible, recordMaxModeUsage, refundMaxModeUsage } from "./max-mode";
 
@@ -123,7 +123,7 @@ async function getTierInfo(userId: string, now: Date): Promise<TierInfo> {
       and(
         eq(member.userId, userId),
         isNotNull(billing.organizationId),
-        like(billing.planId, "pro_team%"),
+        or(like(billing.planId, "pro_team%"), like(billing.planId, "max_team%")),
       ),
     );
 
@@ -178,7 +178,7 @@ async function getTierInfo(userId: string, now: Date): Promise<TierInfo> {
       memberPolicy?.maxModeEnabled ?? defaultPolicy?.defaultMaxModeEnabled ?? true;
 
     return {
-      tier: "pro",
+      tier: isMaxTeamPlan(teamPlanId) ? "max" : "pro",
       planId: teamPlanId,
       status: teamStatus ?? null,
       periodEnd: teamRecord.currentPeriodEnd ?? null,

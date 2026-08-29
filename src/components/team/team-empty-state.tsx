@@ -40,7 +40,7 @@ export function TeamEmptyState({
           </div>
           <h3 className="text-base font-medium">{t("No team yet")}</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            {t("Create your first team to get started with Pro for Teams.")}
+            {t("Create your first team to get started with team billing.")}
           </p>
           <Button className="mt-4" onClick={() => onCreateDialogOpenChange(true)}>
             <Plus className="size-4" />

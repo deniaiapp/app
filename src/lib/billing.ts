@@ -7,7 +7,11 @@ export type IndividualPlanId =
   | "max_yearly"
   | "pro_lifetime";
 
-export type TeamPlanId = "pro_team_monthly" | "pro_team_yearly";
+export type TeamPlanId =
+  | "pro_team_monthly"
+  | "pro_team_yearly"
+  | "max_team_monthly"
+  | "max_team_yearly";
 
 export type BillingPlanId = IndividualPlanId | TeamPlanId;
 
@@ -68,6 +72,14 @@ export const billingPlans: BillingPlan[] = [
     id: "pro_team_yearly",
     lookupKey: "pro_team_yearly",
   },
+  {
+    id: "max_team_monthly",
+    lookupKey: "max_team_monthly",
+  },
+  {
+    id: "max_team_yearly",
+    lookupKey: "max_team_yearly",
+  },
 ];
 
 const planIdToTier = new Map<BillingPlanId, "plus" | "pro" | "max" | "team">([
@@ -80,9 +92,16 @@ const planIdToTier = new Map<BillingPlanId, "plus" | "pro" | "max" | "team">([
   ["max_yearly", "max"],
   ["pro_team_monthly", "team"],
   ["pro_team_yearly", "team"],
+  ["max_team_monthly", "team"],
+  ["max_team_yearly", "team"],
 ]);
 
-const teamPlanIds = new Set<TeamPlanId>(["pro_team_monthly", "pro_team_yearly"]);
+const teamPlanIds = new Set<TeamPlanId>([
+  "pro_team_monthly",
+  "pro_team_yearly",
+  "max_team_monthly",
+  "max_team_yearly",
+]);
 const individualPlanIds = new Set<IndividualPlanId>([
   "plus_monthly",
   "plus_yearly",
@@ -113,7 +132,11 @@ export function isIndividualPlanId(planId: string | null | undefined): planId is
 }
 
 export function isTeamPlan(planId: string | null | undefined): boolean {
-  return Boolean(planId?.startsWith("pro_team"));
+  return Boolean(planId?.startsWith("pro_team") || planId?.startsWith("max_team"));
+}
+
+export function isMaxTeamPlan(planId: string | null | undefined): boolean {
+  return Boolean(planId?.startsWith("max_team"));
 }
 
 export function getPlanTier(
