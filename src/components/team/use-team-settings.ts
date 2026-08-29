@@ -253,40 +253,42 @@ export function useTeamSettings() {
 
   async function handleUpdateMemberRole(member: Member, role: "admin" | "member") {
     if (!activeOrg) return;
-    setUpdatingMemberRoleId(member.id);
-    try {
-      const result = await authClient.organization.updateMemberRole({
-        memberId: member.id,
-        role,
-        organizationId: activeOrg.id,
-      });
-      if (result.error) {
-        toast.error(result.error.message || t("Failed to update role"));
-        return;
-      }
-      toast.success(t("Role updated"));
-      // Best-effort: better-auth's afterUpdateMemberRole hook only exposes the
-      // target member, not the admin/owner performing the change, so the audit
-      // entry is recorded here from the actor's own authenticated session.
-      recordMemberRoleChanged
-        .mutateAsync({
-          organizationId: activeOrg.id,
-          targetUserId: member.userId,
-          previousRole: member.role,
-          newRole: role,
-        })
-        .catch((error) => {
-          console.error("Failed to record member role change audit log", error);
-        });
-      await queryClient.invalidateQueries({
-        queryKey: ["team", "organization", currentUserId, activeOrg.id],
-      });
-    } catch (error) {
-      console.error("Failed to update member role", error);
-      toast.error(t("Failed to update role"));
-    } finally {
-      setUpdatingMemberRoleId(null);
-    }
+    await runWithLoading(
+      (loading) => setUpdatingMemberRoleId(loading ? member.id : null),
+      async () => {
+        try {
+          const result = await authClient.organization.updateMemberRole({
+            memberId: member.id,
+            role,
+            organizationId: activeOrg.id,
+          });
+          if (result.error) {
+            toast.error(result.error.message || t("Failed to update role"));
+            return;
+          }
+          toast.success(t("Role updated"));
+          // Best-effort: better-auth's afterUpdateMemberRole hook only exposes the
+          // target member, not the admin/owner performing the change, so the audit
+          // entry is recorded here from the actor's own authenticated session.
+          recordMemberRoleChanged
+            .mutateAsync({
+              organizationId: activeOrg.id,
+              targetUserId: member.userId,
+              previousRole: member.role,
+              newRole: role,
+            })
+            .catch((error) => {
+              console.error("Failed to record member role change audit log", error);
+            });
+          await queryClient.invalidateQueries({
+            queryKey: ["team", "organization", currentUserId, activeOrg.id],
+          });
+        } catch (error) {
+          console.error("Failed to update member role", error);
+          toast.error(t("Failed to update role"));
+        }
+      },
+    );
   }
 
   async function handleUpdateOrgName() {
@@ -395,43 +397,49 @@ export function useTeamSettings() {
   }
 
   async function handleAcceptMyInvitation(invitationId: string) {
-    setRespondingInvitationId(invitationId);
-    try {
-      const result = await authClient.organization.acceptInvitation({ invitationId });
-      if (result.error) {
-        toast.error(result.error.message || t("Failed to accept invitation"));
-        return;
-      }
-      toast.success(t("Invitation accepted"));
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["team", "organizations", currentUserId] }),
-        queryClient.invalidateQueries({ queryKey: ["team", "my-invitations", currentUserId] }),
-        session.refetch(),
-      ]);
-    } catch (error) {
-      console.error("Failed to accept invitation", error);
-      toast.error(t("Failed to accept invitation"));
-    } finally {
-      setRespondingInvitationId(null);
-    }
+    await runWithLoading(
+      (loading) => setRespondingInvitationId(loading ? invitationId : null),
+      async () => {
+        try {
+          const result = await authClient.organization.acceptInvitation({ invitationId });
+          if (result.error) {
+            toast.error(result.error.message || t("Failed to accept invitation"));
+            return;
+          }
+          toast.success(t("Invitation accepted"));
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: ["team", "organizations", currentUserId] }),
+            queryClient.invalidateQueries({ queryKey: ["team", "my-invitations", currentUserId] }),
+            session.refetch(),
+          ]);
+        } catch (error) {
+          console.error("Failed to accept invitation", error);
+          toast.error(t("Failed to accept invitation"));
+        }
+      },
+    );
   }
 
   async function handleRejectMyInvitation(invitationId: string) {
-    setRespondingInvitationId(invitationId);
-    try {
-      const result = await authClient.organization.rejectInvitation({ invitationId });
-      if (result.error) {
-        toast.error(result.error.message || t("Failed to decline invitation"));
-        return;
-      }
-      toast.success(t("Invitation declined"));
-      await queryClient.invalidateQueries({ queryKey: ["team", "my-invitations", currentUserId] });
-    } catch (error) {
-      console.error("Failed to decline invitation", error);
-      toast.error(t("Failed to decline invitation"));
-    } finally {
-      setRespondingInvitationId(null);
-    }
+    await runWithLoading(
+      (loading) => setRespondingInvitationId(loading ? invitationId : null),
+      async () => {
+        try {
+          const result = await authClient.organization.rejectInvitation({ invitationId });
+          if (result.error) {
+            toast.error(result.error.message || t("Failed to decline invitation"));
+            return;
+          }
+          toast.success(t("Invitation declined"));
+          await queryClient.invalidateQueries({
+            queryKey: ["team", "my-invitations", currentUserId],
+          });
+        } catch (error) {
+          console.error("Failed to decline invitation", error);
+          toast.error(t("Failed to decline invitation"));
+        }
+      },
+    );
   }
 
   async function handleDeleteOrg() {

@@ -1,7 +1,7 @@
 "use client";
 
 import { isSessionNotFreshError } from "@better-auth-ui/core";
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 /**
  * Detects better-auth's `SESSION_NOT_FRESH` error and coordinates showing a
@@ -21,20 +21,20 @@ export function useFreshSessionGuard() {
   const [open, setOpen] = useState(false);
   const retryRef = useRef<(() => void) | null>(null);
 
-  const guard = useCallback((error: unknown, retry?: () => void) => {
+  function guard(error: unknown, retry?: () => void) {
     if (!isSessionNotFreshError(error)) return false;
 
     retryRef.current = retry ?? null;
     setOpen(true);
     return true;
-  }, []);
+  }
 
-  const handleVerified = useCallback(() => {
+  function handleVerified() {
     setOpen(false);
     const retry = retryRef.current;
     retryRef.current = null;
     retry?.();
-  }, []);
+  }
 
   return { open, setOpen, guard, handleVerified };
 }

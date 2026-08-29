@@ -766,21 +766,24 @@ export const organizationRouter = router({
         });
       }
 
-      const [previousMemberPolicy] = await ctx.db
-        .select({
-          maxModeEnabled: teamMemberUsagePolicy.maxModeEnabled,
-          maxModeLimitBasic: teamMemberUsagePolicy.maxModeLimitBasic,
-          maxModeLimitPremium: teamMemberUsagePolicy.maxModeLimitPremium,
-        })
-        .from(teamMemberUsagePolicy)
-        .where(
-          and(
-            eq(teamMemberUsagePolicy.organizationId, input.organizationId),
-            eq(teamMemberUsagePolicy.userId, input.userId),
-          ),
-        )
-        .limit(1);
-      const defaultPolicy = await ensureTeamUsagePolicy(ctx, input.organizationId);
+      const [previousMemberPolicyRows, defaultPolicy] = await Promise.all([
+        ctx.db
+          .select({
+            maxModeEnabled: teamMemberUsagePolicy.maxModeEnabled,
+            maxModeLimitBasic: teamMemberUsagePolicy.maxModeLimitBasic,
+            maxModeLimitPremium: teamMemberUsagePolicy.maxModeLimitPremium,
+          })
+          .from(teamMemberUsagePolicy)
+          .where(
+            and(
+              eq(teamMemberUsagePolicy.organizationId, input.organizationId),
+              eq(teamMemberUsagePolicy.userId, input.userId),
+            ),
+          )
+          .limit(1),
+        ensureTeamUsagePolicy(ctx, input.organizationId),
+      ]);
+      const [previousMemberPolicy] = previousMemberPolicyRows;
 
       await ctx.db
         .insert(teamMemberUsagePolicy)

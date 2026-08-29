@@ -10,7 +10,7 @@ import {
   isMeteredMaxModePrice,
 } from "@/lib/stripe-subscriptions";
 
-export const MAX_MODE_EVENT_NAMES = {
+const MAX_MODE_EVENT_NAMES = {
   basic: "max_mode_basic",
   premium: "max_mode_premium",
 } as const;
@@ -126,24 +126,31 @@ async function pruneDuplicateMaxModeHosts(customerId: string, host: Stripe.Subsc
     expand: ["data.items"],
   });
 
+  const cancellations: Array<ReturnType<typeof stripe.subscriptions.cancel>> = [];
+  const itemDeletes: Array<ReturnType<typeof stripe.subscriptionItems.del>> = [];
+
   for (const sub of listed.data) {
     if (sub.id === host.id || !ACTIVE_STATUSES.has(sub.status)) {
       continue;
     }
 
     if (isMaxModeOnlySubscription(sub) && !isMaxModeOnlySubscription(host)) {
-      await stripe.subscriptions.cancel(sub.id, { prorate: true });
+      cancellations.push(stripe.subscriptions.cancel(sub.id, { prorate: true }));
       continue;
     }
 
     if (!isMaxModeOnlySubscription(sub) && isMaxModeOnlySubscription(host)) {
       for (const item of sub.items.data) {
         if (isMeteredMaxModePrice(item.price)) {
-          await stripe.subscriptionItems.del(item.id, { proration_behavior: "always_invoice" });
+          itemDeletes.push(
+            stripe.subscriptionItems.del(item.id, { proration_behavior: "always_invoice" }),
+          );
         }
       }
     }
   }
+
+  await Promise.all([...cancellations, ...itemDeletes]);
 }
 
 async function retrieveSubscription(id: string) {
@@ -230,11 +237,15 @@ export async function attachMaxModeMeteredItems(
   }
 
   const keepLookupKeys = new Set([prices.basic.lookup_key, prices.premium.lookup_key]);
+  const staleItemDeletes: Array<ReturnType<typeof stripe.subscriptionItems.del>> = [];
   for (const item of host.items.data) {
     if (isMeteredMaxModePrice(item.price) && !keepLookupKeys.has(item.price.lookup_key)) {
-      await stripe.subscriptionItems.del(item.id, { proration_behavior: "always_invoice" });
+      staleItemDeletes.push(
+        stripe.subscriptionItems.del(item.id, { proration_behavior: "always_invoice" }),
+      );
     }
   }
+  await Promise.all(staleItemDeletes);
 
   try {
     const fresh = await stripe.subscriptions.retrieve(host.id, { expand: ["items"] });

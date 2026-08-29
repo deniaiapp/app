@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { speechTextFromMarkdown } from "@/lib/speech-text";
 
 type SpeechSnapshot = {
@@ -127,11 +127,11 @@ export function useSpeechSynthesis() {
     };
   }, []);
 
-  const stop = useCallback(() => {
+  function stop() {
     cancelSpeech();
-  }, []);
+  }
 
-  const toggle = useCallback((id: string, text: string, lang: string) => {
+  function toggle(id: string, text: string, lang: string) {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
       return;
     }
@@ -140,7 +140,7 @@ export function useSpeechSynthesis() {
       return;
     }
     startUtterance(id, text, lang);
-  }, []);
+  }
 
   return {
     supported: current.supported,

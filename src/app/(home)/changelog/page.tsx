@@ -55,7 +55,7 @@ export default function ChangelogPage() {
     <main className="min-h-screen bg-background" id="main-content">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
       <div className="mx-auto flex max-w-3xl flex-col gap-12 px-4 pb-20 pt-28 sm:px-6">
         <header className="space-y-4">

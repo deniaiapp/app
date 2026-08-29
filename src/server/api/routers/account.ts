@@ -38,7 +38,7 @@ export const accountRouter = router({
     .input(
       z
         .object({
-          cursor: z.string().datetime().optional(),
+          cursor: z.iso.datetime().optional(),
           limit: z.number().int().min(1).max(50).default(20),
         })
         .optional(),

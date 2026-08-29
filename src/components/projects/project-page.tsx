@@ -58,6 +58,146 @@ async function uploadProjectFile(file: File) {
   };
 }
 
+function ProjectChatList({
+  chats,
+  isLoading,
+  isStartingChat,
+  onNewChat,
+}: {
+  chats: Array<{ id: string; title: string | null }>;
+  isLoading: boolean;
+  isStartingChat: boolean;
+  onNewChat: () => void;
+}) {
+  return (
+    <aside className="flex w-64 shrink-0 flex-col gap-3 p-4 overflow-y-auto">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-muted-foreground">Chats</span>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 gap-1 px-2 text-xs"
+          onClick={onNewChat}
+          disabled={isStartingChat}
+        >
+          {isStartingChat ? <Spinner className="size-3.5" /> : <PlusIcon className="size-3.5" />}
+          New chat
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-6">
+          <Spinner />
+        </div>
+      ) : chats.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No chats yet.</p>
+      ) : (
+        <ul className="space-y-1">
+          {chats.map((chat) => (
+            <li key={chat.id}>
+              <Link
+                href={`/chat/${chat.id}`}
+                className="block truncate rounded-lg px-2 py-1.5 text-sm hover:bg-muted/60 transition-colors"
+              >
+                {chat.title ?? "Untitled chat"}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </aside>
+  );
+}
+
+function ProjectFilesSection({
+  files,
+  isLoading,
+  isUploading,
+  isDeleting,
+  fileInputRef,
+  onPickFile,
+  onFileChange,
+  onDelete,
+}: {
+  files: Array<{ id: string; filename: string; size: number; mimeType: string }>;
+  isLoading: boolean;
+  isUploading: boolean;
+  isDeleting: boolean;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
+  onPickFile: () => void;
+  onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <section className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="flex items-center gap-2 text-sm font-semibold">
+          <FileIcon className="size-4" />
+          Knowledge files
+        </h2>
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5"
+          disabled={isUploading}
+          onClick={onPickFile}
+        >
+          {isUploading ? <Spinner /> : <UploadIcon className="size-3.5" />}
+          Upload file
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          accept=".pdf,.txt,.md,image/*"
+          onChange={onFileChange}
+        />
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-6">
+          <Spinner />
+        </div>
+      ) : files.length === 0 ? (
+        <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+          No files uploaded. Files are referenced in the system prompt so the AI is aware of them.
+        </div>
+      ) : (
+        <ul className="space-y-2">
+          {files.map((file) => (
+            <li
+              key={file.id}
+              className="flex items-center justify-between gap-3 rounded-xl border px-4 py-3"
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <FileIcon className="size-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium">{file.filename}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {(file.size / 1024).toFixed(0)} KB · {file.mimeType}
+                  </div>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+                onClick={() => {
+                  if (!window.confirm("Delete this file?")) return;
+                  onDelete(file.id);
+                }}
+                disabled={isDeleting}
+              >
+                <Trash2Icon className="size-3.5" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 export function ProjectPage({ projectId, initialProjectName }: ProjectPageProps) {
   const t = useExtracted();
   const { push } = useRouter();
@@ -180,43 +320,12 @@ export function ProjectPage({ projectId, initialProjectName }: ProjectPageProps)
 
   return (
     <div className="flex h-full min-h-0 divide-x">
-      {/* Left: Chat list */}
-      <aside className="flex w-64 shrink-0 flex-col gap-3 p-4 overflow-y-auto">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-muted-foreground">Chats</span>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 gap-1 px-2 text-xs"
-            onClick={handleNewProjectChat}
-            disabled={isStartingChat}
-          >
-            {isStartingChat ? <Spinner className="size-3.5" /> : <PlusIcon className="size-3.5" />}
-            New chat
-          </Button>
-        </div>
-
-        {chatsQuery.isLoading ? (
-          <div className="flex justify-center py-6">
-            <Spinner />
-          </div>
-        ) : chats.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No chats yet.</p>
-        ) : (
-          <ul className="space-y-1">
-            {chats.map((chat) => (
-              <li key={chat.id}>
-                <Link
-                  href={`/chat/${chat.id}`}
-                  className="block truncate rounded-lg px-2 py-1.5 text-sm hover:bg-muted/60 transition-colors"
-                >
-                  {chat.title ?? "Untitled chat"}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </aside>
+      <ProjectChatList
+        chats={chats}
+        isLoading={chatsQuery.isLoading}
+        isStartingChat={isStartingChat}
+        onNewChat={handleNewProjectChat}
+      />
 
       {/* Right: Settings + Files */}
       <main className="flex flex-1 min-w-0 flex-col gap-6 overflow-y-auto p-6">
@@ -359,73 +468,16 @@ export function ProjectPage({ projectId, initialProjectName }: ProjectPageProps)
           )}
         </section>
 
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-sm font-semibold">
-              <FileIcon className="size-4" />
-              Knowledge files
-            </h2>
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5"
-              disabled={isUploading}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {isUploading ? <Spinner /> : <UploadIcon className="size-3.5" />}
-              Upload file
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              className="hidden"
-              accept=".pdf,.txt,.md,image/*"
-              onChange={handleFileUpload}
-            />
-          </div>
-
-          {projectQuery.isLoading ? (
-            <div className="flex justify-center py-6">
-              <Spinner />
-            </div>
-          ) : files.length === 0 ? (
-            <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-              No files uploaded. Files are referenced in the system prompt so the AI is aware of
-              them.
-            </div>
-          ) : (
-            <ul className="space-y-2">
-              {files.map((file) => (
-                <li
-                  key={file.id}
-                  className="flex items-center justify-between gap-3 rounded-xl border px-4 py-3"
-                >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <FileIcon className="size-4 shrink-0 text-muted-foreground" />
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-medium">{file.filename}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {(file.size / 1024).toFixed(0)} KB · {file.mimeType}
-                      </div>
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
-                    onClick={() => {
-                      if (!window.confirm("Delete this file?")) return;
-                      deleteFile.mutate({ id: file.id });
-                    }}
-                    disabled={deleteFile.isPending}
-                  >
-                    <Trash2Icon className="size-3.5" />
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        <ProjectFilesSection
+          files={files}
+          isLoading={projectQuery.isLoading}
+          isUploading={isUploading}
+          isDeleting={deleteFile.isPending}
+          fileInputRef={fileInputRef}
+          onPickFile={() => fileInputRef.current?.click()}
+          onFileChange={handleFileUpload}
+          onDelete={(id) => deleteFile.mutate({ id })}
+        />
       </main>
     </div>
   );

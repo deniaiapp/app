@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, ChevronsUpDown, Plus, Users } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useExtracted } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -49,7 +50,15 @@ export function TeamSwitcher({
             <span className="flex min-w-0 items-center gap-2">
               <span className="flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-md bg-primary/10 text-xs font-semibold uppercase text-primary">
                 {activeOrg?.logo ? (
-                  <img src={activeOrg.logo} alt="" className="size-full object-cover" />
+                  <Image
+                    src={activeOrg.logo}
+                    alt=""
+                    className="size-full object-cover"
+                    width={24}
+                    height={24}
+                    sizes="24px"
+                    unoptimized
+                  />
                 ) : activeOrg?.name ? (
                   activeOrg.name.charAt(0)
                 ) : (
@@ -70,7 +79,15 @@ export function TeamSwitcher({
               <DropdownMenuItem key={org.id} className="gap-2 py-2" onClick={() => onSelect(org)}>
                 <span className="flex size-5 shrink-0 items-center justify-center overflow-hidden rounded bg-muted text-[10px] font-semibold uppercase">
                   {org.logo ? (
-                    <img src={org.logo} alt="" className="size-full object-cover" />
+                    <Image
+                      src={org.logo}
+                      alt=""
+                      className="size-full object-cover"
+                      width={20}
+                      height={20}
+                      sizes="20px"
+                      unoptimized
+                    />
                   ) : (
                     org.name.charAt(0)
                   )}

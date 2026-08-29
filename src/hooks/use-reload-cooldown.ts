@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 /** Seconds a reload button stays disabled after firing, to prevent spamming the endpoint. */
 export const DEFAULT_RELOAD_COOLDOWN_SECONDS = 5;
@@ -30,7 +30,7 @@ export function useReloadCooldown(
     return () => clearInterval(interval);
   }, [cooldown]);
 
-  const reload = useCallback(() => {
+  function reload() {
     if (isReloading || cooldown > 0) return;
     setIsReloading(true);
     Promise.resolve(action())
@@ -42,7 +42,7 @@ export function useReloadCooldown(
         setIsReloading(false);
         setCooldown(cooldownSeconds);
       });
-  }, [action, cooldown, cooldownSeconds, isReloading]);
+  }
 
   return { reload, isReloading, isCoolingDown: cooldown > 0 };
 }

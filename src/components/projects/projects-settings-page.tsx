@@ -190,12 +190,26 @@ export function ProjectsSettingsPage() {
   const pending = archiveProject.isPending || restoreProject.isPending || deleteProject.isPending;
 
   const personalActive = activeProjects.filter((project) => !project.organizationId);
-  const teamGroups = organizations
-    .map((org) => ({
-      org,
-      projects: activeProjects.filter((project) => project.organizationId === org.id),
-    }))
-    .filter((group) => group.projects.length > 0);
+  const projectsByOrgId = new Map<string, typeof activeProjects>();
+  for (const project of activeProjects) {
+    if (!project.organizationId) continue;
+    const grouped = projectsByOrgId.get(project.organizationId);
+    if (grouped) {
+      grouped.push(project);
+    } else {
+      projectsByOrgId.set(project.organizationId, [project]);
+    }
+  }
+  const teamGroups: Array<{
+    org: (typeof organizations)[number];
+    projects: typeof activeProjects;
+  }> = [];
+  for (const org of organizations) {
+    const projects = projectsByOrgId.get(org.id);
+    if (projects && projects.length > 0) {
+      teamGroups.push({ org, projects });
+    }
+  }
 
   return (
     <SettingsPageShell title={t("Projects")}>

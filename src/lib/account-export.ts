@@ -161,26 +161,37 @@ export async function buildAccountExport(userId: string) {
       source: item.source,
       createdAt: item.createdAt,
     })),
-    projects: projectRows.map((project) => ({
-      id: project.id,
-      name: project.name,
-      description: project.description,
-      instructions: project.instructions,
-      color: project.color,
-      defaultModel: project.defaultModel,
-      organizationId: project.organizationId,
-      archivedAt: project.archivedAt,
-      createdAt: project.createdAt,
-      files: fileRows
-        .filter((file) => file.projectId === project.id)
-        .map((file) => ({
+    projects: projectRows.map((project) => {
+      const files: Array<{
+        filename: string;
+        url: string;
+        size: number;
+        mimeType: string;
+        createdAt: Date;
+      }> = [];
+      for (const file of fileRows) {
+        if (file.projectId !== project.id) continue;
+        files.push({
           filename: file.filename,
           url: file.url,
           size: file.size,
           mimeType: file.mimeType,
           createdAt: file.createdAt,
-        })),
-    })),
+        });
+      }
+      return {
+        id: project.id,
+        name: project.name,
+        description: project.description,
+        instructions: project.instructions,
+        color: project.color,
+        defaultModel: project.defaultModel,
+        organizationId: project.organizationId,
+        archivedAt: project.archivedAt,
+        createdAt: project.createdAt,
+        files,
+      };
+    }),
     chats: chatRows.map((chat) => ({
       id: chat.id,
       title: chat.title,

@@ -62,9 +62,8 @@ export default function ImportSettingsPage() {
       importMutation.mutate({ payload });
     } catch {
       toast.error(t("That file isn't valid JSON."));
-    } finally {
-      setIsReading(false);
     }
+    setIsReading(false);
   };
 
   const isBusy = isReading || importMutation.isPending;

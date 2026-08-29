@@ -44,13 +44,15 @@ export function FreshSessionPrompt({ onVerified, className }: FreshSessionPrompt
   const [password, setPassword] = useState("");
 
   const hasCredentialAccount = accounts?.some((account) => account.providerId === "credential");
-  const socialProviderIds = [
-    ...new Set(
-      (accounts ?? [])
-        .filter((account) => account.providerId !== "credential")
-        .map((account) => account.providerId),
-    ),
-  ];
+  const socialProviderIds: string[] = [];
+  const seenSocialProviders = new Set<string>();
+  for (const account of accounts ?? []) {
+    if (account.providerId === "credential" || seenSocialProviders.has(account.providerId)) {
+      continue;
+    }
+    seenSocialProviders.add(account.providerId);
+    socialProviderIds.push(account.providerId);
+  }
   const hasNoReauthMethod = !!accounts && !hasCredentialAccount && socialProviderIds.length === 0;
 
   const { mutate: signInEmail, isPending: isVerifyingPassword } = useSignInEmail(authClient, {

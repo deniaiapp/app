@@ -2,7 +2,7 @@ import { db } from "@/db/drizzle";
 import { securityActivity, user } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
-export const SECURITY_ACTIVITY_ACTIONS = [
+const SECURITY_ACTIVITY_ACTIONS = [
   "signed_in",
   "signed_out",
   "password_changed",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useExtracted } from "next-intl";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,17 +29,6 @@ export function TeamDeleteDialog({
   onConfirm: () => void;
   isDeleting: boolean;
 }) {
-  const t = useExtracted();
-  const [confirmText, setConfirmText] = useState("");
-
-  useEffect(() => {
-    if (!open) {
-      setConfirmText("");
-    }
-  }, [open]);
-
-  const isConfirmed = confirmText.trim() === organizationName;
-
   return (
     <AlertDialog
       open={open}
@@ -48,41 +37,64 @@ export function TeamDeleteDialog({
         onOpenChange(next);
       }}
     >
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{t("Delete team?")}</AlertDialogTitle>
-          <AlertDialogDescription>
-            {t(
-              "This permanently deletes {name}, removes every member, and cancels the team subscription. This cannot be undone.",
-              { name: organizationName },
-            )}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <div className="space-y-2 py-2">
-          <Label htmlFor="team-delete-confirm">
-            {t("Type {name} to confirm.", { name: organizationName })}
-          </Label>
-          <Input
-            id="team-delete-confirm"
-            autoComplete="off"
-            disabled={isDeleting}
-            value={confirmText}
-            onChange={(event) => setConfirmText(event.target.value)}
-          />
-        </div>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>{t("Cancel")}</AlertDialogCancel>
-          <AlertDialogAction
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            disabled={isDeleting || !isConfirmed}
-            loading={isDeleting}
-            onClick={onConfirm}
-          >
-            {isDeleting && <Spinner className="size-3.5" />}
-            {t("Delete team")}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
+      <TeamDeleteDialogBody
+        key={open ? organizationName : "closed"}
+        organizationName={organizationName}
+        onConfirm={onConfirm}
+        isDeleting={isDeleting}
+      />
     </AlertDialog>
+  );
+}
+
+function TeamDeleteDialogBody({
+  organizationName,
+  onConfirm,
+  isDeleting,
+}: {
+  organizationName: string;
+  onConfirm: () => void;
+  isDeleting: boolean;
+}) {
+  const t = useExtracted();
+  const [confirmText, setConfirmText] = useState("");
+  const isConfirmed = confirmText.trim() === organizationName;
+
+  return (
+    <AlertDialogContent>
+      <AlertDialogHeader>
+        <AlertDialogTitle>{t("Delete team?")}</AlertDialogTitle>
+        <AlertDialogDescription>
+          {t(
+            "This permanently deletes {name}, removes every member, and cancels the team subscription. This cannot be undone.",
+            { name: organizationName },
+          )}
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+      <div className="space-y-2 py-2">
+        <Label htmlFor="team-delete-confirm">
+          {t("Type {name} to confirm.", { name: organizationName })}
+        </Label>
+        <Input
+          id="team-delete-confirm"
+          autoComplete="off"
+          disabled={isDeleting}
+          value={confirmText}
+          onChange={(event) => setConfirmText(event.target.value)}
+        />
+      </div>
+      <AlertDialogFooter>
+        <AlertDialogCancel disabled={isDeleting}>{t("Cancel")}</AlertDialogCancel>
+        <AlertDialogAction
+          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          disabled={isDeleting || !isConfirmed}
+          loading={isDeleting}
+          onClick={onConfirm}
+        >
+          {isDeleting && <Spinner className="size-3.5" />}
+          {t("Delete team")}
+        </AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialogContent>
   );
 }
