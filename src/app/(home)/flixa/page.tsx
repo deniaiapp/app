@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useExtracted } from "next-intl";
 import { getExtracted } from "next-intl/server";
 import { Button } from "@/components/ui/button";
-import { SiGoogle, SiWindsurf } from "@icons-pack/react-simple-icons";
+import SiGoogle from "@icons-pack/react-simple-icons/icons/SiGoogle";
+import SiWindsurf from "@icons-pack/react-simple-icons/icons/SiWindsurf";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getExtracted();

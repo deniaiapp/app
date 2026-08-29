@@ -100,7 +100,7 @@ export default function FaqPage() {
         {
           question: t("Can I bring my own API keys?"),
           answer: t(
-            "Yes. If you already pay providers directly, you can connect your own keys and keep that usage separate from platform limits. This is useful for teams and power users who want provider-level control.",
+            "Yes. If you already pay providers directly, you can connect your own keys and keep model usage separate from platform limits. Web search still uses platform quota. This is useful for teams and power users who want provider-level control.",
           ),
         },
         {

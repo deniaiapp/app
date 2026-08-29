@@ -1,4 +1,4 @@
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { generateObject, type UIMessage } from "ai";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -36,9 +36,9 @@ const defaultProfile: PersonalizationProfile = {
   autoMemory: true,
 };
 
-const googleApiKey = env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
-const memoryModel = googleApiKey
-  ? createGoogleGenerativeAI({ apiKey: googleApiKey })("gemini-3-flash-preview")
+const openrouterApiKey = env.OPENROUTER_API_KEY?.trim();
+const memoryModel = openrouterApiKey
+  ? createOpenRouter({ apiKey: openrouterApiKey })("openai/gpt-5.6-luna")
   : null;
 
 export async function getUserMemoryState(userId: string) {

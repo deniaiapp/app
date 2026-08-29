@@ -10,14 +10,17 @@ export function createChatTools({
   videoMode,
   imageMode,
   webSearch = true,
+  usage,
 }: CreateChatToolsOptions) {
   const { features } = platformCapabilities;
-  const webSearchEnabled = webSearch && features.webSearch;
+  // Video/image modes force a single dedicated tool; keep search/browse out of
+  // those exclusive turns so the model cannot pick the wrong one.
+  const webSearchEnabled = webSearch && features.webSearch && !videoMode && !imageMode;
 
   return {
     ...(webSearchEnabled
       ? {
-          search: createSearchTool(),
+          search: createSearchTool(usage),
           browse: createBrowseTool(),
         }
       : {}),

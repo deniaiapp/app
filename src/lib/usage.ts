@@ -42,6 +42,16 @@ const VERIFIED_FREE_LIMITS: Record<UsageCategory, { limit: number; unit: UsageUn
 
 export const GUEST_USAGE_MULTIPLIER = 2;
 
+/** Weighted basic tokens charged per successful `search` tool call. */
+export const SEARCH_TOOL_TOKEN_COST = 10_000;
+
+/** Guest request units charged per successful `search` tool call. */
+export const SEARCH_TOOL_REQUEST_COST = 1;
+
+export function getSearchToolUsageAmount(isAnonymous: boolean): number {
+  return isAnonymous ? SEARCH_TOOL_REQUEST_COST : SEARCH_TOOL_TOKEN_COST;
+}
+
 const GUEST_USAGE_LIMITS: Record<UsageCategory, { limit: number; unit: UsageUnit }> = {
   basic: { limit: 20 * GUEST_USAGE_MULTIPLIER, unit: "requests" },
   premium: { limit: 0, unit: "requests" },

@@ -48,7 +48,8 @@ export function buildChatSystemPrompt({
     : null;
   const webSearchInstructions = webSearchEnabled
     ? [
-        "- Use the search tool when you need current information or when the user asks about recent events.",
+        "- Search and browse tools are always available. Use them when you need current information, recent events, prices, news, documentation, or facts you are not confident about — even if the user did not explicitly ask to search.",
+        "- Each search tool call consumes a fixed amount of the user's usage quota. Prefer one precise query over several overlapping ones, and skip search for casual conversation or questions you can answer confidently from general knowledge.",
         "- Use the browse tool to open a specific URL and read its full page content (for example when the user shares a link, or when search snippets are not enough).",
         "- Always cite sources when using information from search or browse results.",
       ]
@@ -72,7 +73,9 @@ export function buildChatSystemPrompt({
     "Guidelines:",
     "- Provide accurate, helpful, and concise responses.",
     ...webSearchInstructions,
-    "- If you're unsure about something, acknowledge the uncertainty rather than making up information.",
+    webSearchEnabled
+      ? "- If you're unsure about something that can be checked on the web, use the search tool rather than guessing. Otherwise acknowledge the uncertainty."
+      : "- If you're unsure about something, acknowledge the uncertainty rather than making up information.",
     "- Format code blocks with appropriate syntax highlighting.",
     "- Use markdown formatting for better readability.",
     additionalInstructionPrompt,

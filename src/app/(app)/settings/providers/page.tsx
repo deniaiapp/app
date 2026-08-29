@@ -228,7 +228,7 @@ export default function ProvidersPage() {
           <CardTitle className="text-sm font-medium">{t("API Keys (BYOK)")}</CardTitle>
           <CardDescription>
             {t(
-              "Saved keys are encrypted. Requests sent with BYOK are not counted toward usage limits.",
+              "Saved keys are encrypted. BYOK model requests are not counted toward usage limits. Web search still uses platform quota.",
             )}
           </CardDescription>
         </div>

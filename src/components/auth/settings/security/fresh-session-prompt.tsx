@@ -4,6 +4,7 @@ import { getProviderName } from "@better-auth-ui/core";
 import {
   renderProviderIcon,
   useAuth,
+  useFetchOptions,
   useListAccounts,
   useSession,
   useSignInEmail,
@@ -37,11 +38,13 @@ export type FreshSessionPromptProps = {
  * appropriate to their context (a dialog header, or plain text inline).
  */
 export function FreshSessionPrompt({ onVerified, className }: FreshSessionPromptProps) {
-  const { authClient, basePaths, localization, navigate, viewPaths } = useAuth();
+  const { authClient, basePaths, localization, navigate, plugins, viewPaths } = useAuth();
   const { data: session } = useSession(authClient);
   const { data: accounts } = useListAccounts(authClient);
+  const { fetchOptions, resetFetchOptions } = useFetchOptions();
 
   const [password, setPassword] = useState("");
+  const Captcha = plugins.find((plugin) => plugin.captchaComponent)?.captchaComponent;
 
   const hasCredentialAccount = accounts?.some((account) => account.providerId === "credential");
   const socialProviderIds: string[] = [];
@@ -56,6 +59,9 @@ export function FreshSessionPrompt({ onVerified, className }: FreshSessionPrompt
   const hasNoReauthMethod = !!accounts && !hasCredentialAccount && socialProviderIds.length === 0;
 
   const { mutate: signInEmail, isPending: isVerifyingPassword } = useSignInEmail(authClient, {
+    onError: () => {
+      resetFetchOptions();
+    },
     onSuccess: () => {
       setPassword("");
       toast.success(localization.settings.freshSessionSuccess);
@@ -70,7 +76,7 @@ export function FreshSessionPrompt({ onVerified, className }: FreshSessionPrompt
     e.preventDefault();
     if (!session?.user.email) return;
 
-    signInEmail({ email: session.user.email, password });
+    signInEmail({ email: session.user.email, password, fetchOptions });
   };
 
   return (
@@ -95,7 +101,12 @@ export function FreshSessionPrompt({ onVerified, className }: FreshSessionPrompt
             <FieldError />
           </Field>
 
-          <Button type="submit" disabled={isVerifyingPassword || !password}>
+          {Captcha && <div className="flex justify-center">{Captcha}</div>}
+
+          <Button
+            type="submit"
+            disabled={isVerifyingPassword || !password || (Boolean(Captcha) && !fetchOptions)}
+          >
             {isVerifyingPassword && <Spinner />}
             {localization.settings.freshSessionSubmit}
           </Button>

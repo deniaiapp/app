@@ -27,7 +27,7 @@ export function HomeTrustSection() {
       icon: KeyRound,
       title: t("Bring your own keys"),
       description: t(
-        "People who already pay providers directly can connect their own API keys and keep usage separate from Deni AI limits.",
+        "People who already pay providers directly can connect their own API keys and keep model usage separate from Deni AI limits. Web search still uses platform quota.",
       ),
     },
     {

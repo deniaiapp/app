@@ -2,8 +2,9 @@ import { createGroq } from "@ai-sdk/groq";
 import { generateText, tool } from "ai";
 import { z } from "zod";
 import { env } from "@/env";
+import { consumeUsage, getSearchToolUsageAmount, refundUsage, UsageLimitError } from "@/lib/usage";
 import { fetchPageText } from "./fetch-page";
-import type { SearchResult } from "./types";
+import type { ChatToolUsageContext, SearchResult } from "./types";
 
 type ExaSearchResponse = {
   results?: Array<{
@@ -14,10 +15,40 @@ type ExaSearchResponse = {
   }>;
 };
 
-export function createSearchTool() {
+async function chargeSearchUsage(usage: ChatToolUsageContext): Promise<number> {
+  const amount = getSearchToolUsageAmount(usage.isAnonymous);
+  const consumed = await consumeUsage({
+    userId: usage.userId,
+    category: "basic",
+    isAnonymous: usage.isAnonymous,
+    amount,
+  });
+
+  if (consumed.limit === null) {
+    return 0;
+  }
+
+  usage.onCharged?.({ amount, maxModeAmount: consumed.maxModeAmount });
+  return amount;
+}
+
+async function refundSearchUsage(usage: ChatToolUsageContext, amount: number): Promise<void> {
+  try {
+    const refunded = await refundUsage({
+      userId: usage.userId,
+      category: "basic",
+      amount,
+    });
+    usage.onRefunded?.({ amount, maxModeRefunded: refunded.maxModeRefunded });
+  } catch (error) {
+    console.error("Failed to refund search tool usage", error);
+  }
+}
+
+export function createSearchTool(usage?: ChatToolUsageContext) {
   return tool({
     description:
-      "Search the web and get short page summaries. Prefer the browse tool when you need the full content of a specific URL.",
+      "Search the web and get short page summaries. Use this whenever current, local, or easily-changed facts would improve the answer — news, prices, docs, people, products, or anything you are not confident about — even if the user did not ask you to search. Skip it for casual chat or questions you can answer confidently from general knowledge. Each call consumes a fixed amount of the user's usage quota, so prefer one well-chosen query over several overlapping ones. Prefer the browse tool when you need the full content of a specific URL.",
     inputSchema: z.object({
       query: z.string().min(1).describe("Search query"),
       amount: z
@@ -30,7 +61,12 @@ export function createSearchTool() {
     }),
     execute: async ({ query, amount }, { abortSignal }) => {
       const maxResults = Math.min(Math.max(amount ?? 10, 5), 15);
+      let chargedAmount = 0;
       try {
+        if (usage) {
+          chargedAmount = await chargeSearchUsage(usage);
+        }
+
         const EXA_API_KEY = env.EXA_API_KEY;
         if (!EXA_API_KEY) {
           throw new Error("Exa API key not configured");
@@ -106,6 +142,12 @@ export function createSearchTool() {
 
         return summarizedResults;
       } catch (error) {
+        if (chargedAmount > 0 && usage) {
+          await refundSearchUsage(usage, chargedAmount);
+        }
+        if (error instanceof UsageLimitError) {
+          throw new Error("Web search is unavailable because the usage limit was reached.");
+        }
         console.error("Search tool error:", error);
         throw new Error("Web search failed. Please try again later.");
       }
