@@ -16,12 +16,15 @@ import {
   type Warmth,
 } from "@/components/memory/memory-types";
 import { SettingsPageShell } from "@/components/settings-page-shell";
+import { usePlatformCapabilities } from "@/components/platform-capabilities-provider";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc/react";
 
 export default function MemorySettingsPage() {
   const t = useExtracted();
+  const { features } = usePlatformCapabilities();
   const utils = trpc.useUtils();
-  const memoryQuery = trpc.memory.get.useQuery();
+  const memoryQuery = trpc.memory.get.useQuery(undefined, { enabled: features.memory });
   const [memoryUi, dispatchMemoryUi] = useReducer(memoryUiReducer, {
     profile: DEFAULT_PROFILE,
     instructionsDraft: "",
@@ -145,6 +148,24 @@ export default function MemorySettingsPage() {
 
     clearItems.mutate();
   };
+
+  if (!features.memory) {
+    return (
+      <SettingsPageShell
+        title={t("Personalize")}
+        description={t("Control how Deni responds and what it remembers about you.")}
+      >
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("Personalization unavailable")}</CardTitle>
+            <CardDescription>
+              {t("Personalization is disabled for this environment.")}
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </SettingsPageShell>
+    );
+  }
 
   return (
     <SettingsPageShell

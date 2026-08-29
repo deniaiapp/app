@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 import { useBillingPlanCopy } from "@/lib/billing-plan-copy";
 import { useReloadCooldown } from "@/hooks/use-reload-cooldown";
+import { usePlatformCapabilities } from "@/components/platform-capabilities-provider";
 import { trpc } from "@/lib/trpc/react";
 import {
   isInvitation,
@@ -25,6 +26,7 @@ export function useTeamSettings() {
   const session = authClient.useSession();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
+  const { features } = usePlatformCapabilities();
 
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -109,14 +111,14 @@ export function useTeamSettings() {
   const isAdmin = currentUserRole === "admin" || isOwner;
   const teamBillingQuery = trpc.organization.teamBillingStatus.useQuery(
     { organizationId: activeOrg?.id ?? "" },
-    { enabled: Boolean(activeOrg?.id) && isAdmin },
+    { enabled: features.billing && Boolean(activeOrg?.id) && isAdmin },
   );
   const teamMaxModeQuery = trpc.organization.teamMaxModeSettings.useQuery(
     { organizationId: activeOrg?.id ?? "" },
-    { enabled: Boolean(activeOrg?.id) && isAdmin },
+    { enabled: features.billing && Boolean(activeOrg?.id) && isAdmin },
   );
   const teamPlansQuery = trpc.organization.teamPlans.useQuery(undefined, {
-    enabled: Boolean(activeOrg?.id) && isAdmin,
+    enabled: features.billing && Boolean(activeOrg?.id) && isAdmin,
   });
 
   async function selectOrg(org: Organization, options?: { persistActive?: boolean }) {

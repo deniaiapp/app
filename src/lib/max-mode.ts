@@ -3,6 +3,7 @@ import { and, eq, isNotNull, isNull, like, sql } from "drizzle-orm";
 import { db } from "@/db/drizzle";
 import { billing, member, teamMemberUsagePolicy, teamUsagePolicy } from "@/db/schema";
 import { isProOrHigherTier } from "@/lib/billing";
+import { isBillingDisabled } from "@/lib/billing-config";
 import { attachMaxModeMeteredItems } from "@/lib/max-mode-stripe";
 import { stripe } from "@/lib/stripe";
 
@@ -298,7 +299,7 @@ export async function reportMaxModeUsageToStripe(
   category: UsageCategory,
   amount: number,
 ) {
-  if (amount <= 0) {
+  if (amount <= 0 || isBillingDisabled) {
     return;
   }
 

@@ -2,6 +2,7 @@ import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db/drizzle";
 import { billing, member, teamUsageAuditLog } from "@/db/schema";
+import { isBillingDisabled } from "@/lib/billing-config";
 import { stripe } from "@/lib/stripe";
 import { getLicensedSubscriptionItem } from "@/lib/stripe-subscriptions";
 
@@ -25,6 +26,8 @@ export async function getOrgMemberCount(organizationId: string): Promise<number>
 }
 
 export async function updateTeamSeatCount(organizationId: string) {
+  if (isBillingDisabled) return;
+
   const teamBilling = await getTeamBilling(organizationId);
   if (!teamBilling?.stripeSubscriptionId) return;
 
@@ -53,6 +56,8 @@ export async function updateTeamSeatCount(organizationId: string) {
  * Called when the user joins an org with an active team plan so they don't get double-billed.
  */
 export async function cancelPersonalSubscription(userId: string) {
+  if (isBillingDisabled) return;
+
   const [record] = await db
     .select()
     .from(billing)
@@ -107,6 +112,8 @@ export async function cancelOrgMembersPersonalSubscriptions(organizationId: stri
  * losing track of an active subscription.
  */
 export async function cancelTeamSubscriptionForDeletion(organizationId: string) {
+  if (isBillingDisabled) return;
+
   const record = await getTeamBilling(organizationId);
   if (!record?.stripeSubscriptionId) return;
 

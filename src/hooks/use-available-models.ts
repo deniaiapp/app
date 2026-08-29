@@ -1,6 +1,8 @@
 import type { ModelOption } from "@/components/chat/chat-composer";
 import { authClient } from "@/lib/auth-client";
 import { getModelsForPlanTier } from "@/lib/constants";
+import { isModelProviderAvailable } from "@/lib/platform-capabilities";
+import { usePlatformCapabilities } from "@/components/platform-capabilities-provider";
 import { trpc } from "@/lib/trpc/react";
 import { liveUsageQueryOptions } from "@/lib/usage-query-options";
 
@@ -13,6 +15,7 @@ type ProviderSetting = {
 export function useAvailableModels() {
   const session = authClient.useSession();
   const isAnonymous = Boolean(session.data?.user?.isAnonymous);
+  const platformCapabilities = usePlatformCapabilities();
 
   // Default to free until tier is known so free users never briefly see paid models.
   // Share options with useUsageStatus so both hooks hit the same cached query.
@@ -27,13 +30,15 @@ export function useAvailableModels() {
     staleTime: 30000,
   });
 
-  const availableModels: ModelOption[] = getModelsForPlanTier(planTier);
-
   const providerSettings = new Map<string, ProviderSetting>(
     (providersQuery.data?.settings ?? []).map((setting) => [setting.provider, setting]),
   );
 
   const providerKeys = new Set((providersQuery.data?.keys ?? []).map((entry) => entry.provider));
+  const availableModels: ModelOption[] = getModelsForPlanTier(planTier).filter((model) => {
+    const provider = model.provider ?? model.author;
+    return isModelProviderAvailable(platformCapabilities, provider) || providerKeys.has(provider);
+  });
 
   return {
     availableModels,
@@ -42,5 +47,6 @@ export function useAvailableModels() {
     providersQuery,
     isAnonymous,
     planTier,
+    platformCapabilities,
   };
 }

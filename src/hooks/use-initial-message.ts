@@ -86,8 +86,15 @@ function readStoredInitialMessage(): StoredInitialMessage | null {
   return cachedStoredValue;
 }
 
-function seedFromStored(stored: StoredInitialMessage, fallbackModel: string): InitialComposerSeed {
-  const effectiveModel = stored.model ?? fallbackModel;
+function seedFromStored(
+  stored: StoredInitialMessage,
+  fallbackModel: string,
+  availableModelValues?: ReadonlySet<string>,
+): InitialComposerSeed {
+  const effectiveModel =
+    stored.model && (!availableModelValues || availableModelValues.has(stored.model))
+      ? stored.model
+      : fallbackModel;
   const selectedModel = models.find((entry) => entry.value === effectiveModel);
   return {
     webSearch: Boolean(stored.webSearch),
@@ -115,10 +122,12 @@ export function useInitialMessage(params: {
   id: string;
   initialMessagesLength: number;
   model: string;
+  availableModelValues?: ReadonlySet<string>;
   sendMessage: SendMessage;
   onMessageSent: () => void;
 }): InitialComposerSeed | null {
-  const { id, initialMessagesLength, model, sendMessage, onMessageSent } = params;
+  const { id, initialMessagesLength, model, availableModelValues, sendMessage, onMessageSent } =
+    params;
   const searchParams = useSearchParams();
   const stored = useSyncExternalStore(
     subscribeInitialMessageStore,
@@ -130,6 +139,7 @@ export function useInitialMessage(params: {
   const sendMessageRef = useRef(sendMessage);
   const onMessageSentRef = useRef(onMessageSent);
   const modelRef = useRef(model);
+  const availableModelValuesRef = useRef(availableModelValues);
   const [consumedSeed, setConsumedSeed] = useState<{
     id: string;
     seed: InitialComposerSeed;
@@ -139,12 +149,13 @@ export function useInitialMessage(params: {
     sendMessageRef.current = sendMessage;
     onMessageSentRef.current = onMessageSent;
     modelRef.current = model;
+    availableModelValuesRef.current = availableModelValues;
   });
 
   const queryMessage = searchParams.get("message");
   const queryWebSearch = searchParams.get("webSearch") === "true";
   const liveSeed = stored
-    ? seedFromStored(stored, model)
+    ? seedFromStored(stored, model, availableModelValues)
     : queryMessage
       ? {
           webSearch: queryWebSearch,
@@ -167,7 +178,10 @@ export function useInitialMessage(params: {
     const storedData = readStoredInitialMessage();
     if (storedData) {
       initialMessageSentRef.current = true;
-      setConsumedSeed({ id, seed: seedFromStored(storedData, modelRef.current) });
+      setConsumedSeed({
+        id,
+        seed: seedFromStored(storedData, modelRef.current, availableModelValuesRef.current),
+      });
       sessionStorage.removeItem(INITIAL_MESSAGE_STORAGE_KEY);
       emitInitialMessageStore();
 
@@ -178,7 +192,11 @@ export function useInitialMessage(params: {
           )
         : [];
 
-      const sendModel = storedData.model ?? modelRef.current;
+      const sendModel =
+        storedData.model &&
+        (!availableModelValuesRef.current || availableModelValuesRef.current.has(storedData.model))
+          ? storedData.model
+          : modelRef.current;
       const sendSelected = models.find((entry) => entry.value === sendModel);
       const parsedReasoningEffort =
         resolveReasoningEffort(sendSelected?.efforts ?? false, storedData.reasoningEffort) ??

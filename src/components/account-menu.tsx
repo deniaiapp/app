@@ -15,8 +15,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { SidebarMenuButton } from "@/components/ui/sidebar";
+import { usePlatformCapabilities } from "@/components/platform-capabilities-provider";
 import { authClient } from "@/lib/auth-client";
-import { isBillingDisabled } from "@/lib/billing-config";
 import { trpc } from "@/lib/trpc/react";
 import { liveUsageQueryOptions } from "@/lib/usage-query-options";
 import { cn } from "@/lib/utils";
@@ -80,7 +80,8 @@ export function AccountMenu() {
   const utils = trpc.useUtils();
   const session = authClient.useSession();
   const isAnonymous = Boolean(session.data?.user?.isAnonymous);
-  const billingDisabled = isBillingDisabled;
+  const { features } = usePlatformCapabilities();
+  const billingDisabled = !features.billing;
   const hasSession = Boolean(session.data?.user);
 
   const usageQuery = trpc.billing.usage.useQuery(undefined, {
@@ -114,8 +115,10 @@ export function AccountMenu() {
   });
 
   const maxModePending = enableMaxMode.isPending || disableMaxMode.isPending;
-  const maxModeEnabled = maxModeQuery.data?.enabled ?? usageQuery.data?.maxModeEnabled ?? false;
-  const maxModeEligible = maxModeQuery.data?.eligible ?? usageQuery.data?.maxModeEligible ?? false;
+  const maxModeEnabled =
+    !billingDisabled && (maxModeQuery.data?.enabled ?? usageQuery.data?.maxModeEnabled ?? false);
+  const maxModeEligible =
+    !billingDisabled && (maxModeQuery.data?.eligible ?? usageQuery.data?.maxModeEligible ?? false);
 
   const basicUsage = usageQuery.data?.usage.find((entry) => entry.category === "basic");
   const premiumUsage = usageQuery.data?.usage.find((entry) => entry.category === "premium");

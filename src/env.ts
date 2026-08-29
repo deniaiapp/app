@@ -10,19 +10,19 @@ export const env = createEnv({
   server: {
     DATABASE_URL: z.url(),
     BETTER_AUTH_SECRET: z.string().length(32),
-    GOOGLE_CLIENT_ID: z.string().min(1),
-    GOOGLE_CLIENT_SECRET: z.string().min(1),
-    GITHUB_CLIENT_ID: z.string().min(1),
-    GITHUB_CLIENT_SECRET: z.string().min(1),
-    STRIPE_SECRET_KEY: z.string().min(1),
+    GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+    GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
+    GITHUB_CLIENT_ID: z.string().min(1).optional(),
+    GITHUB_CLIENT_SECRET: z.string().min(1).optional(),
+    STRIPE_SECRET_KEY: z.string().min(1).optional(),
     STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
     STRIPE_FLASH_OFFER_COUPON_ID: z.string().min(1).optional(),
     AFFILIATE_ADMIN_EMAILS: z.string().min(1).optional(),
     BLOG_ADMIN_EMAILS: z.string().min(1).optional(),
-    GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1),
-    ANTHROPIC_API_KEY: z.string().min(1),
-    GROQ_API_KEY: z.string().min(1),
-    OPENROUTER_API_KEY: z.string().min(1),
+    GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1).optional(),
+    ANTHROPIC_API_KEY: z.string().min(1).optional(),
+    GROQ_API_KEY: z.string().min(1).optional(),
+    OPENROUTER_API_KEY: z.string().min(1).optional(),
     /**
      * When "true" or "1", platform (non-BYOK) OpenAI + Anthropic traffic is
      * routed through the voids.top OpenAI-compatible gateway.
@@ -35,8 +35,8 @@ export const env = createEnv({
     VOIDS_BASE_URL: z.url().optional(),
     /** Optional API key for voids.top (default placeholder when omitted). */
     VOIDS_API_KEY: z.string().min(1).optional(),
-    BRAVE_SEARCH_API_KEY: z.string().min(1),
-    TURNSTILE_SECRET_KEY: z.string().min(1),
+    EXA_API_KEY: z.string().min(1).optional(),
+    TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
     /**
      * Cloudflare Email Sending (optional). Both account id and API token are
      * required to enable transactional email (magic link, verification, etc.).
@@ -66,7 +66,7 @@ export const env = createEnv({
     }, "NEXT_PUBLIC_BETTER_AUTH_URL must be a public origin (not 0.0.0.0)"),
     NEXT_PUBLIC_BILLING_DISABLED: z.string().min(1).optional(),
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().min(1).optional(),
-    NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().min(1),
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().min(1).optional(),
     NEXT_PUBLIC_ADSENSE_CLIENT_ID: z.string().min(1).optional(),
     NEXT_PUBLIC_ADSENSE_HOME_SLOT_ID: z.string().min(1).optional(),
     NEXT_PUBLIC_ADSENSE_CHAT_SLOT_ID: z.string().min(1).optional(),
@@ -91,7 +91,7 @@ export const env = createEnv({
     VOIDS_MODE: process.env.VOIDS_MODE,
     VOIDS_BASE_URL: process.env.VOIDS_BASE_URL,
     VOIDS_API_KEY: process.env.VOIDS_API_KEY,
-    BRAVE_SEARCH_API_KEY: process.env.BRAVE_SEARCH_API_KEY,
+    EXA_API_KEY: process.env.EXA_API_KEY,
     TURNSTILE_SECRET_KEY: process.env.TURNSTILE_SECRET_KEY,
     NEXT_PUBLIC_TURNSTILE_SITE_KEY: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
     NEXT_PUBLIC_ADSENSE_CLIENT_ID: process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID,

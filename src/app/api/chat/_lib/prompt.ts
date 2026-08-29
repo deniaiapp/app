@@ -4,6 +4,7 @@ type BuildSystemPromptParams = {
   projectPrompt: string | null;
   additionalInstruction?: string;
   responseStyle?: "retry" | "detailed" | "concise";
+  webSearchEnabled?: boolean;
   deepResearch?: boolean;
   forceWebSearch?: boolean;
   videoMode?: boolean;
@@ -16,6 +17,7 @@ export function buildChatSystemPrompt({
   projectPrompt,
   additionalInstruction,
   responseStyle = "retry",
+  webSearchEnabled = false,
   deepResearch = false,
   forceWebSearch = false,
   videoMode = false,
@@ -44,6 +46,13 @@ export function buildChatSystemPrompt({
   const additionalInstructionPrompt = additionalInstruction
     ? `Additional regeneration instruction from the user: ${additionalInstruction}`
     : null;
+  const webSearchInstructions = webSearchEnabled
+    ? [
+        "- Use the search tool when you need current information or when the user asks about recent events.",
+        "- Use the browse tool to open a specific URL and read its full page content (for example when the user shares a link, or when search snippets are not enough).",
+        "- Always cite sources when using information from search or browse results.",
+      ]
+    : [];
 
   const videoSystemPromptParts = [
     "You are a helpful AI assistant.",
@@ -62,9 +71,7 @@ export function buildChatSystemPrompt({
     projectPrompt,
     "Guidelines:",
     "- Provide accurate, helpful, and concise responses.",
-    "- Use the search tool when you need current information or when the user asks about recent events.",
-    "- Use the browse tool to open a specific URL and read its full page content (for example when the user shares a link, or when search snippets are not enough).",
-    "- Always cite sources when using information from search or browse results.",
+    ...webSearchInstructions,
     "- If you're unsure about something, acknowledge the uncertainty rather than making up information.",
     "- Format code blocks with appropriate syntax highlighting.",
     "- Use markdown formatting for better readability.",

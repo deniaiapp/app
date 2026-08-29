@@ -4,6 +4,7 @@ import { CreditCard, FolderKanban, History, Home, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useExtracted } from "next-intl";
+import { usePlatformCapabilities } from "@/components/platform-capabilities-provider";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { useTeamSettingsContext } from "./team-settings-context";
@@ -12,6 +13,7 @@ import { TeamSwitcher } from "./team-switcher";
 export function TeamShell({ children }: { children: ReactNode }) {
   const t = useExtracted();
   const pathname = usePathname();
+  const { features } = usePlatformCapabilities();
   const {
     organizations,
     activeOrg,
@@ -30,7 +32,7 @@ export function TeamShell({ children }: { children: ReactNode }) {
     { href: "/settings/team", label: t("Home"), icon: Home, exact: true },
     { href: "/settings/team/members", label: t("Members"), icon: Users, exact: false },
     { href: "/settings/projects", label: t("Projects"), icon: FolderKanban, exact: false },
-    ...(isAdmin
+    ...(isAdmin && features.billing
       ? [
           { href: "/settings/team/billing", label: t("Billing"), icon: CreditCard, exact: false },
           {

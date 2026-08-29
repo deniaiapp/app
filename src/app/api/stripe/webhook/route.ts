@@ -178,8 +178,8 @@ function resolveOrganizationId(metadata?: Stripe.Metadata | null): string | null
 }
 
 export async function POST(req: Request) {
-  if (!env.STRIPE_WEBHOOK_SECRET) {
-    return NextResponse.json({ error: "STRIPE_WEBHOOK_SECRET not configured" }, { status: 500 });
+  if (!env.STRIPE_SECRET_KEY || !env.STRIPE_WEBHOOK_SECRET) {
+    return NextResponse.json({ error: "Stripe webhook is disabled" }, { status: 503 });
   }
 
   const signature = req.headers.get("stripe-signature");

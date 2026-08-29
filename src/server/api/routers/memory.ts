@@ -1,6 +1,8 @@
 import { nanoid } from "nanoid";
 import { and, eq } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { platformCapabilities } from "@/lib/platform-capabilities.server";
 import { memoryItem, userMemory } from "@/db/schema";
 import { protectedProcedure, router } from "../trpc";
 
@@ -31,8 +33,18 @@ const itemInputSchema = z.object({
     .transform((value) => value.trim()),
 });
 
+const memoryEnabledProcedure = protectedProcedure.use(({ next }) => {
+  if (!platformCapabilities.features.memory) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "Memory is disabled in this environment.",
+    });
+  }
+  return next();
+});
+
 export const memoryRouter = router({
-  get: protectedProcedure.query(async ({ ctx }) => {
+  get: memoryEnabledProcedure.query(async ({ ctx }) => {
     const [profile, items] = await Promise.all([
       ctx.db
         .select()
@@ -63,26 +75,28 @@ export const memoryRouter = router({
     };
   }),
 
-  upsertProfile: protectedProcedure.input(profileInputSchema).mutation(async ({ ctx, input }) => {
-    const [profile] = await ctx.db
-      .insert(userMemory)
-      .values({
-        userId: ctx.userId,
-        ...input,
-      })
-      .onConflictDoUpdate({
-        target: userMemory.userId,
-        set: {
+  upsertProfile: memoryEnabledProcedure
+    .input(profileInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const [profile] = await ctx.db
+        .insert(userMemory)
+        .values({
+          userId: ctx.userId,
           ...input,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
+        })
+        .onConflictDoUpdate({
+          target: userMemory.userId,
+          set: {
+            ...input,
+            updatedAt: new Date(),
+          },
+        })
+        .returning();
 
-    return profile;
-  }),
+      return profile;
+    }),
 
-  addItem: protectedProcedure.input(itemInputSchema).mutation(async ({ ctx, input }) => {
+  addItem: memoryEnabledProcedure.input(itemInputSchema).mutation(async ({ ctx, input }) => {
     const normalizedContent = input.content.trim().toLowerCase();
 
     const existing = await ctx.db
@@ -110,7 +124,7 @@ export const memoryRouter = router({
     return item;
   }),
 
-  deleteItem: protectedProcedure
+  deleteItem: memoryEnabledProcedure
     .input(
       z.object({
         id: z.string().min(1),
@@ -125,7 +139,7 @@ export const memoryRouter = router({
       return deleted ?? null;
     }),
 
-  clearItems: protectedProcedure.mutation(async ({ ctx }) => {
+  clearItems: memoryEnabledProcedure.mutation(async ({ ctx }) => {
     const deleted = await ctx.db
       .delete(memoryItem)
       .where(eq(memoryItem.userId, ctx.userId))

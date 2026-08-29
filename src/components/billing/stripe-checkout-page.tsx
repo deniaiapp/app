@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useExtracted } from "next-intl";
 import { startTransition, useEffect, useReducer, useState } from "react";
 import { toast } from "sonner";
+import { usePlatformCapabilities } from "@/components/platform-capabilities-provider";
 import type { BillingPlanId, ClientPlan, IndividualPlanId, TeamPlanId } from "@/lib/billing";
 import { findPlanById, getPlanTier } from "@/lib/billing";
 import { stripeJsPromise } from "@/lib/stripe-js";
@@ -478,6 +479,7 @@ function PreviewSubscriptionShred({
 
 export function StripeCheckoutPage(props: StripeCheckoutPageProps) {
   const t = useExtracted();
+  const { features } = usePlatformCapabilities();
   const { replace } = useRouter();
   const trpcClient = makeTRPCClient();
   const { planId, scope, sessionId } = props;
@@ -519,7 +521,7 @@ export function StripeCheckoutPage(props: StripeCheckoutPageProps) {
     let cancelled = false;
 
     async function bootstrap() {
-      if (isReceiptPreview || isCheckoutPreview || isShredPreview) {
+      if (!features.billing || isReceiptPreview || isCheckoutPreview || isShredPreview) {
         return;
       }
 
@@ -633,6 +635,7 @@ export function StripeCheckoutPage(props: StripeCheckoutPageProps) {
     };
   }, [
     isCheckoutPreview,
+    features.billing,
     isReceiptPreview,
     isShredPreview,
     organizationId,
@@ -661,6 +664,19 @@ export function StripeCheckoutPage(props: StripeCheckoutPageProps) {
 
   if (isShredPreview) {
     return <PreviewSubscriptionShred backHref={backHref} planId={planId} />;
+  }
+
+  if (!features.billing) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("Billing unavailable")}</CardTitle>
+          <CardDescription>
+            {t("Plans, checkout, and billing management are turned off.")}
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
   }
 
   const showCheckoutHeader =

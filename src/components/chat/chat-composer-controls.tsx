@@ -116,6 +116,9 @@ export function ChatComposerActionMenu({
   onImageToggle,
   webSearch,
   onSearchToggle,
+  webSearchAvailable,
+  videoAvailable,
+  imageAvailable,
   deepResearch,
   onResearchToggle,
   supportsFastMode,
@@ -135,6 +138,9 @@ export function ChatComposerActionMenu({
   onImageToggle: (enabled: boolean) => void;
   webSearch: boolean;
   onSearchToggle: (enabled: boolean) => void;
+  webSearchAvailable: boolean;
+  videoAvailable: boolean;
+  imageAvailable: boolean;
   deepResearch: boolean;
   onResearchToggle: (enabled: boolean) => void;
   supportsFastMode: boolean;
@@ -153,34 +159,42 @@ export function ChatComposerActionMenu({
   return (
     <>
       <DropdownMenuSeparator />
-      <DropdownMenuCheckboxItem
-        checked={videoMode}
-        onCheckedChange={(checked) => onVideoToggle(Boolean(checked))}
-      >
-        <Film className="size-4" aria-hidden="true" />
-        {t("Video")}
-      </DropdownMenuCheckboxItem>
-      <DropdownMenuCheckboxItem
-        checked={imageMode}
-        onCheckedChange={(checked) => onImageToggle(Boolean(checked))}
-      >
-        <ImageIcon className="size-4" aria-hidden="true" />
-        {t("Image")}
-      </DropdownMenuCheckboxItem>
-      <DropdownMenuCheckboxItem
-        checked={webSearch}
-        onCheckedChange={(checked) => onSearchToggle(Boolean(checked))}
-      >
-        <Globe className="size-4" aria-hidden="true" />
-        {t("Search")}
-      </DropdownMenuCheckboxItem>
-      <DropdownMenuCheckboxItem
-        checked={deepResearch}
-        onCheckedChange={(checked) => onResearchToggle(Boolean(checked))}
-      >
-        <Sparkle className="size-4" aria-hidden="true" />
-        {t("Deep Research")}
-      </DropdownMenuCheckboxItem>
+      {videoAvailable && (
+        <DropdownMenuCheckboxItem
+          checked={videoMode}
+          onCheckedChange={(checked) => onVideoToggle(Boolean(checked))}
+        >
+          <Film className="size-4" aria-hidden="true" />
+          {t("Video")}
+        </DropdownMenuCheckboxItem>
+      )}
+      {imageAvailable && (
+        <DropdownMenuCheckboxItem
+          checked={imageMode}
+          onCheckedChange={(checked) => onImageToggle(Boolean(checked))}
+        >
+          <ImageIcon className="size-4" aria-hidden="true" />
+          {t("Image")}
+        </DropdownMenuCheckboxItem>
+      )}
+      {webSearchAvailable && (
+        <DropdownMenuCheckboxItem
+          checked={webSearch}
+          onCheckedChange={(checked) => onSearchToggle(Boolean(checked))}
+        >
+          <Globe className="size-4" aria-hidden="true" />
+          {t("Search")}
+        </DropdownMenuCheckboxItem>
+      )}
+      {webSearchAvailable && (
+        <DropdownMenuCheckboxItem
+          checked={deepResearch}
+          onCheckedChange={(checked) => onResearchToggle(Boolean(checked))}
+        >
+          <Sparkle className="size-4" aria-hidden="true" />
+          {t("Deep Research")}
+        </DropdownMenuCheckboxItem>
+      )}
       {supportsFastMode && (
         <DropdownMenuCheckboxItem
           checked={fastMode}

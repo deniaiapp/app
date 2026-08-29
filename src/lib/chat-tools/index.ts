@@ -2,6 +2,7 @@ import { createBrowseTool } from "./browse";
 import { createImageTool } from "./image";
 import { createSearchTool } from "./search";
 import { createVideoTool } from "./video";
+import { platformCapabilities } from "@/lib/platform-capabilities.server";
 import type { CreateChatToolsOptions } from "./types";
 
 export function createChatTools({
@@ -10,14 +11,17 @@ export function createChatTools({
   imageMode,
   webSearch = true,
 }: CreateChatToolsOptions) {
+  const { features } = platformCapabilities;
+  const webSearchEnabled = webSearch && features.webSearch;
+
   return {
-    ...(webSearch
+    ...(webSearchEnabled
       ? {
           search: createSearchTool(),
           browse: createBrowseTool(),
         }
       : {}),
-    ...(videoMode ? { video: createVideoTool(userId) } : {}),
-    ...(imageMode ? { image: createImageTool() } : {}),
+    ...(videoMode && features.videoGeneration ? { video: createVideoTool(userId) } : {}),
+    ...(imageMode && features.imageGeneration ? { image: createImageTool() } : {}),
   };
 }

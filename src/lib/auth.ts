@@ -39,6 +39,48 @@ import {
 } from "@/lib/team-billing";
 
 const emailEnabled = isEmailConfigured();
+const googleClientId = env.GOOGLE_CLIENT_ID?.trim();
+const googleClientSecret = env.GOOGLE_CLIENT_SECRET?.trim();
+const githubClientId = env.GITHUB_CLIENT_ID?.trim();
+const githubClientSecret = env.GITHUB_CLIENT_SECRET?.trim();
+const turnstileSecretKey = env.TURNSTILE_SECRET_KEY?.trim();
+const turnstileSiteKey = env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim();
+
+const socialProviders = {
+  ...(googleClientId && googleClientSecret
+    ? {
+        google: {
+          enabled: true,
+          clientId: googleClientId,
+          clientSecret: googleClientSecret,
+        },
+      }
+    : {}),
+  ...(githubClientId && githubClientSecret
+    ? {
+        github: {
+          enabled: true,
+          clientId: githubClientId,
+          clientSecret: githubClientSecret,
+        },
+      }
+    : {}),
+};
+
+const captchaPlugin =
+  turnstileSecretKey && turnstileSiteKey
+    ? captcha({
+        provider: "cloudflare-turnstile",
+        secretKey: turnstileSecretKey,
+        // Include defaults + magic-link request (not /magic-link/verify — email click).
+        endpoints: [
+          "/sign-up/email",
+          "/sign-in/email",
+          "/request-password-reset",
+          "/sign-in/magic-link",
+        ],
+      })
+    : null;
 
 type OrgUpdateAuditMarker = { name: boolean; logo: boolean };
 
@@ -250,17 +292,7 @@ export const auth = betterAuth({
           }
         : undefined,
     }),
-    captcha({
-      provider: "cloudflare-turnstile",
-      secretKey: env.TURNSTILE_SECRET_KEY,
-      // Include defaults + magic-link request (not /magic-link/verify — email click).
-      endpoints: [
-        "/sign-up/email",
-        "/sign-in/email",
-        "/request-password-reset",
-        "/sign-in/magic-link",
-      ],
-    }),
+    ...(captchaPlugin ? [captchaPlugin] : []),
     ...(emailEnabled
       ? [
           magicLink({
@@ -277,18 +309,7 @@ export const auth = betterAuth({
         ]
       : []),
   ],
-  socialProviders: {
-    google: {
-      enabled: true,
-      clientId: env.GOOGLE_CLIENT_ID,
-      clientSecret: env.GOOGLE_CLIENT_SECRET,
-    },
-    github: {
-      enabled: true,
-      clientId: env.GITHUB_CLIENT_ID,
-      clientSecret: env.GITHUB_CLIENT_SECRET,
-    },
-  },
+  socialProviders,
   rateLimit: {
     enabled: true,
     window: 60, // time window in seconds

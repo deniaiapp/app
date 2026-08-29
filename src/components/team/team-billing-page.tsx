@@ -1,6 +1,7 @@
 "use client";
 
 import { useExtracted } from "next-intl";
+import { usePlatformCapabilities } from "@/components/platform-capabilities-provider";
 import { useBillingReceiptCopy } from "@/components/billing/billing-utils";
 import { SubscriptionShredder } from "@/components/billing/subscription-shredder";
 import type { SubscriptionReceiptData } from "@/components/billing/subscription-receipt";
@@ -11,6 +12,7 @@ import { useTeamSettingsContext } from "./team-settings-context";
 
 export function TeamBillingPage() {
   const t = useExtracted();
+  const { features } = usePlatformCapabilities();
   const getReceiptCopy = useBillingReceiptCopy();
   const {
     isOwner,
@@ -46,6 +48,19 @@ export function TeamBillingPage() {
 
   const teamPlanId = teamBillingQuery.data?.planId ?? "pro_team_monthly";
   const teamPlan = teamPlanId.endsWith("yearly") ? yearlyPlan : monthlyPlan;
+
+  if (!features.billing) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("Billing unavailable")}</CardTitle>
+          <CardDescription>
+            {t("Plans, checkout, and billing management are turned off.")}
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
 
   if (!isAdmin) {
     return (

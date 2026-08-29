@@ -7,7 +7,7 @@ import { useExtracted, useLocale } from "next-intl";
 import type React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
-import { isBillingDisabled } from "@/lib/billing-config";
+import { usePlatformCapabilities } from "@/components/platform-capabilities-provider";
 import { formatAppDate } from "@/lib/format-date";
 import { isStandaloneSettingsRoute } from "@/lib/settings-routes";
 import { trpc } from "@/lib/trpc/react";
@@ -20,7 +20,8 @@ export default function SettingsWrapper({ children }: { children: React.ReactNod
   const locale = useLocale();
   const pathname = usePathname();
   const isStandaloneRoute = isStandaloneSettingsRoute(pathname);
-  const billingDisabled = isBillingDisabled;
+  const { features } = usePlatformCapabilities();
+  const billingDisabled = !features.billing;
   const statusQuery = trpc.billing.status.useQuery(undefined, {
     enabled: !billingDisabled && !isStandaloneRoute,
     staleTime: 60_000,
@@ -106,7 +107,10 @@ export default function SettingsWrapper({ children }: { children: React.ReactNod
       value: "import",
       href: "/settings/import",
     },
-  ].filter((tab) => !billingDisabled || tab.value !== "billing");
+  ].filter(
+    (tab) =>
+      (!billingDisabled || tab.value !== "billing") && (features.memory || tab.value !== "memory"),
+  );
 
   const currentTab =
     settingsTabs.find((tab) => pathname?.startsWith(tab.href))?.value || settingsTabs[0].value;
@@ -152,7 +156,7 @@ export default function SettingsWrapper({ children }: { children: React.ReactNod
                     })}
                   </span>
                   {usages?.map((usageItem) => {
-                    const maxModeEnabled = usage?.maxModeEnabled ?? false;
+                    const maxModeEnabled = features.billing && (usage?.maxModeEnabled ?? false);
                     const unitLabel = usageItem.unit === "tokens" ? t("tokens") : t("requests");
                     const hasLimit =
                       !maxModeEnabled && usageItem.limit !== null && usageItem.limit > 0;

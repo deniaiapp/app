@@ -1,3 +1,3 @@
-import { env } from "@/env";
+import { platformCapabilities } from "@/lib/platform-capabilities.server";
 
-export const isBillingDisabled = env.NEXT_PUBLIC_BILLING_DISABLED === "1";
+export const isBillingDisabled = !platformCapabilities.features.billing;

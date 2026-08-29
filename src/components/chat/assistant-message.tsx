@@ -74,6 +74,7 @@ interface AssistantMessageProps {
   availableModels: ModelOption[];
   onModelChange: (value: string) => void;
   onWebSearchChange: (value: boolean) => void;
+  webSearchAvailable?: boolean;
 }
 
 export function AssistantMessage({
@@ -85,6 +86,7 @@ export function AssistantMessage({
   availableModels,
   onModelChange,
   onWebSearchChange,
+  webSearchAvailable = true,
 }: AssistantMessageProps) {
   const t = useExtracted();
   const locale = useLocale();
@@ -212,32 +214,36 @@ export function AssistantMessage({
                     <ListFilterIcon className="size-4" />
                     {t("Shorten answer")}
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onSelect={() => {
-                      onWebSearchChange(true);
-                      regenerateMessage({
-                        webSearch: true,
-                        forceWebSearch: true,
-                      });
-                    }}
-                  >
-                    <Globe className="size-4" />
-                    {t("Use web search")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={() => {
-                      onWebSearchChange(true);
-                      regenerateMessage({
-                        webSearch: true,
-                        deepResearch: true,
-                        forceWebSearch: true,
-                      });
-                    }}
-                  >
-                    <BrainIcon className="size-4" />
-                    {t("Run deep research")}
-                  </DropdownMenuItem>
+                  {webSearchAvailable && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          onWebSearchChange(true);
+                          regenerateMessage({
+                            webSearch: true,
+                            forceWebSearch: true,
+                          });
+                        }}
+                      >
+                        <Globe className="size-4" />
+                        {t("Use web search")}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          onWebSearchChange(true);
+                          regenerateMessage({
+                            webSearch: true,
+                            deepResearch: true,
+                            forceWebSearch: true,
+                          });
+                        }}
+                      >
+                        <BrainIcon className="size-4" />
+                        {t("Run deep research")}
+                      </DropdownMenuItem>
+                    </>
+                  )}
                   <DropdownMenuSub>
                     <DropdownMenuSubTrigger>
                       <BrainIcon className="size-4" />

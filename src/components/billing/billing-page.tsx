@@ -1,7 +1,7 @@
 "use client";
 
 import { useExtracted } from "next-intl";
-import { isBillingDisabled } from "@/lib/billing-config";
+import { usePlatformCapabilities } from "@/components/platform-capabilities-provider";
 import { SettingsPageShell } from "../settings-page-shell";
 import { CardVerificationCard } from "./card-verification-card";
 import { BillingChangePlanDialog } from "./billing-change-plan-dialog";
@@ -200,7 +200,9 @@ function BillingPageContent() {
 }
 
 export function BillingPage() {
-  if (isBillingDisabled) {
+  const { features } = usePlatformCapabilities();
+
+  if (!features.billing) {
     return <BillingDisabled />;
   }
 

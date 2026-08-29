@@ -15,6 +15,7 @@ export function TurnstileCaptcha({ setToken, clearToken, setReset }: CaptchaRend
   const ref = useRef<TurnstileInstance | null>(null);
   const { resolvedTheme } = useTheme();
   const locale = useLocale();
+  const siteKey = env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
   const handleSuccess = (token: string) => {
     setToken(token);
@@ -34,10 +35,14 @@ export function TurnstileCaptcha({ setToken, clearToken, setReset }: CaptchaRend
     };
   }, [setReset]);
 
+  if (!siteKey) {
+    return null;
+  }
+
   return (
     <Turnstile
       ref={ref}
-      siteKey={env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+      siteKey={siteKey}
       onSuccess={handleSuccess}
       onExpire={handleExpireOrError}
       onError={handleExpireOrError}

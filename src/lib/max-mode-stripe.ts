@@ -2,6 +2,7 @@ import type Stripe from "stripe";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/drizzle";
 import { billing } from "@/db/schema";
+import { isBillingDisabled } from "@/lib/billing-config";
 import { stripe } from "@/lib/stripe";
 import {
   getLicensedPrice,
@@ -206,6 +207,10 @@ export async function attachMaxModeMeteredItems(
   record: MaxModeStripeRecord,
   userId: string,
 ): Promise<AttachResult> {
+  if (isBillingDisabled) {
+    return { ok: false, error: "Billing is disabled." };
+  }
+
   if (!record.stripeCustomerId) {
     return { ok: false, error: "No Stripe customer is linked to this account." };
   }

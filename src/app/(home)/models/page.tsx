@@ -5,6 +5,8 @@ import { getExtracted } from "next-intl/server";
 import { LoginButton } from "@/components/login-button";
 import { models, type ModelDefinition } from "@/lib/constants";
 import { useModelDescriptionCopy } from "@/lib/model-description-copy";
+import { isModelProviderAvailable } from "@/lib/platform-capabilities";
+import { platformCapabilities } from "@/lib/platform-capabilities.server";
 import { Button } from "@/components/ui/button";
 import { authorLabels } from "./models-author-labels";
 import { ModelsGrid } from "./models-grid";
@@ -39,8 +41,11 @@ export default function ModelsPage() {
   const modelDescriptionCopy = useModelDescriptionCopy();
   const locale = useLocale();
   const formatNumber = numberFormatters[locale] ?? numberFormatters.en;
+  const availableModels = models.filter((model) =>
+    isModelProviderAvailable(platformCapabilities, model.provider ?? model.author),
+  );
 
-  const grouped = models.reduce(
+  const grouped = availableModels.reduce(
     (acc, model) => {
       const author = model.author;
       if (!acc[author]) acc[author] = [];
@@ -54,8 +59,8 @@ export default function ModelsPage() {
     "@context": "https://schema.org",
     "@type": "ItemList",
     name: "AI Models available on Deni AI",
-    numberOfItems: models.length,
-    itemListElement: models.map((model, index) => ({
+    numberOfItems: availableModels.length,
+    itemListElement: availableModels.map((model, index) => ({
       "@type": "ListItem",
       position: index + 1,
       name: model.name,

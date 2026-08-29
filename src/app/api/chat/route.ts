@@ -36,6 +36,7 @@ import {
   supportsOpenAILongContextPricing,
 } from "@/lib/constants";
 import { buildMemoryPrompt, getUserMemoryState, maybeAutoSaveMemories } from "@/lib/memory";
+import { platformCapabilities } from "@/lib/platform-capabilities.server";
 import { buildProjectPrompt } from "@/lib/project-context";
 import { reportMaxModeUsageToStripe } from "@/lib/max-mode";
 import { consumeUsage, refundUsage, UsageLimitError } from "@/lib/usage";
@@ -251,17 +252,24 @@ export async function POST(req: Request) {
     (useByok || usesOpenRouter),
   );
 
-  const webSearchEnabled = webSearch || forceWebSearch || deepResearch;
+  const webSearchEnabled =
+    platformCapabilities.features.webSearch && (webSearch || forceWebSearch || deepResearch);
+  const videoModeEnabled = platformCapabilities.features.videoGeneration && videoMode;
+  const imageModeEnabled = platformCapabilities.features.imageGeneration && imageMode;
+  const deepResearchEnabled = platformCapabilities.features.webSearch && deepResearch;
+  const forceWebSearchEnabled = platformCapabilities.features.webSearch && forceWebSearch;
   const tools = createChatTools({
     userId,
-    videoMode,
-    imageMode,
+    videoMode: videoModeEnabled,
+    imageMode: imageModeEnabled,
     webSearch: webSearchEnabled,
   });
 
   const modelMessages = await convertToModelMessages(messages);
   const currentDate = new Date().toISOString().split("T")[0];
-  const persistentMemory = buildMemoryPrompt(memoryState);
+  const persistentMemory = platformCapabilities.features.memory
+    ? buildMemoryPrompt(memoryState)
+    : null;
 
   const responseMessageId = generateId();
   const generationId = generateId();
@@ -465,10 +473,11 @@ export async function POST(req: Request) {
     projectPrompt,
     additionalInstruction,
     responseStyle,
-    deepResearch,
-    forceWebSearch,
-    videoMode,
-    imageMode,
+    webSearchEnabled,
+    deepResearch: deepResearchEnabled,
+    forceWebSearch: forceWebSearchEnabled,
+    videoMode: videoModeEnabled,
+    imageMode: imageModeEnabled,
   });
 
   let requestMessages: ModelMessage[] = modelMessages;
@@ -516,9 +525,9 @@ export async function POST(req: Request) {
       abortSignal: generationAbortController.signal,
       stopWhen: stepCountIs(50),
       tools,
-      toolChoice: videoMode
+      toolChoice: videoModeEnabled
         ? { type: "tool", toolName: "video" }
-        : imageMode
+        : imageModeEnabled
           ? { type: "tool", toolName: "image" }
           : undefined,
       onFinish: ({ totalUsage }) => {
@@ -697,7 +706,7 @@ export async function POST(req: Request) {
         // Memory extraction can take seconds and must not keep the chat SSE
         // open. Schedule it after the response finishes so the client can end
         // the request immediately while work continues on the backend.
-        if (memoryState.profile.autoMemory) {
+        if (platformCapabilities.features.memory && memoryState.profile.autoMemory) {
           after(() =>
             maybeAutoSaveMemories({
               userId,

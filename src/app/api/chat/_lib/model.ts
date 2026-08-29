@@ -13,6 +13,8 @@ import { decryptFromB64 } from "@/lib/crypto";
 import { isFreePlanModel, models, resolveReasoningEffort } from "@/lib/constants";
 import { assertSafePublicHttpUrl } from "@/lib/network-security";
 import { createDeniOpenRouter } from "@/lib/openrouter-provider";
+import { isModelProviderAvailable } from "@/lib/platform-capabilities";
+import { platformCapabilities } from "@/lib/platform-capabilities.server";
 import { getUsageSummary, type UsageCategory, UsageLimitError } from "@/lib/usage";
 
 const DEFAULT_VOIDS_BASE_URL = "https://capi.voids.top/v2";
@@ -132,6 +134,8 @@ export async function resolveChatModelContext({
   const providerKeyMap = new Map(providerKeys.map((entry) => [entry.provider, entry.keyEnc]));
   const providerSettingMap = new Map(providerSettings.map((entry) => [entry.provider, entry]));
   const providerId = selectedModel.provider ?? selectedModel.author;
+  const anthropicApiKey = env.ANTHROPIC_API_KEY?.trim();
+  const groqApiKey = env.GROQ_API_KEY?.trim();
 
   if (!providerId) {
     throw new ChatRouteError(400, { error: "Unknown provider" });
@@ -145,10 +149,17 @@ export async function resolveChatModelContext({
   const setting = providerSettingMap.get(providerId);
   const preferByok = setting?.preferByok ?? false;
 
-  if (preferByok && keyEnc) {
+  const platformModelAvailable = isModelProviderAvailable(platformCapabilities, providerId);
+  if (keyEnc && (preferByok || !platformModelAvailable)) {
     byokApiKey = await decryptFromB64(keyEnc);
     byokBaseUrl = setting?.baseUrl ?? undefined;
     useByok = true;
+  }
+
+  if (!useByok && !platformModelAvailable) {
+    throw new ChatRouteError(503, {
+      error: "This model is not configured in the current environment.",
+    });
   }
 
   if (providerId === "xai" && useByok && !byokBaseUrl) {
@@ -165,17 +176,25 @@ export async function resolveChatModelContext({
     }
   }
 
-  // voids.top is opt-in via VOIDS_MODE. When enabled, platform (non-BYOK)
-  // OpenAI + Anthropic traffic uses the OpenAI-compatible voids gateway.
-  // Otherwise OpenAI/Google/xAI use OpenRouter and Anthropic uses ANTHROPIC_API_KEY.
+  // voids.top is opt-in via VOIDS_MODE plus VOIDS_API_KEY. When both are
+  // enabled, platform (non-BYOK) OpenAI + Anthropic traffic uses the gateway.
+  // Otherwise OpenAI/xAI use OpenRouter, while Google and Anthropic prefer their
+  // native platform keys and fall back to OpenRouter when those keys are absent.
   // BYOK always keeps native provider SDKs.
   const voidsModeEnabled = Boolean(env.VOIDS_MODE);
+  const voidsKeyConfigured = Boolean(env.VOIDS_API_KEY?.trim());
   const usesVoids =
-    voidsModeEnabled && !useByok && (providerId === "openai" || providerId === "anthropic");
+    voidsModeEnabled &&
+    voidsKeyConfigured &&
+    !useByok &&
+    (providerId === "openai" || providerId === "anthropic");
   const usesOpenRouter =
     !useByok &&
     !usesVoids &&
-    (providerId === "openai" || providerId === "google" || providerId === "xai");
+    (providerId === "openai" ||
+      providerId === "google" ||
+      providerId === "xai" ||
+      (providerId === "anthropic" && !anthropicApiKey));
   // Pro: BYOK OpenAI uses reasoning.mode; OpenRouter uses `*-pro` slug.
   // Fast: BYOK OpenAI uses service_tier; OpenRouter uses top-level service_tier.
   // voids.top has neither, so Pro and Fast are disabled on the voids path.
@@ -280,6 +299,7 @@ export async function resolveChatModelContext({
   const anthropicReasoningEffort =
     providerId === "anthropic" &&
     !usesVoids &&
+    !usesOpenRouter &&
     !anthropicBudgetModelIds.has(selectedModel?.value ?? "") &&
     resolvedReasoningEffort &&
     anthropicEffortOptions.includes(
@@ -290,6 +310,7 @@ export async function resolveChatModelContext({
   const anthropicThinkingBudget =
     providerId === "anthropic" &&
     !usesVoids &&
+    !usesOpenRouter &&
     anthropicBudgetModelIds.has(selectedModel?.value ?? "") &&
     resolvedReasoningEffort
       ? resolvedReasoningEffort === "low"
@@ -323,9 +344,15 @@ export async function resolveChatModelContext({
     if (!selectedOpenRouterModelId) {
       throw new Error("OpenRouter model is not available for the selected model.");
     }
+    const apiKey = env.OPENROUTER_API_KEY?.trim();
+    if (!apiKey) {
+      throw new ChatRouteError(503, {
+        error: "OpenRouter is not configured in the current environment.",
+      });
+    }
 
     const openrouter = createDeniOpenRouter({
-      apiKey: env.OPENROUTER_API_KEY,
+      apiKey,
     });
 
     return openrouter.chat(selectedOpenRouterModelId, {
@@ -336,6 +363,12 @@ export async function resolveChatModelContext({
     });
   };
   const getAnthropicModel = (apiKey: string | undefined, baseURL?: string) => {
+    if (!apiKey?.trim()) {
+      throw new ChatRouteError(503, {
+        error: "Anthropic is not configured in the current environment.",
+      });
+    }
+
     const provider = createAnthropic({
       apiKey,
       baseURL,
@@ -343,7 +376,6 @@ export async function resolveChatModelContext({
 
     return provider(resolvedModelId.replace(".", "-"));
   };
-
   const getVoidsModel = () => {
     const apiKey = env.VOIDS_API_KEY?.trim();
     if (!apiKey) {
@@ -395,8 +427,10 @@ export async function resolveChatModelContext({
         model = getAnthropicModel(byokApiKey, byokBaseUrl);
       } else if (usesVoids) {
         model = getVoidsModel();
+      } else if (anthropicApiKey) {
+        model = getAnthropicModel(anthropicApiKey);
       } else {
-        model = getAnthropicModel(env.ANTHROPIC_API_KEY);
+        model = getOpenRouterModel();
       }
       break;
     }
@@ -431,9 +465,13 @@ export async function resolveChatModelContext({
           baseURL: byokBaseUrl,
         });
         model = provider(resolvedModelId);
+      } else if (!groqApiKey) {
+        throw new ChatRouteError(503, {
+          error: "Groq is not configured in the current environment.",
+        });
       } else {
         model = createGroq({
-          apiKey: env.GROQ_API_KEY,
+          apiKey: groqApiKey,
         })(resolvedModelId);
       }
       break;
@@ -502,7 +540,7 @@ export async function resolveChatModelContext({
       ? providerId === "openai" && openaiProviderOptions
         ? { openai: openaiProviderOptions }
         : {}
-      : useByok || providerId === "anthropic"
+      : useByok || (!usesOpenRouter && !usesVoids)
         ? directProviderOptions
         : openRouterBody && Object.keys(openRouterBody).length > 0
           ? { openrouter: openRouterBody }
