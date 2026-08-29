@@ -180,7 +180,7 @@ export async function POST(req: Request) {
     id,
     messages: rawMessages = [],
     model: baseModel,
-    webSearch = true,
+    webSearch = false,
     reasoningEffort = "high",
     proMode: requestedProMode = false,
     fastMode: requestedFastMode = false,
@@ -252,17 +252,31 @@ export async function POST(req: Request) {
     (useByok || usesOpenRouter),
   );
 
-  const webSearchEnabled =
-    platformCapabilities.features.webSearch && (webSearch || forceWebSearch || deepResearch);
   const videoModeEnabled = platformCapabilities.features.videoGeneration && videoMode;
   const imageModeEnabled = platformCapabilities.features.imageGeneration && imageMode;
-  const deepResearchEnabled = platformCapabilities.features.webSearch && deepResearch;
-  const forceWebSearchEnabled = platformCapabilities.features.webSearch && forceWebSearch;
+  const webSearchEnabled =
+    platformCapabilities.features.webSearch && !videoModeEnabled && !imageModeEnabled;
+  const deepResearchEnabled = webSearchEnabled && deepResearch;
+  // Explicit Search (or a retry that requests search) still forces at least one lookup.
+  const forceWebSearchEnabled = webSearchEnabled && (forceWebSearch || webSearch);
+  // Net Max Mode overage for this request, including search-tool charges.
+  // Reported to Stripe once after reconciliation; meter events cannot be reduced.
+  let pendingMaxModeAmount = 0;
   const tools = createChatTools({
     userId,
     videoMode: videoModeEnabled,
     imageMode: imageModeEnabled,
     webSearch: webSearchEnabled,
+    usage: {
+      userId,
+      isAnonymous,
+      onCharged: ({ maxModeAmount }) => {
+        pendingMaxModeAmount += maxModeAmount;
+      },
+      onRefunded: ({ maxModeRefunded }) => {
+        pendingMaxModeAmount = Math.max(0, pendingMaxModeAmount - maxModeRefunded);
+      },
+    },
   });
 
   const modelMessages = await convertToModelMessages(messages);
@@ -292,9 +306,6 @@ export async function POST(req: Request) {
   let hasAssistantOutput = false;
   let consumedUsageAmount = 0;
   let finalUsageAmount = 0;
-  // Net Max Mode overage for this request. Reported to Stripe once, after
-  // reconciliation, because meter events cannot be reduced after the fact.
-  let pendingMaxModeAmount = 0;
 
   const ownsCurrentGeneration = async () => {
     return (

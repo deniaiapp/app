@@ -37,7 +37,9 @@ export function UsageAlerts({ status, usage, enableMaxMode, onRefreshUsage }: Us
           <Plug className="mt-0.5 size-4" />
           <AlertTitle>{t("BYOK active")}</AlertTitle>
           <AlertDescription>
-            {t("Requests use your own API key and do not count toward usage limits.")}
+            {t(
+              "Model requests use your own API key and do not count toward usage limits. Web search still uses platform quota.",
+            )}
           </AlertDescription>
         </Alert>
       )}

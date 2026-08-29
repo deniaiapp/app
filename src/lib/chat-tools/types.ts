@@ -36,9 +36,17 @@ export const imageToolInputSchema = z.object({
   numberOfImages: z.number().int().min(1).max(4).optional().describe("Number of images (1-4)"),
 });
 
+export type ChatToolUsageContext = {
+  userId: string;
+  isAnonymous: boolean;
+  onCharged?: (event: { amount: number; maxModeAmount: number }) => void;
+  onRefunded?: (event: { amount: number; maxModeRefunded: number }) => void;
+};
+
 export type CreateChatToolsOptions = {
   userId?: string;
   videoMode: boolean;
   imageMode: boolean;
   webSearch?: boolean;
+  usage?: ChatToolUsageContext;
 };

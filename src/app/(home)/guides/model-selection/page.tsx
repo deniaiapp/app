@@ -188,7 +188,7 @@ export default function ModelSelectionGuidePage() {
         </p>
         <p>
           {t(
-            "If you already pay providers directly, bring-your-own-key options can keep usage separate from platform limits. That is useful when a team wants control over provider spend while still using a shared interface.",
+            "If you already pay providers directly, bring-your-own-key options can keep model usage separate from platform limits. Web search still uses platform quota. That is useful when a team wants control over provider spend while still using a shared interface.",
           )}
         </p>
       </GuideSection>
