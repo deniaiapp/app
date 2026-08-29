@@ -1,9 +1,18 @@
-import { groq } from "@ai-sdk/groq";
+import { createGroq } from "@ai-sdk/groq";
 import { generateText, tool } from "ai";
 import { z } from "zod";
 import { env } from "@/env";
 import { fetchPageText } from "./fetch-page";
 import type { SearchResult } from "./types";
+
+type ExaSearchResponse = {
+  results?: Array<{
+    title: string;
+    url: string;
+    text?: string;
+    highlights?: string[];
+  }>;
+};
 
 export function createSearchTool() {
   return tool({
@@ -22,43 +31,50 @@ export function createSearchTool() {
     execute: async ({ query, amount }, { abortSignal }) => {
       const maxResults = Math.min(Math.max(amount ?? 10, 5), 15);
       try {
-        const BRAVE_API_KEY = env.BRAVE_SEARCH_API_KEY;
-        if (!BRAVE_API_KEY) {
-          throw new Error("Brave Search API key not configured");
+        const EXA_API_KEY = env.EXA_API_KEY;
+        if (!EXA_API_KEY) {
+          throw new Error("Exa API key not configured");
         }
 
-        const params = new URLSearchParams({
-          q: query,
-          count: maxResults.toString(),
+        const response = await fetch("https://api.exa.ai/search", {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "x-api-key": EXA_API_KEY,
+          },
+          body: JSON.stringify({
+            query,
+            numResults: maxResults,
+            type: "fast",
+            contents: {
+              highlights: {
+                query,
+                maxCharacters: 2000,
+              },
+            },
+          }),
+          signal: abortSignal,
         });
 
-        const response = await fetch(
-          `https://api.search.brave.com/res/v1/web/search?${params.toString()}`,
-          {
-            headers: {
-              Accept: "application/json",
-              "Accept-Encoding": "gzip",
-              "X-Subscription-Token": BRAVE_API_KEY,
-            },
-            signal: abortSignal,
-          },
-        );
-
         if (!response.ok) {
-          throw new Error(`Brave Search API error: ${response.status}`);
+          throw new Error(`Exa Search API error: ${response.status}`);
         }
 
-        const data = await response.json();
-        const results: SearchResult[] = (data.web?.results ?? []).map(
-          (item: { title: string; url: string; description: string }) => ({
-            title: item.title,
-            url: item.url,
-            description: item.description,
-          }),
-        );
+        const data = (await response.json()) as ExaSearchResponse;
+        const results: SearchResult[] = (data.results ?? []).map((item) => ({
+          title: item.title,
+          url: item.url,
+          description: item.highlights?.join("\n\n") || item.text?.slice(0, 500) || "",
+        }));
+
+        const groqApiKey = env.GROQ_API_KEY?.trim();
+        if (!groqApiKey) {
+          return results.map((result) => ({ ...result, summary: result.description }));
+        }
 
         // Fetch and summarize each page
-        const summarizer = groq("openai/gpt-oss-20b");
+        const summarizer = createGroq({ apiKey: groqApiKey })("openai/gpt-oss-20b");
         const summarizedResults = await Promise.all(
           results.map(async (result) => {
             try {

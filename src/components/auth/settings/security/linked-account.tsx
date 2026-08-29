@@ -16,7 +16,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import { useFreshSessionGuard } from "@/hooks/use-fresh-session-guard";
 import { cn } from "@/lib/utils";
+import { FreshSessionDialog } from "./fresh-session-dialog";
 
 export type LinkedAccountProps = {
   account?: Account;
@@ -37,14 +39,24 @@ export function LinkedAccount({ account, provider }: LinkedAccountProps) {
   const { authClient, baseURL, localization } = useAuth();
 
   const { data: accountInfo, isPending: isLoadingInfo } = useAccountInfo(authClient, {
-    query: account ? { accountId: account.accountId } : { useAccountCookie: true },
+    // better-auth's `/account-info` resolves accounts by the internal Better
+    // Auth account row id (`account.id`), not the provider's own account id
+    // (`account.accountId`, e.g. a Google user's numeric sub) — passing the
+    // latter causes a spurious ACCOUNT_NOT_FOUND.
+    query: account ? { accountId: account.id } : { useAccountCookie: true },
     enabled: !!account,
   });
 
   const { mutate: linkSocial, isPending: isLinking } = useLinkSocial(authClient);
 
+  const { open, setOpen, guard, handleVerified } = useFreshSessionGuard();
+
   const { mutate: unlinkAccount, isPending: isUnlinking } = useUnlinkAccount(authClient, {
     onSuccess: () => toast.success(localization.settings.accountUnlinked),
+    onError: (error) => {
+      if (!account) return;
+      guard(error, () => unlinkAccount({ accountId: account.id }));
+    },
   });
 
   const providerName = getProviderName(provider);
@@ -90,7 +102,7 @@ export function LinkedAccount({ account, provider }: LinkedAccountProps) {
             className="ml-auto shrink-0"
             variant="outline"
             size="sm"
-            onClick={() => unlinkAccount({ accountId: account.accountId })}
+            onClick={() => unlinkAccount({ accountId: account.id })}
             disabled={isUnlinking}
             aria-label={localization.settings.unlinkProvider.replace("{{provider}}", providerName)}
           >
@@ -116,6 +128,8 @@ export function LinkedAccount({ account, provider }: LinkedAccountProps) {
           </Button>
         )}
       </CardContent>
+
+      <FreshSessionDialog open={open} onOpenChange={setOpen} onVerified={handleVerified} />
     </Card>
   );
 }

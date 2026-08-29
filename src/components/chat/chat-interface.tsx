@@ -23,7 +23,6 @@ import { useMemorySaveNotice } from "@/hooks/use-memory-save-notice";
 import { useNewChat } from "@/hooks/use-new-chat";
 import { useUsageStatus } from "@/hooks/use-usage-status";
 import { authClient } from "@/lib/auth-client";
-import { isBillingDisabled } from "@/lib/billing-config";
 import {
   defaultModel,
   GA_ID,
@@ -43,6 +42,7 @@ interface ChatInterfaceProps {
   initialTitle?: string | null;
   initialProjectId?: string | null;
   initialProjectName?: string | null;
+  initialProjectDefaultModel?: string | null;
 }
 
 type UploadableFileUIPart = FileUIPart & { file?: File };
@@ -210,11 +210,11 @@ export function ChatInterface({
   initialTitle = null,
   initialProjectId = null,
   initialProjectName = null,
+  initialProjectDefaultModel = null,
 }: ChatInterfaceProps) {
   const t = useExtracted();
   const session = authClient.useSession();
   const isAnonymous = Boolean(session.data?.user?.isAnonymous);
-  const billingDisabled = isBillingDisabled;
   const [input, setInput] = useState("");
   const [modelOverride, setModel] = useState<string | null>(null);
   const [webSearchOverride, setWebSearch] = useState<boolean | null>(null);
@@ -226,7 +226,10 @@ export function ChatInterface({
   const [deepResearchOverride, setDeepResearch] = useState<boolean | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const utils = trpc.useUtils();
-  const { availableModels, providerSettings, providerKeys } = useAvailableModels();
+  const { availableModels, providerSettings, providerKeys, platformCapabilities } =
+    useAvailableModels();
+  const { features } = platformCapabilities;
+  const billingDisabled = !features.billing;
   const transport = new DefaultChatTransport({
     body: {
       id,
@@ -239,27 +242,37 @@ export function ChatInterface({
     transport,
   });
 
+  const projectDefaultModel =
+    initialProjectDefaultModel &&
+    availableModels.some((entry) => entry.value === initialProjectDefaultModel)
+      ? initialProjectDefaultModel
+      : null;
+  const fallbackModel = availableModels[0]?.value ?? defaultModel.value;
+  const availableModelValues =
+    availableModels.length > 0 ? new Set(availableModels.map((entry) => entry.value)) : undefined;
+
   const seed = useInitialMessage({
     id,
     initialMessagesLength: initialMessages.length,
-    model: modelOverride ?? defaultModel.value,
+    model: modelOverride ?? projectDefaultModel ?? fallbackModel,
+    availableModelValues,
     sendMessage,
     onMessageSent: () => {
       void utils.chat.getChats.invalidate();
     },
   });
 
-  const model = modelOverride ?? seed?.model ?? defaultModel.value;
-  const webSearch = webSearchOverride ?? seed?.webSearch ?? false;
-  const videoMode = videoModeOverride ?? seed?.videoMode ?? false;
-  const imageMode = imageModeOverride ?? seed?.imageMode ?? false;
+  const model = modelOverride ?? seed?.model ?? projectDefaultModel ?? fallbackModel;
+  const webSearch = features.webSearch && (webSearchOverride ?? seed?.webSearch ?? false);
+  const videoMode = features.videoGeneration && (videoModeOverride ?? seed?.videoMode ?? false);
+  const imageMode = features.imageGeneration && (imageModeOverride ?? seed?.imageMode ?? false);
   const reasoningEffort =
     reasoningEffortOverride ??
     seed?.reasoningEffort ??
     getPreferredReasoningEffort(defaultModel.efforts);
   const proMode = proModeOverride ?? seed?.proMode ?? false;
   const fastMode = fastModeOverride ?? seed?.fastMode ?? false;
-  const deepResearch = deepResearchOverride ?? seed?.deepResearch ?? false;
+  const deepResearch = features.webSearch && (deepResearchOverride ?? seed?.deepResearch ?? false);
 
   const {
     usageQuery,
@@ -320,7 +333,7 @@ export function ChatInterface({
     setMessages,
   });
 
-  useMemorySaveNotice({ status });
+  useMemorySaveNotice({ status, enabled: features.memory });
 
   const handleSubmit = (
     message: ComposerMessage,
@@ -424,7 +437,8 @@ export function ChatInterface({
           onRegenerate={handleRegenerate}
           availableModels={availableModels}
           onModelChange={handleModelChange}
-          onWebSearchChange={setWebSearch}
+          onWebSearchChange={(enabled) => setWebSearch(enabled && features.webSearch)}
+          webSearchAvailable={features.webSearch}
         />
 
         <UsageAlerts
@@ -457,11 +471,14 @@ export function ChatInterface({
           model={model}
           onModelChange={handleModelChange}
           webSearch={webSearch}
-          onWebSearchChange={setWebSearch}
+          onWebSearchChange={(enabled) => setWebSearch(enabled && features.webSearch)}
+          webSearchAvailable={features.webSearch}
           videoMode={videoMode}
-          onVideoModeChange={setVideoMode}
+          onVideoModeChange={(enabled) => setVideoMode(enabled && features.videoGeneration)}
+          videoAvailable={features.videoGeneration}
           imageMode={imageMode}
-          onImageModeChange={setImageMode}
+          onImageModeChange={(enabled) => setImageMode(enabled && features.imageGeneration)}
+          imageAvailable={features.imageGeneration}
           reasoningEffort={reasoningEffort}
           onReasoningEffortChange={setReasoningEffort}
           proMode={proMode}

@@ -9,8 +9,16 @@ import { getBillingFingerprintUpdates } from "@/lib/billing-card-usage";
 import { isAffiliatePaidStatus, processAffiliatePurchase } from "@/lib/affiliate";
 import { resetMaxModeUsage } from "@/lib/max-mode";
 import { stripe } from "@/lib/stripe";
-import { getSubscriptionPeriodEnd } from "@/lib/stripe-subscriptions";
-import { cancelOrgMembersPersonalSubscriptions } from "@/lib/team-billing";
+import {
+  getLicensedPrice,
+  getSubscriptionPeriodEnd,
+  isMaxModeOnlySubscription,
+} from "@/lib/stripe-subscriptions";
+import {
+  cancelOrgMembersPersonalSubscriptions,
+  getTeamBilling,
+  recordTeamAuditEvent,
+} from "@/lib/team-billing";
 
 type SubscriptionPayload = {
   userId: string;
@@ -170,8 +178,8 @@ function resolveOrganizationId(metadata?: Stripe.Metadata | null): string | null
 }
 
 export async function POST(req: Request) {
-  if (!env.STRIPE_WEBHOOK_SECRET) {
-    return NextResponse.json({ error: "STRIPE_WEBHOOK_SECRET not configured" }, { status: 500 });
+  if (!env.STRIPE_SECRET_KEY || !env.STRIPE_WEBHOOK_SECRET) {
+    return NextResponse.json({ error: "Stripe webhook is disabled" }, { status: 503 });
   }
 
   const signature = req.headers.get("stripe-signature");
@@ -209,6 +217,10 @@ export async function POST(req: Request) {
           break;
         }
 
+        if (isMaxModeOnlySubscription(subscription)) {
+          break;
+        }
+
         const userId = await resolveUserIdFromCustomer(customerId, subscription.metadata?.userId);
         const organizationId = resolveOrganizationId(subscription.metadata);
 
@@ -219,11 +231,35 @@ export async function POST(req: Request) {
           break;
         }
 
+        // Read the plan before clearPlanData wipes it, for the audit log below.
+        const previousTeamBilling = organizationId ? await getTeamBilling(organizationId) : null;
+
         await clearPlanData({
           userId,
           customerId,
           organizationId,
         });
+
+        if (organizationId) {
+          // Best-effort: if the organization was deleted as part of this same
+          // cancellation (beforeDeleteOrganization cancels the subscription,
+          // which triggers this webhook asynchronously afterwards), the
+          // organizationId FK may already be gone by the time this runs — the
+          // audit trail is moot in that case since the org's log is gone too.
+          try {
+            await recordTeamAuditEvent({
+              organizationId,
+              actorUserId: userId,
+              action: "subscription_expired",
+              metadata: { planId: previousTeamBilling?.planId ?? null },
+            });
+          } catch (error) {
+            console.warn("[stripe:webhook] Failed to record subscription_expired audit event", {
+              organizationId,
+              error,
+            });
+          }
+        }
         break;
       }
       case "customer.subscription.created":
@@ -245,7 +281,12 @@ export async function POST(req: Request) {
           break;
         }
 
-        const price = subscription.items?.data?.[0]?.price ?? null;
+        if (isMaxModeOnlySubscription(subscription)) {
+          break;
+        }
+
+        const price =
+          getLicensedPrice(subscription) ?? subscription.items?.data?.[0]?.price ?? null;
         const priceId = price?.id ?? null;
         const lookupKey = price?.lookup_key ?? null;
         const userId = await resolveUserIdFromCustomer(customerId, subscription.metadata?.userId);
@@ -262,6 +303,11 @@ export async function POST(req: Request) {
           });
           break;
         }
+
+        // Read the previous status before saveSubscription overwrites it, so we
+        // can tell a *transition* into past_due from a status that was already
+        // past_due (this event also fires on unrelated renewals/updates).
+        const previousTeamBilling = organizationId ? await getTeamBilling(organizationId) : null;
 
         await saveSubscription({
           userId,
@@ -282,6 +328,26 @@ export async function POST(req: Request) {
           isTeamPlan(findPlanByLookupKey(lookupKey)?.id ?? "")
         ) {
           await cancelOrgMembersPersonalSubscriptions(organizationId);
+        }
+
+        if (
+          organizationId &&
+          computedStatus === "past_due" &&
+          previousTeamBilling?.status !== "past_due"
+        ) {
+          try {
+            await recordTeamAuditEvent({
+              organizationId,
+              actorUserId: userId,
+              action: "payment_failed",
+              metadata: { planId: findPlanByLookupKey(lookupKey)?.id ?? null },
+            });
+          } catch (error) {
+            console.warn("[stripe:webhook] Failed to record payment_failed audit event", {
+              organizationId,
+              error,
+            });
+          }
         }
         break;
       }
@@ -321,6 +387,16 @@ export async function POST(req: Request) {
               currentPeriodEnd: getSubscriptionPeriodEnd(subscription),
               organizationId,
             });
+
+            if (organizationId) {
+              const plan = findPlanByLookupKey(price?.lookup_key ?? undefined);
+              await recordTeamAuditEvent({
+                organizationId,
+                actorUserId: userId,
+                action: "subscription_purchased",
+                metadata: { planId: plan?.id ?? null },
+              });
+            }
           }
         } else if (session.mode === "payment" && session.payment_status === "paid") {
           const userId =

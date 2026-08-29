@@ -42,6 +42,7 @@ export function useNewChat() {
         title: "New Chat",
         projectId,
         projectName: null,
+        projectDefaultModel: null,
         messages: [],
       },
     );

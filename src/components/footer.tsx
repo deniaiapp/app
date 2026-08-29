@@ -19,6 +19,7 @@ const Footer = () => {
     { href: "/guides", label: t("AI Guides") },
     { href: "/use-cases", label: t("Use Cases") },
     { href: "/faq", label: t("FAQ") },
+    { href: "/changelog", label: t("Changelog") },
     { href: "/about", label: t("About") },
     { href: "/contact", label: t("Contact") },
   ];

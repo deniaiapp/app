@@ -8,11 +8,12 @@ Source of truth for validated env vars: [`src/env.ts`](src/env.ts). Starter temp
 
 - [Bun](https://bun.sh/) (recommended) or [Node.js 20+](https://nodejs.org/)
 - [PostgreSQL](https://neon.tech/) (Neon serverless recommended for self-hosting)
-- API keys for AI providers (Google AI, Anthropic, Groq, OpenRouter)
-- OAuth credentials (Google + GitHub)
-- Cloudflare Turnstile site + secret keys
-- Brave Search API key (web search / browse tools)
-- Stripe secret key (required by env validation; publishable key needed for checkout UI)
+- Core environment values (`DATABASE_URL`, `NEXT_PUBLIC_BETTER_AUTH_URL`, and a 32-character `BETTER_AUTH_SECRET`)
+- Optional API keys for AI providers (Google AI, Anthropic, Groq, OpenRouter)
+- Optional OAuth credentials (Google + GitHub)
+- Optional Cloudflare Turnstile site + secret keys
+- Optional Exa API key (web search)
+- Optional Stripe secret and publishable keys (billing)
 
 ## Getting Started
 
@@ -33,7 +34,7 @@ npm install
 
 ### 3. Set up environment variables
 
-Copy the example file and fill in values:
+Copy the example file and fill in the core values plus any optional features:
 
 ```bash
 cp .env.example .env
@@ -52,12 +53,13 @@ NEXT_PUBLIC_BETTER_AUTH_URL=http://localhost:3000
 
 # Authentication (BETTER_AUTH_SECRET must be exactly 32 characters)
 BETTER_AUTH_SECRET=your-32-character-secret-here
+# OAuth is optional; omit a provider pair to hide that sign-in button.
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 GITHUB_CLIENT_ID=your-github-client-id
 GITHUB_CLIENT_SECRET=your-github-client-secret
 
-# AI Providers
+# AI Providers (optional; missing keys hide dependent models/features)
 GOOGLE_GENERATIVE_AI_API_KEY=your-google-ai-key
 ANTHROPIC_API_KEY=your-anthropic-key
 GROQ_API_KEY=gsk_your-groq-key
@@ -69,14 +71,14 @@ VOIDS_MODE=
 VOIDS_BASE_URL=https://capi.voids.top/v2
 VOIDS_API_KEY=
 
-# Search
-BRAVE_SEARCH_API_KEY=your-brave-search-key
+# Search (optional; missing key disables web search)
+EXA_API_KEY=your-exa-api-key
 
-# CAPTCHA (Cloudflare Turnstile)
+# CAPTCHA (optional; omit both to disable Turnstile)
 TURNSTILE_SECRET_KEY=your-turnstile-secret
 NEXT_PUBLIC_TURNSTILE_SITE_KEY=your-turnstile-site-key
 
-# Stripe (STRIPE_SECRET_KEY is required by env validation)
+# Stripe (optional; missing Stripe keys disable billing)
 STRIPE_SECRET_KEY=sk_test_your-stripe-key
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_your-stripe-publishable-key
 STRIPE_WEBHOOK_SECRET=whsec_your-webhook-secret
@@ -113,9 +115,11 @@ NEXT_PUBLIC_ADSENSE_CHAT_SLOT_ID=
 Notes:
 
 - Empty optional vars are treated as unset (`emptyStringAsUndefined` in `src/env.ts`), which helps Docker / Dokploy builds that inject `""` for missing keys.
+- Provider keys are capability switches: missing `ANTHROPIC_API_KEY` falls back to OpenRouter, missing `GOOGLE_GENERATIVE_AI_API_KEY` disables image/video/memory, missing `EXA_API_KEY` disables web search, and missing Stripe keys disables billing.
+- Guest sessions use only `gpt-5.6-luna` and have twice the basic request allowance of the standard guest limit (40 requests).
 - When adding or changing supported models, update `src/lib/constants.ts`.
-- `OPENROUTER_API_KEY` routes OpenAI-family and other OpenRouter models when voids mode is off.
-- Optional voids.top mode: set `VOIDS_MODE=true` (or `1`) to send **platform** (non-BYOK) OpenAI and Anthropic traffic through the OpenAI-compatible voids.top gateway. When enabled, **`VOIDS_API_KEY` is required** (voids returns `401 invalid apikey` without it). Optional `VOIDS_BASE_URL` (default `https://capi.voids.top/v2`). When `VOIDS_MODE` is off, OpenAI uses OpenRouter and Anthropic uses `ANTHROPIC_API_KEY`.
+- `OPENROUTER_API_KEY` routes OpenAI-family and other OpenRouter models when voids mode is off. It also serves as the Anthropic fallback when `ANTHROPIC_API_KEY` is absent.
+- Optional voids.top mode: set `VOIDS_MODE=true` (or `1`) and provide **`VOIDS_API_KEY`** to send **platform** (non-BYOK) OpenAI and Anthropic traffic through the OpenAI-compatible voids.top gateway. Without the key, normal provider routing is used. Optional `VOIDS_BASE_URL` (default `https://capi.voids.top/v2`). When `VOIDS_MODE` is off, OpenAI uses OpenRouter and Anthropic uses its native key when present, otherwise OpenRouter.
 - Affiliate administration: set `AFFILIATE_ADMIN_EMAILS` to a comma-separated list of account emails that can approve reset rewards and send manual affiliate coupon emails. The address is read only on the server.
 - Blog administration: set `BLOG_ADMIN_EMAILS` to a comma-separated list of account emails that can write and publish posts at `/settings/blog`. If omitted, `AFFILIATE_ADMIN_EMAILS` is used.
 - New 30% OFF affiliate coupon rewards remain pending until an admin enters a Stripe coupon or promotion code and sends the email from the affiliate settings page.
@@ -209,7 +213,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Stripe billing
 
-Env validation always requires `STRIPE_SECRET_KEY`. Checkout UI needs `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`. Webhooks need `STRIPE_WEBHOOK_SECRET` in production.
+Stripe billing is enabled only when the Stripe secret and publishable keys are configured. Checkout UI needs `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`. Webhooks need `STRIPE_WEBHOOK_SECRET` in production. If the Stripe keys are omitted, billing UI and paid billing procedures are disabled.
 
 1. Create a [Stripe account](https://stripe.com/) and copy API keys
 2. Add keys to `.env` (see template above)
@@ -228,10 +232,29 @@ stripe listen --forward-to localhost:3000/api/stripe/webhook
 To hide billing in the client:
 
 ```env
-NEXT_PUBLIC_BILLING_DISABLED=true
+NEXT_PUBLIC_BILLING_DISABLED=1
 ```
 
 Optional flash offer coupon: `STRIPE_FLASH_OFFER_COUPON_ID`.
+
+### Max Mode metered billing
+
+Max Mode overage is billed **monthly** through [Stripe Billing Meters](https://docs.stripe.com/billing/subscriptions/usage-based/recording-usage-api), even when the plan subscription is yearly. Monthly plans get meter items on the same subscription. Yearly plans get a separate monthly Max Mode subscription so Stripe can invoice overage every month.
+
+Create the meters and prices once (idempotent):
+
+```bash
+bun --env-file=.env.local ./tools/stripe-max-mode-setup.ts
+```
+
+That script creates:
+
+| Meter event name   | Lookup key               | Rate                   |
+| ------------------ | ------------------------ | ---------------------- |
+| `max_mode_basic`   | `max_mode_basic_month`   | $0.01 per 1,000 tokens |
+| `max_mode_premium` | `max_mode_premium_month` | $0.05 per 1,000 tokens |
+
+Without these lookup keys, Max Mode can still record usage locally but enabling it (and invoicing) fails until the prices exist.
 
 ## Database schema
 
@@ -263,7 +286,7 @@ Schema change workflow:
 
 1. Push the repo to GitHub
 2. Import the project in [Vercel](https://vercel.com)
-3. Set all required environment variables
+3. Set the core environment variables and any optional provider keys you want to enable
 4. Deploy (build uses `bun run build` / `next build` per project settings)
 
 ### Docker / Dokploy
@@ -273,7 +296,7 @@ A multi-stage `Dockerfile` is included for self-hosting (e.g. Dokploy):
 - **Build:** Bun installs deps and runs `next build` (standalone output)
 - **Run:** Node serves `.next/standalone` on port **3000**
 - `NEXT_PUBLIC_*` values must be present at **build time** (inlined into the client bundle)
-- Server secrets should also be available at build time for `@t3-oss/env-nextjs` validation / prerender; runtime still uses container env
+- Server secrets should also be available at build time for `@t3-oss/env-nextjs` validation / prerender; optional provider keys can be omitted and disable their features
 
 Dokploy application settings (typical):
 
@@ -284,7 +307,7 @@ Dokploy application settings (typical):
 | Context         | `.`          |
 | Port            | `3000`       |
 
-Put the same keys as production `.env` in the service **Environment** tab, and pass them as **build-time** args/env for `NEXT_PUBLIC_*` (and other keys required during `next build`). See comments at the top of `Dockerfile`.
+Put the same keys as production `.env` in the service **Environment** tab, and pass them as **build-time** args/env for `NEXT_PUBLIC_*` plus any provider keys you want enabled during the build. See comments at the top of `Dockerfile`.
 
 Local example:
 
@@ -301,7 +324,7 @@ docker run --rm -p 3000:3000 --env-file .env.production deni-ai
 
 Any host that can run a Next.js standalone Node server (Railway, Render, Fly.io, AWS/GCP/Azure, etc.):
 
-- Set all required environment variables
+- Set the core environment variables and any optional provider keys you want to enable
 - Use PostgreSQL (Neon recommended)
 - Build: `bun run build` (or the Docker image)
 - Start: `bun start` / `node server.js` (standalone) / container CMD
@@ -315,5 +338,5 @@ Any host that can run a Next.js standalone Node server (Railway, Render, Fly.io,
 | Affiliate link is `0.0.0.0`   | Set `NEXT_PUBLIC_BETTER_AUTH_URL` to the **public** HTTPS origin (not Docker `HOSTNAME=0.0.0.0`). Rebuild so `NEXT_PUBLIC_*` is re-inlined. `/invite/*` redirects use that origin. |
 | DB migrate fails              | Correct `DATABASE_URL`; use `db:migrate:dev` for local                                                                                                                             |
 | Stripe checkout broken        | Publishable key + webhook secret; Stripe CLI for local                                                                                                                             |
-| Search / browse tools fail    | Valid `BRAVE_SEARCH_API_KEY`                                                                                                                                                       |
+| Search / browse tools fail    | Valid `EXA_API_KEY`                                                                                                                                                                |
 | Docker build env issues       | Pass `NEXT_PUBLIC_*` as build args; see `Dockerfile` comments                                                                                                                      |

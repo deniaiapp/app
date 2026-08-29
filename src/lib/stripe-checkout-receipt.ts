@@ -57,8 +57,8 @@ function getSessionCard(session: Stripe.Checkout.Session) {
 
 export function summarizeCheckoutSession(session: Stripe.Checkout.Session): CheckoutSessionSummary {
   const card = getSessionCard(session);
-  const status =
-    session.status === "complete" || session.status === "expired" ? session.status : "open";
+  const status: CheckoutSessionSummary["status"] =
+    session.status === "complete" ? "complete" : session.status === "expired" ? "expired" : "open";
 
   return {
     sessionId: session.id,

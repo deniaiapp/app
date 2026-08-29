@@ -1,8 +1,8 @@
 import { GoogleAnalytics } from "@next/third-parties/google";
 import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Geist, Geist_Mono, Inter } from "next/font/google";
-import { createTranslator, NextIntlClientProvider } from "next-intl";
-import { getLocale, getMessages } from "next-intl/server";
+import { NextIntlClientProvider } from "next-intl";
+import { getExtracted, getLocale, getMessages } from "next-intl/server";
 import { Suspense } from "react";
 import { AdSenseScript } from "@/components/adsense-script";
 import { ThemeProvider } from "@/components/ui/theme-provider";
@@ -156,7 +156,6 @@ async function loadMessagesForLocale(locale: string) {
   return {
     locale,
     messages,
-    t: createTranslator({ locale, messages }),
   };
 }
 
@@ -172,7 +171,8 @@ async function loadLocalizedRootMessages() {
  * the static shell (not streamed client-side where <script> would not execute).
  */
 async function LocalizedRoot({ children }: { children: React.ReactNode }) {
-  const { locale, messages, t } = await loadLocalizedRootMessages();
+  const { locale, messages } = await loadLocalizedRootMessages();
+  const t = await getExtracted();
 
   return (
     <>
@@ -195,7 +195,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang={defaultLocale} suppressHydrationWarning>
+    <html lang={defaultLocale} suppressHydrationWarning data-scroll-behavior="smooth">
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${jetbrainsMono.variable} ${inter.variable} font-sans antialiased min-w-screen min-h-screen overflow-x-hidden transition-colors duration-500`}
       >

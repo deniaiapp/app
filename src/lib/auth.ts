@@ -4,7 +4,6 @@ import { APIError, createAuthMiddleware } from "better-auth/api";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import {
   anonymous,
-  bearer,
   captcha,
   haveIBeenPwned,
   lastLoginMethod,
@@ -27,9 +26,63 @@ import {
   signupEmailDenialCode,
   signupEmailDenialMessage,
 } from "@/lib/email-domain-policy";
-import { cancelPersonalSubscription, updateTeamSeatCount } from "@/lib/team-billing";
+import {
+  isAnonymousUser,
+  recordSecurityActivity,
+  securityActionForAuthPath,
+} from "@/lib/security-activity";
+import {
+  cancelPersonalSubscription,
+  cancelTeamSubscriptionForDeletion,
+  recordTeamAuditEvent,
+  updateTeamSeatCount,
+} from "@/lib/team-billing";
 
 const emailEnabled = isEmailConfigured();
+const googleClientId = env.GOOGLE_CLIENT_ID?.trim();
+const googleClientSecret = env.GOOGLE_CLIENT_SECRET?.trim();
+const githubClientId = env.GITHUB_CLIENT_ID?.trim();
+const githubClientSecret = env.GITHUB_CLIENT_SECRET?.trim();
+const turnstileSecretKey = env.TURNSTILE_SECRET_KEY?.trim();
+const turnstileSiteKey = env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim();
+
+const socialProviders = {
+  ...(googleClientId && googleClientSecret
+    ? {
+        google: {
+          enabled: true,
+          clientId: googleClientId,
+          clientSecret: googleClientSecret,
+        },
+      }
+    : {}),
+  ...(githubClientId && githubClientSecret
+    ? {
+        github: {
+          enabled: true,
+          clientId: githubClientId,
+          clientSecret: githubClientSecret,
+        },
+      }
+    : {}),
+};
+
+const captchaPlugin =
+  turnstileSecretKey && turnstileSiteKey
+    ? captcha({
+        provider: "cloudflare-turnstile",
+        secretKey: turnstileSecretKey,
+        // Include defaults + magic-link request (not /magic-link/verify — email click).
+        endpoints: [
+          "/sign-up/email",
+          "/sign-in/email",
+          "/request-password-reset",
+          "/sign-in/magic-link",
+        ],
+      })
+    : null;
+
+type OrgUpdateAuditMarker = { name: boolean; logo: boolean };
 
 function assertAllowedSignupEmail(email: string) {
   const result = checkSignupEmail(email);
@@ -74,6 +127,25 @@ export const auth = betterAuth({
       }
 
       assertAllowedSignupEmail(email);
+    }),
+    after: createAuthMiddleware(async (ctx) => {
+      const action = securityActionForAuthPath(ctx.path);
+      if (!action) return;
+
+      const sessionUser = ctx.context.session?.user ?? ctx.context.newSession?.user ?? null;
+      const userId = sessionUser?.id ?? ctx.context.session?.session?.userId;
+      if (!userId || sessionUser?.isAnonymous) return;
+
+      const session = ctx.context.session?.session ?? ctx.context.newSession?.session;
+      void recordSecurityActivity({
+        userId,
+        action,
+        ipAddress: session?.ipAddress ?? null,
+        userAgent: session?.userAgent ?? null,
+        metadata: { path: ctx.path },
+      }).catch((error) => {
+        console.error("Failed to record security activity", error);
+      });
     }),
   },
   emailAndPassword: {
@@ -121,12 +193,88 @@ export const auth = betterAuth({
       allowUserToCreateOrganization: true,
       membershipLimit: 50,
       organizationHooks: {
-        afterAcceptInvitation: async ({ organization, member }) => {
+        afterCreateOrganization: async ({ organization, user }) => {
+          await recordTeamAuditEvent({
+            organizationId: organization.id,
+            actorUserId: user.id,
+            action: "org_created",
+            metadata: { name: organization.name },
+          });
+        },
+        afterAcceptInvitation: async ({ organization, member, user }) => {
           await updateTeamSeatCount(organization.id);
           await cancelPersonalSubscription(member.userId);
+          await recordTeamAuditEvent({
+            organizationId: organization.id,
+            actorUserId: user.id,
+            targetUserId: user.id,
+            action: "member_joined",
+            metadata: { role: member.role },
+          });
         },
         afterRemoveMember: async ({ organization }) => {
           await updateTeamSeatCount(organization.id);
+        },
+        afterCreateInvitation: async ({ invitation, inviter, organization }) => {
+          await recordTeamAuditEvent({
+            organizationId: organization.id,
+            actorUserId: inviter.id,
+            action: "member_invited",
+            metadata: { email: invitation.email, role: invitation.role },
+          });
+        },
+        afterCancelInvitation: async ({ invitation, cancelledBy, organization }) => {
+          await recordTeamAuditEvent({
+            organizationId: organization.id,
+            actorUserId: cancelledBy.id,
+            action: "invitation_canceled",
+            metadata: { email: invitation.email },
+          });
+        },
+        afterRejectInvitation: async ({ invitation, user, organization }) => {
+          // The invitee themselves declines — actor and target are the same
+          // person (self-action), same shape as afterAcceptInvitation above.
+          await recordTeamAuditEvent({
+            organizationId: organization.id,
+            actorUserId: user.id,
+            targetUserId: user.id,
+            action: "invitation_declined",
+            metadata: { email: invitation.email },
+          });
+        },
+        beforeUpdateOrganization: async ({ organization, member }) => {
+          // afterUpdateOrganization only receives the updated row, not which fields
+          // the request actually touched — `organization.name` is always present on
+          // the row, so we can't tell a name change from e.g. a logo-only change
+          // from there alone. This hook *does* receive the update payload (only the
+          // fields being changed), so stash a marker directly on `member` — the
+          // same object instance is passed to afterUpdateOrganization for this same
+          // request — and read it back there to build precise audit metadata.
+          (member as unknown as Record<string, unknown>).__auditChangedFields = {
+            name: "name" in organization,
+            logo: "logo" in organization,
+          } satisfies OrgUpdateAuditMarker;
+        },
+        afterUpdateOrganization: async ({ organization, user, member }) => {
+          if (!organization) return;
+          const changedFields = (member as unknown as Record<string, unknown>)
+            .__auditChangedFields as OrgUpdateAuditMarker | undefined;
+          const metadata: Record<string, unknown> = {};
+          if (changedFields?.name) metadata.name = organization.name;
+          if (changedFields?.logo) metadata.logoChanged = true;
+          await recordTeamAuditEvent({
+            organizationId: organization.id,
+            actorUserId: user.id,
+            action: "org_updated",
+            metadata,
+          });
+        },
+        beforeDeleteOrganization: async ({ organization }) => {
+          // billing.organizationId has no DB-level FK/cascade, so this must run
+          // before the organization row (and its cascading member/invitation rows)
+          // is removed. If Stripe cancellation fails, this throws and blocks the
+          // deletion rather than leaving an orphaned, unmanageable subscription.
+          await cancelTeamSubscriptionForDeletion(organization.id);
         },
       },
       sendInvitationEmail: emailEnabled
@@ -144,18 +292,7 @@ export const auth = betterAuth({
           }
         : undefined,
     }),
-    captcha({
-      provider: "cloudflare-turnstile",
-      secretKey: env.TURNSTILE_SECRET_KEY,
-      // Include defaults + magic-link request (not /magic-link/verify — email click).
-      endpoints: [
-        "/sign-up/email",
-        "/sign-in/email",
-        "/request-password-reset",
-        "/sign-in/magic-link",
-      ],
-    }),
-    bearer(),
+    ...(captchaPlugin ? [captchaPlugin] : []),
     ...(emailEnabled
       ? [
           magicLink({
@@ -172,18 +309,7 @@ export const auth = betterAuth({
         ]
       : []),
   ],
-  socialProviders: {
-    google: {
-      enabled: true,
-      clientId: env.GOOGLE_CLIENT_ID,
-      clientSecret: env.GOOGLE_CLIENT_SECRET,
-    },
-    github: {
-      enabled: true,
-      clientId: env.GITHUB_CLIENT_ID,
-      clientSecret: env.GITHUB_CLIENT_SECRET,
-    },
-  },
+  socialProviders,
   rateLimit: {
     enabled: true,
     window: 60, // time window in seconds
@@ -239,6 +365,24 @@ export const auth = betterAuth({
           const email = typeof data.email === "string" ? data.email : undefined;
           if (!email) return;
           assertAllowedSignupEmail(email);
+        },
+      },
+    },
+    session: {
+      create: {
+        after: async (session) => {
+          if (!session.userId) return;
+          try {
+            if (await isAnonymousUser(session.userId)) return;
+            await recordSecurityActivity({
+              userId: session.userId,
+              action: "signed_in",
+              ipAddress: session.ipAddress,
+              userAgent: session.userAgent,
+            });
+          } catch (error) {
+            console.error("Failed to record sign-in activity", error);
+          }
         },
       },
     },

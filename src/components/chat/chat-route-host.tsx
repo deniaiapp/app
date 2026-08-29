@@ -129,6 +129,7 @@ function ChatPane({ id, isActive }: { id: string; isActive: boolean }) {
         initialTitle={page.title}
         initialProjectId={page.projectId}
         initialProjectName={page.projectName ?? null}
+        initialProjectDefaultModel={page.projectDefaultModel ?? null}
       />
     </div>
   );

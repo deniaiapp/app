@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatAppDate } from "@/lib/format-date";
 
 type AdminRewardRow = {
@@ -16,6 +17,8 @@ type AdminRewardRow = {
     id: string;
     type: string;
     createdAt: Date | string;
+    riskScore: number | null;
+    riskFlags: unknown;
   };
   referrer: {
     name: string | null;
@@ -23,6 +26,19 @@ type AdminRewardRow = {
   };
   referredUser: { email: string } | null;
 };
+
+function getRiskFlags(riskFlags: unknown): string[] {
+  if (!Array.isArray(riskFlags)) {
+    return [];
+  }
+  return riskFlags.filter((flag): flag is string => typeof flag === "string");
+}
+
+function getRiskLevel(score: number): "low" | "medium" | "high" {
+  if (score >= 50) return "high";
+  if (score >= 20) return "medium";
+  return "low";
+}
 
 type CouponDraft = { code: string; note: string };
 
@@ -84,6 +100,11 @@ export function AffiliateAdminDesk({
               const isApproving = pending.approveRewardId === row.reward.id;
               const isRejecting = pending.rejectRewardId === row.reward.id;
               const isSending = pending.sendRewardId === row.reward.id;
+              const riskFlags = getRiskFlags(row.reward.riskFlags);
+              const riskLevel =
+                isResetReward && row.reward.riskScore !== null
+                  ? getRiskLevel(row.reward.riskScore)
+                  : null;
               return (
                 <div key={row.reward.id} className="rounded-2xl border bg-background/70 p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -99,6 +120,36 @@ export function AffiliateAdminDesk({
                         <span className="text-xs text-muted-foreground">
                           {formatAppDate(row.reward.createdAt, locale)}
                         </span>
+                        {riskLevel ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge
+                                variant={riskLevel === "low" ? "outline" : "destructive"}
+                                className={
+                                  riskLevel === "medium"
+                                    ? "border-amber-500/50 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                    : undefined
+                                }
+                              >
+                                {riskLevel === "high"
+                                  ? t("High risk")
+                                  : riskLevel === "medium"
+                                    ? t("Medium risk")
+                                    : t("Low risk")}
+                                {typeof row.reward.riskScore === "number"
+                                  ? ` (${row.reward.riskScore})`
+                                  : null}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {riskFlags.length > 0 ? (
+                                <p>{riskFlags.join(", ")}</p>
+                              ) : (
+                                <p>{t("No fraud signals detected.")}</p>
+                              )}
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : null}
                       </div>
                       <div className="text-sm font-medium">
                         {row.referrer.name || t("Unnamed member")}

@@ -1,8 +1,10 @@
 import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db/drizzle";
-import { billing, member } from "@/db/schema";
+import { billing, member, teamUsageAuditLog } from "@/db/schema";
+import { isBillingDisabled } from "@/lib/billing-config";
 import { stripe } from "@/lib/stripe";
+import { getLicensedSubscriptionItem } from "@/lib/stripe-subscriptions";
 
 const ACTIVE_SUB_STATUSES = new Set(["trialing", "active", "past_due"]);
 
@@ -24,6 +26,8 @@ export async function getOrgMemberCount(organizationId: string): Promise<number>
 }
 
 export async function updateTeamSeatCount(organizationId: string) {
+  if (isBillingDisabled) return;
+
   const teamBilling = await getTeamBilling(organizationId);
   if (!teamBilling?.stripeSubscriptionId) return;
 
@@ -33,7 +37,7 @@ export async function updateTeamSeatCount(organizationId: string) {
     const subscription = await stripe.subscriptions.retrieve(teamBilling.stripeSubscriptionId, {
       expand: ["items"],
     });
-    const item = subscription.items.data[0];
+    const item = getLicensedSubscriptionItem(subscription) ?? subscription.items.data[0];
     if (!item) return;
 
     if (item.quantity === memberCount) return;
@@ -52,6 +56,8 @@ export async function updateTeamSeatCount(organizationId: string) {
  * Called when the user joins an org with an active team plan so they don't get double-billed.
  */
 export async function cancelPersonalSubscription(userId: string) {
+  if (isBillingDisabled) return;
+
   const [record] = await db
     .select()
     .from(billing)
@@ -95,4 +101,56 @@ export async function cancelOrgMembersPersonalSubscriptions(organizationId: stri
     .where(eq(member.organizationId, organizationId));
 
   await Promise.allSettled(members.map((m) => cancelPersonalSubscription(m.userId)));
+}
+
+/**
+ * Cancel an organization's team Stripe subscription immediately (with proration) and
+ * remove its billing row. `billing.organizationId` has no DB-level foreign key/cascade,
+ * so without this an org deletion would leave an orphaned row and a subscription that
+ * keeps billing with no team left to manage or cancel it from. Called from
+ * `beforeDeleteOrganization` so a failure here blocks the deletion instead of silently
+ * losing track of an active subscription.
+ */
+export async function cancelTeamSubscriptionForDeletion(organizationId: string) {
+  if (isBillingDisabled) return;
+
+  const record = await getTeamBilling(organizationId);
+  if (!record?.stripeSubscriptionId) return;
+
+  const subscription = await stripe.subscriptions.retrieve(record.stripeSubscriptionId);
+  if (ACTIVE_SUB_STATUSES.has(subscription.status)) {
+    await stripe.subscriptions.cancel(record.stripeSubscriptionId, {
+      prorate: true,
+    });
+  }
+
+  await db.delete(billing).where(eq(billing.id, record.id));
+}
+
+/**
+ * Write a team audit log entry from a context that has no tRPC `ProtectedContext`
+ * (the Stripe webhook, better-auth organization hooks). The tRPC router keeps its
+ * own `recordTeamUsageAuditLog` for use inside procedures since it already has
+ * `ctx.db` handy, but both write to the same table with the same shape.
+ */
+export async function recordTeamAuditEvent({
+  organizationId,
+  actorUserId,
+  targetUserId,
+  action,
+  metadata,
+}: {
+  organizationId: string;
+  actorUserId: string;
+  targetUserId?: string | null;
+  action: string;
+  metadata?: Record<string, unknown>;
+}) {
+  await db.insert(teamUsageAuditLog).values({
+    organizationId,
+    actorUserId,
+    targetUserId: targetUserId ?? null,
+    action,
+    metadata: metadata ?? {},
+  });
 }

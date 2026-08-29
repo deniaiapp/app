@@ -1,6 +1,7 @@
 import { useExtracted } from "next-intl";
 import { toast } from "sonner";
 import type { ModelOption } from "@/components/chat/chat-composer";
+import { usePlatformCapabilities } from "@/components/platform-capabilities-provider";
 import { trpc } from "@/lib/trpc/react";
 import { liveUsageQueryOptions } from "@/lib/usage-query-options";
 
@@ -20,6 +21,7 @@ export function useUsageStatus(params: {
 }) {
   const t = useExtracted();
   const { model, availableModels, providerKeys, providerSettings, proMode = false } = params;
+  const { features } = usePlatformCapabilities();
 
   const usageQuery = trpc.billing.usage.useQuery(undefined, {
     ...liveUsageQueryOptions,
@@ -48,7 +50,7 @@ export function useUsageStatus(params: {
     return prefer && providerKeys.has(selectedProvider);
   })();
 
-  const maxModeEnabled = usageQuery.data?.maxModeEnabled ?? false;
+  const maxModeEnabled = features.billing && (usageQuery.data?.maxModeEnabled ?? false);
   const isUsageLow =
     !isByokActive &&
     !maxModeEnabled &&
@@ -75,9 +77,9 @@ export function useUsageStatus(params: {
           ? t("Max")
           : t("Pro");
   const usageUnitLabel = usageUnit === "tokens" ? t("tokens") : t("requests");
-  const maxModeEligible = usageQuery.data?.maxModeEligible ?? false;
-  const canEnableMaxMode = maxModeEligible && !maxModeEnabled && isUsageBlocked;
-  const isSubmitBlocked = isUsageBlocked && !maxModeEnabled;
+  const maxModeEligible = features.billing && (usageQuery.data?.maxModeEligible ?? false);
+  const canEnableMaxMode = features.billing && maxModeEligible && !maxModeEnabled && isUsageBlocked;
+  const isSubmitBlocked = !selectedModel || (isUsageBlocked && !maxModeEnabled);
 
   const utils = trpc.useUtils();
   const enableMaxMode = trpc.billing.enableMaxMode.useMutation({

@@ -10,10 +10,10 @@ Deni AI is a multi-model AI chat app for people who want strong model choice wit
 
 - **Multi-model chat** — switch between OpenAI, Claude, Gemini, Groq, xAI, and other routed models
 - **BYOK** — connect your own provider API keys (encrypted at rest); BYOK usage is not counted against platform limits
-- **Tools** — web search (Brave), page browse, image generation, and video (Veo) where enabled
-- **Memory & projects** — personalization memories and project-scoped context for organized chats
-- **Teams** — organizations, seats, and shared Pro access with usage visibility
-- **Billing** — Stripe subscriptions (personal and team); optional self-host disable via `NEXT_PUBLIC_BILLING_DISABLED`
+- **Tools** — web search (Exa), page browse, image generation, and video (Veo) where enabled
+- **Memory & projects** — personalization memories and project-scoped context; projects can be shared with a team
+- **Teams** — organizations, seats, shared Pro access, and team projects
+- **Billing** — Stripe subscriptions (personal and team) plus Max Mode metered overage; optional self-host disable via `NEXT_PUBLIC_BILLING_DISABLED`
 - **Affiliate referrals** — shareable invite links, QR codes, milestone reset credits, and selectable paid-plan rewards (three resets or a manually sent 30% OFF coupon)
 - **Auth** — Google / GitHub OAuth, magic link, anonymous guest, passkeys, and 2FA (better-auth)
 - **i18n** — English and Japanese (`next-intl`)
@@ -44,7 +44,7 @@ cd deni-ai
 # Install
 bun install
 
-# Configure (copy example and fill required keys)
+# Configure (copy example and fill the core values plus any optional features)
 cp .env.example .env
 
 # Database

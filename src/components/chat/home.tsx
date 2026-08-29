@@ -63,7 +63,8 @@ export default function ChatHome() {
   const t = useExtracted();
   const { push } = useRouter();
   const startNewChat = useNewChat();
-  const { availableModels } = useAvailableModels();
+  const { availableModels, platformCapabilities } = useAvailableModels();
+  const { features } = platformCapabilities;
   const [input, setInput] = useState("");
   const [model, setModel] = useState(defaultModel.value);
   const [webSearch, setWebSearch] = useState(false);
@@ -80,11 +81,24 @@ export default function ChatHome() {
 
   const projectsQuery = trpc.projects.list.useQuery();
   const selectedModel = availableModels.find((entry) => entry.value === model);
+  const effectiveWebSearch = features.webSearch && webSearch;
+  const effectiveVideoMode = features.videoGeneration && videoMode;
+  const effectiveImageMode = features.imageGeneration && imageMode;
+  const effectiveDeepResearch = features.webSearch && deepResearch;
 
   // Fall back when the current selection is not allowed on this plan.
   if (!selectedModel && availableModels.length > 0) {
     setModel(availableModels[0].value);
   }
+
+  const handleProjectChange = (nextProjectId: string | null) => {
+    setProjectId(nextProjectId);
+    const nextProject = projectsQuery.data?.find((project) => project.id === nextProjectId);
+    const nextModel = nextProject?.defaultModel;
+    if (nextModel && availableModels.some((entry) => entry.value === nextModel)) {
+      setModel(nextModel);
+    }
+  };
 
   const handleSubmit = (
     message: ComposerMessage,
@@ -220,7 +234,7 @@ export default function ChatHome() {
             <ProjectSelect
               projects={projectsQuery.data ?? []}
               value={projectId}
-              onValueChange={setProjectId}
+              onValueChange={handleProjectChange}
               onCreateClick={() => push("/settings/projects")}
             />
           </div>
@@ -229,23 +243,26 @@ export default function ChatHome() {
             onValueChange={setInput}
             onSubmit={handleSubmit}
             placeholder={t("Ask me anything...")}
-            isSubmitDisabled={isSubmitting}
+            isSubmitDisabled={isSubmitting || availableModels.length === 0}
             model={model}
             onModelChange={handleModelChange}
-            webSearch={webSearch}
-            onWebSearchChange={setWebSearch}
-            videoMode={videoMode}
-            onVideoModeChange={setVideoMode}
-            imageMode={imageMode}
-            onImageModeChange={setImageMode}
+            webSearch={effectiveWebSearch}
+            onWebSearchChange={(enabled) => setWebSearch(enabled && features.webSearch)}
+            webSearchAvailable={features.webSearch}
+            videoMode={effectiveVideoMode}
+            onVideoModeChange={(enabled) => setVideoMode(enabled && features.videoGeneration)}
+            videoAvailable={features.videoGeneration}
+            imageMode={effectiveImageMode}
+            onImageModeChange={(enabled) => setImageMode(enabled && features.imageGeneration)}
+            imageAvailable={features.imageGeneration}
             reasoningEffort={reasoningEffort}
             onReasoningEffortChange={setReasoningEffort}
             proMode={proMode}
             onProModeChange={setProMode}
             fastMode={fastMode}
             onFastModeChange={setFastMode}
-            deepResearch={deepResearch}
-            onDeepResearchChange={setDeepResearch}
+            deepResearch={effectiveDeepResearch}
+            onDeepResearchChange={(enabled) => setDeepResearch(enabled && features.webSearch)}
           />
           <AdSenseSlot
             slot={env.NEXT_PUBLIC_ADSENSE_CHAT_SLOT_ID ?? ""}

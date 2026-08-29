@@ -3,6 +3,8 @@ import { and, eq, isNotNull, isNull, like, sql } from "drizzle-orm";
 import { db } from "@/db/drizzle";
 import { billing, member, teamMemberUsagePolicy, teamUsagePolicy } from "@/db/schema";
 import { isProOrHigherTier } from "@/lib/billing";
+import { isBillingDisabled } from "@/lib/billing-config";
+import { attachMaxModeMeteredItems } from "@/lib/max-mode-stripe";
 import { stripe } from "@/lib/stripe";
 
 import type { UsageCategory } from "./usage";
@@ -45,6 +47,8 @@ async function getEffectiveBillingRecord(userId: string) {
     status: billing.status,
     stripeCustomerId: billing.stripeCustomerId,
     stripeSubscriptionId: billing.stripeSubscriptionId,
+    stripeMeteredBasicItemId: billing.stripeMeteredBasicItemId,
+    stripeMeteredPremiumItemId: billing.stripeMeteredPremiumItemId,
     maxModeEnabled: billing.maxModeEnabled,
     maxModeUsageBasic: billing.maxModeUsageBasic,
     maxModeUsagePremium: billing.maxModeUsagePremium,
@@ -168,8 +172,13 @@ export async function enableMaxMode(userId: string): Promise<{ success: boolean;
     return { success: false, error: "Only organization owners can manage team Max Mode." };
   }
 
+  const attached = await attachMaxModeMeteredItems(record, userId);
+  if (!attached.ok) {
+    return { success: false, error: attached.error };
+  }
+
   if (record.maxModeEnabled) {
-    return { success: true }; // Already enabled
+    return { success: true };
   }
 
   await db
@@ -179,6 +188,9 @@ export async function enableMaxMode(userId: string): Promise<{ success: boolean;
       maxModePeriodStart: new Date(),
       maxModeUsageBasic: 0,
       maxModeUsagePremium: 0,
+      stripeSubscriptionId: attached.subscriptionId,
+      stripeMeteredBasicItemId: attached.basicItemId,
+      stripeMeteredPremiumItemId: attached.premiumItemId,
     })
     .where(eq(billing.id, record.id));
 
@@ -287,7 +299,7 @@ export async function reportMaxModeUsageToStripe(
   category: UsageCategory,
   amount: number,
 ) {
-  if (amount <= 0) {
+  if (amount <= 0 || isBillingDisabled) {
     return;
   }
 
@@ -301,6 +313,17 @@ export async function reportMaxModeUsageToStripe(
       amount,
     });
     return;
+  }
+
+  if (!record.stripeMeteredBasicItemId || !record.stripeMeteredPremiumItemId) {
+    const attached = await attachMaxModeMeteredItems(record, userId);
+    if (!attached.ok) {
+      console.error("Max Mode usage not billed: metered prices missing", attached.error, {
+        userId,
+        category,
+        amount,
+      });
+    }
   }
 
   try {

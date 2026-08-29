@@ -5,14 +5,24 @@ import { veoModelValues } from "@/lib/veo";
 import { extractVeoErrorMessage, throwIfAborted } from "./helpers";
 import { VEO_MAX_POLL_ATTEMPTS, VEO_POLL_INTERVAL_MS, veoToolInputSchema } from "./types";
 
+function getGoogleApiKey() {
+  const apiKey = env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error("Video generation is disabled in this environment.");
+  }
+  return apiKey;
+}
+
 async function pollVeoOperation(operationName: string, signal?: AbortSignal) {
+  const apiKey = getGoogleApiKey();
+
   for (let attempt = 0; attempt < VEO_MAX_POLL_ATTEMPTS; attempt += 1) {
     throwIfAborted(signal);
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/${operationName}`,
       {
         headers: {
-          "x-goog-api-key": env.GOOGLE_GENERATIVE_AI_API_KEY,
+          "x-goog-api-key": apiKey,
         },
         signal,
       },
@@ -118,7 +128,7 @@ export function createVideoTool(userId?: string) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-goog-api-key": env.GOOGLE_GENERATIVE_AI_API_KEY,
+            "x-goog-api-key": getGoogleApiKey(),
           },
           body: JSON.stringify({ instances, parameters }),
         },

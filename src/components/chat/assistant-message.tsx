@@ -9,8 +9,11 @@ import {
   Globe,
   ListFilterIcon,
   RefreshCcwIcon,
+  SquareIcon,
+  Volume2Icon,
 } from "lucide-react";
-import { useExtracted } from "next-intl";
+import { useExtracted, useLocale } from "next-intl";
+import { useSpeechSynthesis } from "@/hooks/use-speech-synthesis";
 import { useState } from "react";
 import {
   Message,
@@ -71,6 +74,7 @@ interface AssistantMessageProps {
   availableModels: ModelOption[];
   onModelChange: (value: string) => void;
   onWebSearchChange: (value: boolean) => void;
+  webSearchAvailable?: boolean;
 }
 
 export function AssistantMessage({
@@ -82,8 +86,11 @@ export function AssistantMessage({
   availableModels,
   onModelChange,
   onWebSearchChange,
+  webSearchAvailable = true,
 }: AssistantMessageProps) {
   const t = useExtracted();
+  const locale = useLocale();
+  const speech = useSpeechSynthesis();
   const isStreamingThis = state.isStreaming && state.isLastMessage;
   const [retryMenuOpen, setRetryMenuOpen] = useState(false);
   const [additionalInstruction, setAdditionalInstruction] = useState("");
@@ -207,32 +214,36 @@ export function AssistantMessage({
                     <ListFilterIcon className="size-4" />
                     {t("Shorten answer")}
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onSelect={() => {
-                      onWebSearchChange(true);
-                      regenerateMessage({
-                        webSearch: true,
-                        forceWebSearch: true,
-                      });
-                    }}
-                  >
-                    <Globe className="size-4" />
-                    {t("Use web search")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={() => {
-                      onWebSearchChange(true);
-                      regenerateMessage({
-                        webSearch: true,
-                        deepResearch: true,
-                        forceWebSearch: true,
-                      });
-                    }}
-                  >
-                    <BrainIcon className="size-4" />
-                    {t("Run deep research")}
-                  </DropdownMenuItem>
+                  {webSearchAvailable && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          onWebSearchChange(true);
+                          regenerateMessage({
+                            webSearch: true,
+                            forceWebSearch: true,
+                          });
+                        }}
+                      >
+                        <Globe className="size-4" />
+                        {t("Use web search")}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          onWebSearchChange(true);
+                          regenerateMessage({
+                            webSearch: true,
+                            deepResearch: true,
+                            forceWebSearch: true,
+                          });
+                        }}
+                      >
+                        <BrainIcon className="size-4" />
+                        {t("Run deep research")}
+                      </DropdownMenuItem>
+                    </>
+                  )}
                   <DropdownMenuSub>
                     <DropdownMenuSubTrigger>
                       <BrainIcon className="size-4" />
@@ -261,6 +272,29 @@ export function AssistantMessage({
                   </DropdownMenuSub>
                 </DropdownMenuContent>
               </DropdownMenu>
+              {speech.supported ? (
+                <MessageAction
+                  onClick={() =>
+                    speech.toggle(
+                      `${message.id}-${i}`,
+                      part.text,
+                      locale === "ja" ? "ja-JP" : "en-US",
+                    )
+                  }
+                  label={
+                    speech.speakingId === `${message.id}-${i}` ? t("Stop reading") : t("Read aloud")
+                  }
+                  tooltip={
+                    speech.speakingId === `${message.id}-${i}` ? t("Stop reading") : t("Read aloud")
+                  }
+                >
+                  {speech.speakingId === `${message.id}-${i}` ? (
+                    <SquareIcon className="size-3.5" />
+                  ) : (
+                    <Volume2Icon className="size-3.5" />
+                  )}
+                </MessageAction>
+              ) : null}
               <MessageAction
                 onClick={() => navigator.clipboard.writeText(part.text)}
                 label={t("Copy")}

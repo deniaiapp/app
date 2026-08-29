@@ -1,11 +1,13 @@
 "use client";
 
+import { isSessionNotFreshError } from "@better-auth-ui/core";
 import { useAuth, useListSessions, useSession } from "@better-auth-ui/react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { ActiveSession } from "./active-session";
+import { FreshSessionPrompt } from "./fresh-session-prompt";
 
 export type ActiveSessionsProps = {
   className?: string;
@@ -17,13 +19,19 @@ export type ActiveSessionsProps = {
  * Shows each session's browser, OS, IP address, and creation time. The current session is marked
  * and navigates to sign-out on click, while other sessions can be revoked individually.
  *
+ * If the session is older than better-auth's freshness window, `/list-sessions` responds with
+ * `SESSION_NOT_FRESH`; this shows an inline re-verification prompt in place of the list and
+ * retries the fetch once the user confirms their identity.
+ *
  * @returns A JSX element containing the sessions card
  */
 export function ActiveSessions({ className }: ActiveSessionsProps) {
   const { authClient, localization } = useAuth();
   const { data: session } = useSession(authClient);
 
-  const { data: sessions, isPending } = useListSessions(authClient);
+  const { data: sessions, isPending, error, refetch } = useListSessions(authClient);
+
+  const needsFreshSession = isSessionNotFreshError(error);
 
   const activeSessions = [...(sessions ?? [])].sort((activeSession) =>
     activeSession.id === session?.session.id ? -1 : 1,
@@ -33,9 +41,23 @@ export function ActiveSessions({ className }: ActiveSessionsProps) {
     <div>
       <h2 className="text-sm font-semibold mb-3">{localization.settings.activeSessions}</h2>
 
-      <Card className={cn("p-0", className)}>
-        <CardContent className="p-0">
-          {isPending ? (
+      <Card className={cn(needsFreshSession ? undefined : "p-0", className)}>
+        <CardContent className={needsFreshSession ? undefined : "p-0"}>
+          {needsFreshSession ? (
+            <div className="flex flex-col gap-4">
+              <div>
+                <p className="text-sm font-medium leading-tight">
+                  {localization.settings.freshSessionTitle}
+                </p>
+
+                <p className="text-muted-foreground text-xs mt-0.5">
+                  {localization.settings.freshSessionDescription}
+                </p>
+              </div>
+
+              <FreshSessionPrompt onVerified={() => refetch()} />
+            </div>
+          ) : isPending ? (
             <SessionRowSkeleton />
           ) : (
             activeSessions?.map((activeSession, index) => (

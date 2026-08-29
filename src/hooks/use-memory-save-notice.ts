@@ -15,7 +15,13 @@ import { trpc } from "@/lib/trpc/react";
  */
 const POLL_DELAYS_MS = [2500, 4000, 6000];
 
-export function useMemorySaveNotice({ status }: { status: ChatStatus }) {
+export function useMemorySaveNotice({
+  status,
+  enabled = true,
+}: {
+  status: ChatStatus;
+  enabled?: boolean;
+}) {
   const t = useExtracted();
   const router = useRouter();
   const utils = trpc.useUtils();
@@ -26,6 +32,11 @@ export function useMemorySaveNotice({ status }: { status: ChatStatus }) {
   useEffect(() => {
     const previousStatus = previousStatusRef.current;
     previousStatusRef.current = status;
+
+    if (!enabled) {
+      knownIdsRef.current = null;
+      return;
+    }
 
     const isInFlight = status === "submitted" || status === "streaming";
     const wasInFlight = previousStatus === "submitted" || previousStatus === "streaming";
@@ -90,5 +101,5 @@ export function useMemorySaveNotice({ status }: { status: ChatStatus }) {
         clearTimeout(timer);
       }
     };
-  }, [router, status, t, utils]);
+  }, [enabled, router, status, t, utils]);
 }

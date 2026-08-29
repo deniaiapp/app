@@ -11,6 +11,10 @@ import { veoAspectRatios, veoDurations, veoModelValues, veoResolutions } from "@
 
 const BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
+function getGoogleApiKey() {
+  return env.GOOGLE_GENERATIVE_AI_API_KEY?.trim() || null;
+}
+
 const requestSchema = z.object({
   prompt: z.string().min(1).max(4000),
   model: z.enum(veoModelValues),
@@ -42,6 +46,14 @@ const operationNameSchema = z
   });
 
 export async function POST(req: Request) {
+  const googleApiKey = getGoogleApiKey();
+  if (!googleApiKey) {
+    return NextResponse.json(
+      { error: "Video generation is disabled in this environment." },
+      { status: 503 },
+    );
+  }
+
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -127,7 +139,7 @@ export async function POST(req: Request) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-goog-api-key": env.GOOGLE_GENERATIVE_AI_API_KEY,
+        "x-goog-api-key": googleApiKey,
       },
       body: JSON.stringify(payload),
     });
@@ -174,6 +186,14 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
+  const googleApiKey = getGoogleApiKey();
+  if (!googleApiKey) {
+    return NextResponse.json(
+      { error: "Video generation is disabled in this environment." },
+      { status: 503 },
+    );
+  }
+
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -193,7 +213,7 @@ export async function GET(req: Request) {
 
   const response = await fetch(`${BASE_URL}/${parsedName.data}`, {
     headers: {
-      "x-goog-api-key": env.GOOGLE_GENERATIVE_AI_API_KEY,
+      "x-goog-api-key": googleApiKey,
     },
   });
 

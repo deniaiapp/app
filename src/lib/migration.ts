@@ -40,7 +40,216 @@ export type MigrationImportResult = {
 
 type UnknownRecord = Record<string, unknown>;
 
+// --- ChatGPT ("conversations.json") export support ---
+//
+// ChatGPT stores each conversation as a tree (`mapping`): every node has an id,
+// an optional `message`, a `parent` id, and `children` ids. Edits/regenerations
+// create branches, so we don't try to reconstruct the whole tree — we only
+// import the currently-active branch, i.e. the linear path from the root down
+// to `current_node` (falling back to the most recently created leaf if
+// `current_node` is missing, which happens in some export tool variants).
+type ChatGptContent = {
+  content_type?: string;
+  parts?: unknown[];
+  text?: string;
+  language?: string;
+};
+
+type ChatGptMessage = {
+  id?: string;
+  author?: { role?: string };
+  content?: ChatGptContent;
+  create_time?: number | null;
+  metadata?: { is_visually_hidden_from_conversation?: boolean };
+};
+
+type ChatGptNode = {
+  id?: string;
+  message?: ChatGptMessage | null;
+  parent?: string | null;
+  children?: string[];
+};
+
+type ChatGptConversation = {
+  title?: unknown;
+  create_time?: unknown;
+  update_time?: unknown;
+  current_node?: unknown;
+  mapping: Record<string, ChatGptNode>;
+};
+
+export function isChatGptExport(payload: unknown): payload is ChatGptConversation[] {
+  return (
+    Array.isArray(payload) &&
+    payload.length > 0 &&
+    payload.every((item) => isRecord(item) && isRecord(item.mapping))
+  );
+}
+
+export function normalizeChatGptExport(payload: ChatGptConversation[]): MigrationImportResult {
+  const conversations: NormalizedConversation[] = [];
+  const warnings: string[] = [];
+
+  payload.forEach((conversation, index) => {
+    try {
+      const messages = extractChatGptLinearMessages(
+        conversation.mapping,
+        conversation.current_node,
+      );
+
+      if (!messages.length) {
+        warnings.push(`conversation ${index + 1}: no usable messages found`);
+        return;
+      }
+
+      conversations.push({
+        title: normalizeTitle(conversation.title, index),
+        messages,
+        createdAt: parseUnixSeconds(conversation.create_time),
+        updatedAt: parseUnixSeconds(conversation.update_time),
+      });
+    } catch (error) {
+      warnings.push(
+        `conversation ${index + 1}: failed to parse (${error instanceof Error ? error.message : "unknown error"})`,
+      );
+    }
+  });
+
+  if (!conversations.length && !warnings.length) {
+    warnings.push("no conversations found in payload");
+  }
+
+  return { conversations, warnings };
+}
+
+function findChatGptLinearPath(
+  mapping: Record<string, ChatGptNode>,
+  currentNode: unknown,
+): string[] {
+  let leafId = typeof currentNode === "string" && mapping[currentNode] ? currentNode : null;
+
+  if (!leafId) {
+    // Some export variants omit current_node — fall back to the leaf (a node
+    // with no children) that was created most recently.
+    let best: { id: string; time: number } | null = null;
+    for (const [id, node] of Object.entries(mapping)) {
+      if (node.children && node.children.length > 0) continue;
+      const time = node.message?.create_time ?? 0;
+      if (!best || time > best.time) {
+        best = { id, time };
+      }
+    }
+    leafId = best?.id ?? null;
+  }
+
+  if (!leafId) return [];
+
+  const path: string[] = [];
+  const visited = new Set<string>();
+  let cursor: string | null | undefined = leafId;
+
+  while (cursor && mapping[cursor] && !visited.has(cursor)) {
+    visited.add(cursor);
+    path.push(cursor);
+    cursor = mapping[cursor].parent;
+  }
+
+  return path.reverse();
+}
+
+function extractChatGptLinearMessages(
+  mapping: Record<string, ChatGptNode>,
+  currentNode: unknown,
+): UIMessage[] {
+  const nodeIds = findChatGptLinearPath(mapping, currentNode);
+  const messages: UIMessage[] = [];
+
+  for (const nodeId of nodeIds) {
+    const message = mapping[nodeId]?.message;
+    if (!message || message.metadata?.is_visually_hidden_from_conversation) {
+      continue;
+    }
+
+    const role = normalizeChatGptRole(message.author?.role);
+    if (!role) {
+      continue; // "tool" role and unrecognized authors carry no user-facing text
+    }
+
+    const parts = normalizeChatGptContent(message.content);
+    if (!parts.length) {
+      continue;
+    }
+
+    messages.push({
+      id: typeof message.id === "string" && message.id.trim().length > 0 ? message.id : nanoid(),
+      role,
+      parts,
+    });
+  }
+
+  return messages;
+}
+
+function normalizeChatGptRole(role: unknown): UIMessage["role"] | null {
+  if (role === "user" || role === "assistant" || role === "system") {
+    return role;
+  }
+  return null;
+}
+
+function normalizeChatGptContent(content: ChatGptContent | undefined): UIMessage["parts"] {
+  if (!content) {
+    return [];
+  }
+
+  if (content.content_type === "code") {
+    const code = typeof content.text === "string" ? content.text : "";
+    if (!code.trim()) {
+      return [];
+    }
+    const language = typeof content.language === "string" ? content.language : "";
+    return [createTextPart(`\`\`\`${language}\n${code}\n\`\`\``)];
+  }
+
+  if (Array.isArray(content.parts)) {
+    const parts: UIMessage["parts"] = [];
+    for (const rawPart of content.parts) {
+      if (typeof rawPart === "string") {
+        if (rawPart.trim()) {
+          parts.push(createTextPart(rawPart));
+        }
+        continue;
+      }
+      if (isRecord(rawPart) && rawPart.content_type === "image_asset_pointer") {
+        // The export doesn't include the underlying binary asset, so we can't
+        // recover the image itself — leave a placeholder instead of dropping
+        // the message context silently.
+        parts.push(createTextPart("[image attachment omitted]"));
+      }
+    }
+    return parts;
+  }
+
+  if (typeof content.text === "string" && content.text.trim()) {
+    return [createTextPart(content.text)];
+  }
+
+  return [];
+}
+
+function parseUnixSeconds(value: unknown): Date | undefined {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return undefined;
+  }
+  const date = new Date(value * 1000);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
 export function normalizeMigrationPayload(payload: unknown): MigrationImportResult {
+  if (isChatGptExport(payload)) {
+    return normalizeChatGptExport(payload);
+  }
+
   const { conversations: legacyConversations, warnings } = extractLegacyConversations(payload);
   const normalized: NormalizedConversation[] = [];
   const allWarnings = [...warnings];

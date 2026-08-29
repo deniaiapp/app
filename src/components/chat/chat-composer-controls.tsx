@@ -56,30 +56,6 @@ function ToolChip({ icon: Icon, label, onRemove }: ToolChipProps) {
   );
 }
 
-function getReasoningEffortLabel(
-  effort: ReasoningEffort,
-  t: ReturnType<typeof useExtracted>,
-): string {
-  switch (effort) {
-    case "none":
-      return t("None");
-    case "minimal":
-      return t("Minimal");
-    case "low":
-      return t("Low");
-    case "medium":
-      return t("Medium");
-    case "high":
-      return t("High");
-    case "xhigh":
-      return t("X-High");
-    case "max":
-      return t("Max");
-    default:
-      return effort;
-  }
-}
-
 function ChatComposerReasoningSelect({
   reasoningEffort,
   onReasoningEffortChange,
@@ -94,7 +70,16 @@ function ChatComposerReasoningSelect({
   triggerClassName?: string;
 }) {
   const t = useExtracted();
-  const reasoningEffortLabel = getReasoningEffortLabel(reasoningEffort, t);
+  const reasoningEffortLabels: Record<ReasoningEffort, string> = {
+    none: t("None"),
+    minimal: t("Minimal"),
+    low: t("Low"),
+    medium: t("Medium"),
+    high: t("High"),
+    xhigh: t("X-High"),
+    max: t("Max"),
+  };
+  const reasoningEffortLabel = reasoningEffortLabels[reasoningEffort] ?? reasoningEffort;
 
   return (
     <PromptInputSelect
@@ -116,7 +101,7 @@ function ChatComposerReasoningSelect({
         {supportedEfforts !== false &&
           supportedEfforts.map((effort) => (
             <PromptInputSelectItem key={effort} value={effort}>
-              {getReasoningEffortLabel(effort, t)}
+              {reasoningEffortLabels[effort] ?? effort}
             </PromptInputSelectItem>
           ))}
       </PromptInputSelectContent>
@@ -131,6 +116,9 @@ export function ChatComposerActionMenu({
   onImageToggle,
   webSearch,
   onSearchToggle,
+  webSearchAvailable,
+  videoAvailable,
+  imageAvailable,
   deepResearch,
   onResearchToggle,
   supportsFastMode,
@@ -150,6 +138,9 @@ export function ChatComposerActionMenu({
   onImageToggle: (enabled: boolean) => void;
   webSearch: boolean;
   onSearchToggle: (enabled: boolean) => void;
+  webSearchAvailable: boolean;
+  videoAvailable: boolean;
+  imageAvailable: boolean;
   deepResearch: boolean;
   onResearchToggle: (enabled: boolean) => void;
   supportsFastMode: boolean;
@@ -168,34 +159,42 @@ export function ChatComposerActionMenu({
   return (
     <>
       <DropdownMenuSeparator />
-      <DropdownMenuCheckboxItem
-        checked={videoMode}
-        onCheckedChange={(checked) => onVideoToggle(Boolean(checked))}
-      >
-        <Film className="size-4" aria-hidden="true" />
-        {t("Video")}
-      </DropdownMenuCheckboxItem>
-      <DropdownMenuCheckboxItem
-        checked={imageMode}
-        onCheckedChange={(checked) => onImageToggle(Boolean(checked))}
-      >
-        <ImageIcon className="size-4" aria-hidden="true" />
-        {t("Image")}
-      </DropdownMenuCheckboxItem>
-      <DropdownMenuCheckboxItem
-        checked={webSearch}
-        onCheckedChange={(checked) => onSearchToggle(Boolean(checked))}
-      >
-        <Globe className="size-4" aria-hidden="true" />
-        {t("Search")}
-      </DropdownMenuCheckboxItem>
-      <DropdownMenuCheckboxItem
-        checked={deepResearch}
-        onCheckedChange={(checked) => onResearchToggle(Boolean(checked))}
-      >
-        <Sparkle className="size-4" aria-hidden="true" />
-        {t("Deep Research")}
-      </DropdownMenuCheckboxItem>
+      {videoAvailable && (
+        <DropdownMenuCheckboxItem
+          checked={videoMode}
+          onCheckedChange={(checked) => onVideoToggle(Boolean(checked))}
+        >
+          <Film className="size-4" aria-hidden="true" />
+          {t("Video")}
+        </DropdownMenuCheckboxItem>
+      )}
+      {imageAvailable && (
+        <DropdownMenuCheckboxItem
+          checked={imageMode}
+          onCheckedChange={(checked) => onImageToggle(Boolean(checked))}
+        >
+          <ImageIcon className="size-4" aria-hidden="true" />
+          {t("Image")}
+        </DropdownMenuCheckboxItem>
+      )}
+      {webSearchAvailable && (
+        <DropdownMenuCheckboxItem
+          checked={webSearch}
+          onCheckedChange={(checked) => onSearchToggle(Boolean(checked))}
+        >
+          <Globe className="size-4" aria-hidden="true" />
+          {t("Search")}
+        </DropdownMenuCheckboxItem>
+      )}
+      {webSearchAvailable && (
+        <DropdownMenuCheckboxItem
+          checked={deepResearch}
+          onCheckedChange={(checked) => onResearchToggle(Boolean(checked))}
+        >
+          <Sparkle className="size-4" aria-hidden="true" />
+          {t("Deep Research")}
+        </DropdownMenuCheckboxItem>
+      )}
       {supportsFastMode && (
         <DropdownMenuCheckboxItem
           checked={fastMode}

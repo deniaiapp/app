@@ -7,9 +7,9 @@ import { useExtracted, useLocale } from "next-intl";
 import type React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
-import { isBillingDisabled } from "@/lib/billing-config";
+import { usePlatformCapabilities } from "@/components/platform-capabilities-provider";
 import { formatAppDate } from "@/lib/format-date";
-import { isCheckoutSettingsRoute } from "@/lib/settings-routes";
+import { isStandaloneSettingsRoute } from "@/lib/settings-routes";
 import { trpc } from "@/lib/trpc/react";
 import { settingsUsageQueryOptions } from "@/lib/usage-query-options";
 import { cn, formatCompactUsageValue } from "@/lib/utils";
@@ -19,24 +19,25 @@ export default function SettingsWrapper({ children }: { children: React.ReactNod
   const t = useExtracted();
   const locale = useLocale();
   const pathname = usePathname();
-  const isCheckoutRoute = isCheckoutSettingsRoute(pathname);
-  const billingDisabled = isBillingDisabled;
+  const isStandaloneRoute = isStandaloneSettingsRoute(pathname);
+  const { features } = usePlatformCapabilities();
+  const billingDisabled = !features.billing;
   const statusQuery = trpc.billing.status.useQuery(undefined, {
-    enabled: !billingDisabled && !isCheckoutRoute,
+    enabled: !billingDisabled && !isStandaloneRoute,
     staleTime: 60_000,
   });
   const usageQuery = trpc.billing.usage.useQuery(undefined, {
-    enabled: !isCheckoutRoute,
+    enabled: !isStandaloneRoute,
     ...settingsUsageQueryOptions,
   });
   const blogAdminQuery = trpc.blog.canManage.useQuery(undefined, {
-    enabled: !isCheckoutRoute,
+    enabled: !isStandaloneRoute,
   });
 
   // Always keep {children} in the tree. Returning only a Spinner drops the page
   // segment and breaks Next.js instant-navigation validation
   // (instant-unrendered-segment).
-  if (isCheckoutRoute) {
+  if (isStandaloneRoute) {
     return <div className="mx-auto w-full max-w-5xl pb-12 pt-4">{children}</div>;
   }
 
@@ -77,11 +78,6 @@ export default function SettingsWrapper({ children }: { children: React.ReactNod
         ]
       : []),
     {
-      label: t("Team"),
-      value: "team",
-      href: "/settings/team",
-    },
-    {
       label: t("Providers"),
       value: "providers",
       href: "/settings/providers",
@@ -107,11 +103,14 @@ export default function SettingsWrapper({ children }: { children: React.ReactNod
       href: "/settings/sharing",
     },
     {
-      label: t("Migration"),
-      value: "migration",
-      href: "/settings/migration",
+      label: t("Import"),
+      value: "import",
+      href: "/settings/import",
     },
-  ].filter((tab) => !billingDisabled || (tab.value !== "billing" && tab.value !== "team"));
+  ].filter(
+    (tab) =>
+      (!billingDisabled || tab.value !== "billing") && (features.memory || tab.value !== "memory"),
+  );
 
   const currentTab =
     settingsTabs.find((tab) => pathname?.startsWith(tab.href))?.value || settingsTabs[0].value;
@@ -157,7 +156,7 @@ export default function SettingsWrapper({ children }: { children: React.ReactNod
                     })}
                   </span>
                   {usages?.map((usageItem) => {
-                    const maxModeEnabled = usage?.maxModeEnabled ?? false;
+                    const maxModeEnabled = features.billing && (usage?.maxModeEnabled ?? false);
                     const unitLabel = usageItem.unit === "tokens" ? t("tokens") : t("requests");
                     const hasLimit =
                       !maxModeEnabled && usageItem.limit !== null && usageItem.limit > 0;

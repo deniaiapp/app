@@ -47,6 +47,14 @@ function getTrustedGoogleFileUrl(uri: string) {
 }
 
 export async function GET(req: Request) {
+  const googleApiKey = env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
+  if (!googleApiKey) {
+    return NextResponse.json(
+      { error: "Video generation is disabled in this environment." },
+      { status: 503 },
+    );
+  }
+
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -62,7 +70,7 @@ export async function GET(req: Request) {
 
   const response = await fetch(trustedUri, {
     headers: {
-      "x-goog-api-key": env.GOOGLE_GENERATIVE_AI_API_KEY,
+      "x-goog-api-key": googleApiKey,
     },
   });
 

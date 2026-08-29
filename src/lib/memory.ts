@@ -1,10 +1,11 @@
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateObject, type UIMessage } from "ai";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/drizzle";
 import { memoryItem, userMemory } from "@/db/schema";
 import { env } from "@/env";
-import { createDeniOpenRouter } from "@/lib/openrouter-provider";
+import { platformCapabilities } from "@/lib/platform-capabilities.server";
 
 export type PersonalizationProfile = {
   instructions: string;
@@ -35,11 +36,19 @@ const defaultProfile: PersonalizationProfile = {
   autoMemory: true,
 };
 
-const openrouter = createDeniOpenRouter({
-  apiKey: env.OPENROUTER_API_KEY,
-});
+const googleApiKey = env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
+const memoryModel = googleApiKey
+  ? createGoogleGenerativeAI({ apiKey: googleApiKey })("gemini-3-flash-preview")
+  : null;
 
 export async function getUserMemoryState(userId: string) {
+  if (!platformCapabilities.features.memory) {
+    return {
+      profile: defaultProfile,
+      items: [],
+    };
+  }
+
   const [profileRow, itemRows] = await Promise.all([
     db
       .select()
@@ -393,7 +402,7 @@ export async function maybeAutoSaveMemories({
   messages: UIMessage[];
   enabled: boolean;
 }) {
-  if (!enabled) {
+  if (!enabled || !platformCapabilities.features.memory || !memoryModel) {
     return;
   }
 
@@ -418,7 +427,7 @@ export async function maybeAutoSaveMemories({
   const existingBlock = formatExistingMemoriesForAgent(existingMemories);
 
   const { object } = await generateObject({
-    model: openrouter.chat("google/gemini-3-flash-preview"),
+    model: memoryModel,
     schema: memoryExtractionSchema,
     system: MEMORY_EXTRACTION_SYSTEM,
     // Existing memories first so the model grounds against them before reading the chat.

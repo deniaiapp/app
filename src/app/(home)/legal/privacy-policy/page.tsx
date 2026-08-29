@@ -96,6 +96,11 @@ export default function PrivacyPolicyPage() {
           <h2 className="text-xl font-semibold">{t("6. Your Choices")}</h2>
           <ul className="list-disc space-y-2 pl-6 text-muted-foreground">
             <li>{t("Access, update, or delete your account information.")}</li>
+            <li>
+              {t(
+                "Download a copy of your account data, including chats, memories, and projects, from Account settings.",
+              )}
+            </li>
             <li>{t("Control cookies through your browser settings.")}</li>
             <li>{t("Opt out of marketing communications where offered.")}</li>
           </ul>

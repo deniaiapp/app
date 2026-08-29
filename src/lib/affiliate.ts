@@ -10,23 +10,20 @@ import {
   user,
 } from "@/db/schema";
 import { env } from "@/env";
+import { evaluateRegistrationReward, hashClaimIp } from "@/lib/affiliate-risk";
 import {
   AFFILIATE_REWARD_PREFERENCES,
+  AFFILIATE_REWARD_TYPES,
   type AffiliateRewardPreference,
 } from "@/lib/affiliate-types";
 import { resetMaxModeUsage } from "@/lib/max-mode";
+
+export { AFFILIATE_REWARD_TYPES };
 
 export const AFFILIATE_COOKIE_NAME = "deni-ai-affiliate-code";
 export const AFFILIATE_REGISTRATION_WINDOW_MS = 24 * 60 * 60 * 1000;
 export const AFFILIATE_PURCHASE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 export const AFFILIATE_REFERRAL_MILESTONE = 3;
-
-export const AFFILIATE_REWARD_TYPES = {
-  registrationReset: "registration_reset",
-  purchaseReset: "purchase_reset",
-  plusCoupon: "plus_coupon",
-  discountCoupon: "discount_coupon",
-} as const;
 
 const affiliateCodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const createAffiliateCode = customAlphabet(affiliateCodeAlphabet, 10);
@@ -204,7 +201,15 @@ export async function setAffiliateRewardPreference({
   return updated.rewardPreference;
 }
 
-export async function claimAffiliateReferral({ userId, code }: { userId: string; code: string }) {
+export async function claimAffiliateReferral({
+  userId,
+  code,
+  claimIp = null,
+}: {
+  userId: string;
+  code: string;
+  claimIp?: string | null;
+}) {
   const normalizedCode = normalizeAffiliateCode(code);
   if (!normalizedCode) {
     throw new Error("Enter a valid referral code.");
@@ -212,7 +217,13 @@ export async function claimAffiliateReferral({ userId, code }: { userId: string;
 
   const [referredUser, referrerProfile] = await Promise.all([
     db
-      .select({ id: user.id, createdAt: user.createdAt, isAnonymous: user.isAnonymous })
+      .select({
+        id: user.id,
+        createdAt: user.createdAt,
+        isAnonymous: user.isAnonymous,
+        email: user.email,
+        emailVerified: user.emailVerified,
+      })
       .from(user)
       .where(eq(user.id, userId))
       .limit(1)
@@ -259,6 +270,8 @@ export async function claimAffiliateReferral({ userId, code }: { userId: string;
 
   const registeredAt = referredUser.createdAt;
   const purchaseDeadlineAt = new Date(registeredAt.getTime() + AFFILIATE_PURCHASE_WINDOW_MS);
+  const claimedAt = new Date();
+  const claimIpHash = hashClaimIp(claimIp);
   const [createdReferral] = await db
     .insert(affiliateReferral)
     .values({
@@ -267,6 +280,7 @@ export async function claimAffiliateReferral({ userId, code }: { userId: string;
       code: normalizedCode,
       registeredAt,
       purchaseDeadlineAt,
+      claimIpHash,
     })
     .onConflictDoNothing({ target: affiliateReferral.referredUserId })
     .returning();
@@ -286,7 +300,23 @@ export async function claimAffiliateReferral({ userId, code }: { userId: string;
   // This also recovers if concurrent registrations make the count jump from
   // 2 to 4 before the third registration finishes its reward insert.
   if (milestone > 0) {
-    await db
+    // Trust-tiered staged approval: a referrer only starts earning
+    // auto-approved rewards after a clean track record, and even then only
+    // when this specific referral's fraud signals are clean. New referrers,
+    // any referrer with a past rejection, or a referral with a hard-block
+    // signal (e.g. same IP already used for this referrer) always land in
+    // the manual review queue — see src/lib/affiliate-risk.ts.
+    const { autoApprove, risk } = await evaluateRegistrationReward({
+      referrerId: referrerProfile.userId,
+      referredUserId: userId,
+      referredEmail: referredUser.email,
+      referredEmailVerified: referredUser.emailVerified,
+      referredCreatedAt: referredUser.createdAt,
+      claimedAt,
+      claimIpHash,
+    });
+
+    const [insertedReward] = await db
       .insert(affiliateReward)
       .values({
         referrerId: referrerProfile.userId,
@@ -294,9 +324,23 @@ export async function claimAffiliateReferral({ userId, code }: { userId: string;
         type: AFFILIATE_REWARD_TYPES.registrationReset,
         quantity: 1,
         milestone,
-        status: "pending",
+        status: autoApprove ? "approved" : "pending",
+        riskScore: risk.score,
+        riskFlags: risk.flags,
+        ...(autoApprove ? { approvedBy: "system:auto", approvedAt: claimedAt } : {}),
       })
-      .onConflictDoNothing();
+      .onConflictDoNothing()
+      .returning({ id: affiliateReward.id, quantity: affiliateReward.quantity });
+
+    if (insertedReward && autoApprove) {
+      await db
+        .update(affiliateProfile)
+        .set({
+          resetCredits: sql`${affiliateProfile.resetCredits} + ${insertedReward.quantity}`,
+          updatedAt: claimedAt,
+        })
+        .where(eq(affiliateProfile.userId, referrerProfile.userId));
+    }
   }
 
   // A user can apply a code after paying, as long as both windows still allow it.

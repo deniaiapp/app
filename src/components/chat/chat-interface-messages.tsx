@@ -74,6 +74,7 @@ export interface ChatInterfaceMessagesProps {
   availableModels: ModelOption[];
   onModelChange: (value: string) => void;
   onWebSearchChange: (value: boolean) => void;
+  webSearchAvailable?: boolean;
 }
 
 export function ChatInterfaceMessages({
@@ -93,6 +94,7 @@ export function ChatInterfaceMessages({
   availableModels,
   onModelChange,
   onWebSearchChange,
+  webSearchAvailable = true,
 }: ChatInterfaceMessagesProps) {
   const t = useExtracted();
 
@@ -151,6 +153,7 @@ export function ChatInterfaceMessages({
                     availableModels={availableModels}
                     onModelChange={onModelChange}
                     onWebSearchChange={onWebSearchChange}
+                    webSearchAvailable={webSearchAvailable}
                   />
                 )}
               </div>
@@ -189,6 +192,7 @@ export function ChatInterfaceMessages({
                     availableModels={availableModels}
                     onModelChange={onModelChange}
                     onWebSearchChange={onWebSearchChange}
+                    webSearchAvailable={webSearchAvailable}
                   />
                 ))}
               </MessageBranchContent>

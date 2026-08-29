@@ -13,9 +13,14 @@ export type GeneratedImage = {
   mimeType: string;
 };
 
-const google = createGoogleGenerativeAI({
-  apiKey: env.GOOGLE_GENERATIVE_AI_API_KEY,
-});
+function getGoogleProvider() {
+  const apiKey = env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error("Image generation is disabled in this environment.");
+  }
+
+  return createGoogleGenerativeAI({ apiKey });
+}
 
 function toGeneratedImages(images: Array<{ base64: string; mediaType: string }>): GeneratedImage[] {
   return images.map((image) => ({
@@ -54,6 +59,7 @@ export async function generateImages({
   numberOfImages?: number;
   signal?: AbortSignal;
 }): Promise<GeneratedImage[]> {
+  const google = getGoogleProvider();
   const providerOptions = buildGeminiProviderOptions(model, aspectRatio, resolution);
   const geminiModel = google.image(model);
 
