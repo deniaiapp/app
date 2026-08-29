@@ -9,3 +9,6 @@ export const TWO_FACTOR_VIEW_PATH = "two-factor";
 
 /** Full path for second-factor verification after credential sign-in. */
 export const TWO_FACTOR_PATH = `/auth/${TWO_FACTOR_VIEW_PATH}`;
+
+/** Account security settings (change password, sessions, 2FA, passkeys). */
+export const ACCOUNT_SECURITY_PATH = "/account/security";
