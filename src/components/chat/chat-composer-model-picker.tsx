@@ -1,6 +1,8 @@
 "use client";
 
-import { SiAnthropic, SiGooglegemini, SiX } from "@icons-pack/react-simple-icons";
+import SiAnthropic from "@icons-pack/react-simple-icons/icons/SiAnthropic";
+import SiGooglegemini from "@icons-pack/react-simple-icons/icons/SiGooglegemini";
+import SiX from "@icons-pack/react-simple-icons/icons/SiX";
 import {
   ArchiveIcon,
   ArrowBigUpDash,

@@ -19,18 +19,23 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "lucide-react": ["./src/lib/lucide-react.ts"],
+      "date-fns": ["./src/lib/date-fns.ts"],
+      "date-fns/locale": ["./src/lib/date-fns-locale.ts"]
     }
   },
-  "types": ["*"],
+  "types": ["node", "react", "react-dom"],
   "include": [
     "css-types.d.ts",
     "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    "next.config.ts",
+    "drizzle.config.ts",
+    "doctor.config.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "packages/disposable-email-domains/src/**/*.ts",
+    ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "tools"]
+  "exclude": ["node_modules", "tools", ".next/dev", "dist", "build", "coverage", ".turbo"]
 }
