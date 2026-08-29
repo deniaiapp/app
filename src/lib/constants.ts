@@ -500,10 +500,10 @@ export const models: readonly ModelDefinition[] = [
   },
 ];
 
-export const defaultModel = models.find((model) => model.default === true) ?? models[0];
+export const defaultModel = models.find((model) => model.value === "gpt-5.6-luna") ?? models[0];
 
 /**
- * Models available on the Free plan (and guest sessions).
+ * Models available on the Free plan.
  * Paid tiers (Plus / Pro / Max / Team) unlock the full model catalog.
  */
 export const FREE_PLAN_MODEL_VALUES = [
@@ -516,8 +516,21 @@ export type FreePlanModelValue = (typeof FREE_PLAN_MODEL_VALUES)[number];
 
 const freePlanModelSet = new Set<string>(FREE_PLAN_MODEL_VALUES);
 
+/** Guest sessions are intentionally limited to the default Luna model. */
+export const GUEST_MODEL_VALUES = ["gpt-5.6-luna"] as const;
+
+const guestModelSet = new Set<string>(GUEST_MODEL_VALUES);
+
 export function isFreePlanModel(modelValue: string): boolean {
   return freePlanModelSet.has(modelValue);
+}
+
+export function isGuestModel(modelValue: string): boolean {
+  return guestModelSet.has(modelValue);
+}
+
+export function getModelsForGuest() {
+  return models.filter((model) => isGuestModel(model.value));
 }
 
 export function getModelsForPlanTier(tier: "free" | "plus" | "pro" | "max" | null | undefined) {

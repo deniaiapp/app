@@ -1,6 +1,6 @@
 import type { ModelOption } from "@/components/chat/chat-composer";
 import { authClient } from "@/lib/auth-client";
-import { getModelsForPlanTier } from "@/lib/constants";
+import { getModelsForGuest, getModelsForPlanTier } from "@/lib/constants";
 import { isModelProviderAvailable } from "@/lib/platform-capabilities";
 import { usePlatformCapabilities } from "@/components/platform-capabilities-provider";
 import { trpc } from "@/lib/trpc/react";
@@ -35,7 +35,8 @@ export function useAvailableModels() {
   );
 
   const providerKeys = new Set((providersQuery.data?.keys ?? []).map((entry) => entry.provider));
-  const availableModels: ModelOption[] = getModelsForPlanTier(planTier).filter((model) => {
+  const planModels = isAnonymous ? getModelsForGuest() : getModelsForPlanTier(planTier);
+  const availableModels: ModelOption[] = planModels.filter((model) => {
     const provider = model.provider ?? model.author;
     return isModelProviderAvailable(platformCapabilities, provider) || providerKeys.has(provider);
   });

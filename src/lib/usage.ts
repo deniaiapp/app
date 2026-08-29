@@ -40,8 +40,10 @@ const VERIFIED_FREE_LIMITS: Record<UsageCategory, { limit: number; unit: UsageUn
   premium: { limit: 10_000_000, unit: "tokens" },
 };
 
+export const GUEST_USAGE_MULTIPLIER = 2;
+
 const GUEST_USAGE_LIMITS: Record<UsageCategory, { limit: number; unit: UsageUnit }> = {
-  basic: { limit: 20, unit: "requests" },
+  basic: { limit: 20 * GUEST_USAGE_MULTIPLIER, unit: "requests" },
   premium: { limit: 0, unit: "requests" },
 };
 

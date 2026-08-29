@@ -10,7 +10,7 @@ import { db } from "@/db/drizzle";
 import { providerKey, providerSetting } from "@/db/schema";
 import { env } from "@/env";
 import { decryptFromB64 } from "@/lib/crypto";
-import { isFreePlanModel, models, resolveReasoningEffort } from "@/lib/constants";
+import { isFreePlanModel, isGuestModel, models, resolveReasoningEffort } from "@/lib/constants";
 import { assertSafePublicHttpUrl } from "@/lib/network-security";
 import { createDeniOpenRouter } from "@/lib/openrouter-provider";
 import { isModelProviderAvailable } from "@/lib/platform-capabilities";
@@ -123,6 +123,12 @@ export async function resolveChatModelContext({
 
   if (!selectedModel) {
     throw new ChatRouteError(400, { error: "Unknown model" });
+  }
+
+  if (isAnonymous && !isGuestModel(selectedModel.value)) {
+    throw new ChatRouteError(403, {
+      error: "Only GPT-5.6 Luna is available for guest sessions.",
+    });
   }
 
   let usageUnit: "requests" | "tokens" = "requests";
