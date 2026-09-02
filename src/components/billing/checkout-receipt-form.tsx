@@ -8,9 +8,11 @@ import {
 import type { StripeCheckoutValue } from "@stripe/react-stripe-js/checkout";
 import type { StripeAddressElementChangeEvent, StripePaymentElement } from "@stripe/stripe-js";
 import { ChevronDown, LoaderCircle, Tag, X } from "lucide-react";
+import Link from "next/link";
 import { useExtracted, useLocale } from "next-intl";
 import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { runWithLoading } from "@/lib/run-with-loading";
 import { formatCardBrand, formatPaymentMethodLabel } from "@/lib/stripe-checkout-receipt";
@@ -19,6 +21,41 @@ import { ReceiptPrinterCard, receiptDeviceCardClassName } from "./subscription-r
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Spinner } from "../ui/spinner";
+
+function CheckoutTermsConsent({
+  accepted,
+  onAcceptedChange,
+  disabled,
+}: {
+  accepted: boolean;
+  onAcceptedChange: (accepted: boolean) => void;
+  disabled?: boolean;
+}) {
+  const t = useExtracted();
+
+  return (
+    <label className="mb-3 flex items-start gap-2.5 text-left text-[11px] leading-snug text-white/70">
+      <Checkbox
+        checked={accepted}
+        className="mt-0.5 border-white/35 bg-white/6 data-checked:border-white data-checked:bg-white data-checked:text-[#171717]"
+        disabled={disabled}
+        onCheckedChange={(checked) => onAcceptedChange(checked === true)}
+      />
+      <span>
+        {t(
+          "I agree to the Terms of Service. Digital access is granted immediately and is generally non-refundable.",
+        )}{" "}
+        <Link className="underline underline-offset-2 hover:text-white" href="/legal/terms">
+          {t("Terms of Service")}
+        </Link>
+        {" · "}
+        <Link className="underline underline-offset-2 hover:text-white" href="/legal/tokusho">
+          {t("特定商取引法")}
+        </Link>
+      </span>
+    </label>
+  );
+}
 
 function CheckoutStackSection({
   title,
@@ -316,6 +353,7 @@ export function CheckoutReceiptFormPreview({
           planTitle={planTitle}
           totalAmount="$230.40"
         >
+          <CheckoutTermsConsent accepted onAcceptedChange={() => undefined} disabled />
           <button
             className="flex h-auto min-h-11 w-full flex-col items-center justify-center gap-0.5 rounded-full bg-white px-4 py-2.5 text-[#171717]"
             type="button"
@@ -363,6 +401,7 @@ export function CheckoutReceiptForm({
   const [selectedSavedMethodId, setSelectedSavedMethodId] = useState<string | null>(
     checkout.savedPaymentMethods?.[0]?.id ?? null,
   );
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [addressValue, setAddressValue] = useState<StripeAddressElementChangeEvent["value"] | null>(
     checkout.billingAddress
       ? {
@@ -539,9 +578,10 @@ export function CheckoutReceiptForm({
             </div>
           ) : null}
           {submitError ? <p className="mb-3 text-xs text-red-400">{submitError}</p> : null}
+          <CheckoutTermsConsent accepted={acceptedTerms} onAcceptedChange={setAcceptedTerms} />
           <button
             className="flex h-auto min-h-11 w-full flex-col items-center justify-center gap-0.5 rounded-full bg-white px-4 py-2.5 text-[#171717] transition-opacity disabled:opacity-40"
-            disabled={isSubmitting || !checkout.canConfirm}
+            disabled={isSubmitting || !checkout.canConfirm || !acceptedTerms}
             onClick={onConfirm}
             type="button"
           >

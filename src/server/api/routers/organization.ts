@@ -22,7 +22,10 @@ import { TEAM_SUBSCRIPTION_TRIAL_DAYS, TEAM_TRIAL_MAX_SEATS } from "@/lib/billin
 import { isTrialEligibleForCustomer } from "@/lib/billing-trials";
 import { escapeStripeSearchValue } from "@/lib/stripe-search";
 import { stripe } from "@/lib/stripe";
-import { customCheckoutRequestOptions } from "@/lib/stripe-checkout";
+import {
+  checkoutCardPaymentMethodOptions,
+  customCheckoutRequestOptions,
+} from "@/lib/stripe-checkout";
 import { checkoutSessionExpand, summarizeCheckoutSession } from "@/lib/stripe-checkout-receipt";
 import { attachMaxModeMeteredItems } from "@/lib/max-mode-stripe";
 import {
@@ -988,6 +991,7 @@ export const organizationRouter = router({
             },
             trial_period_days: applyTrial ? TEAM_SUBSCRIPTION_TRIAL_DAYS : undefined,
           },
+          payment_method_options: checkoutCardPaymentMethodOptions,
           allow_promotion_codes: true,
           return_url: `${env.NEXT_PUBLIC_BETTER_AUTH_URL}/settings/team/checkout/{CHECKOUT_SESSION_ID}?organizationId=${input.organizationId}`,
         },

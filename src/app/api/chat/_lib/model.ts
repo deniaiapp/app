@@ -397,7 +397,7 @@ export async function resolveChatModelContext({
       name: "voids",
     });
     // voids.top speaks the Chat Completions API with OpenAI-style model ids
-    // (e.g. gpt-5.6-sol, claude-fable-5). Keep the id as declared in constants.
+    // (e.g. gpt-5.6-sol, claude-fable-5.1). Keep the id as declared in constants.
     return provider.chat(resolvedModelId);
   };
 

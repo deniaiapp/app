@@ -10,6 +10,11 @@ import { isAffiliatePaidStatus, processAffiliatePurchase } from "@/lib/affiliate
 import { resetMaxModeUsage } from "@/lib/max-mode";
 import { stripe } from "@/lib/stripe";
 import {
+  handleChargeDisputeClosed,
+  handleChargeDisputeCreated,
+  handleEarlyFraudWarning,
+} from "@/lib/stripe-disputes";
+import {
   getLicensedPrice,
   getSubscriptionPeriodEnd,
   isMaxModeOnlySubscription,
@@ -415,6 +420,34 @@ export async function POST(req: Request) {
             });
           }
         }
+        break;
+      }
+      case "charge.dispute.created": {
+        const dispute = event.data.object;
+        if (typeof dispute !== "object" || dispute === null || dispute.object !== "dispute") {
+          break;
+        }
+        await handleChargeDisputeCreated(dispute);
+        break;
+      }
+      case "charge.dispute.closed": {
+        const dispute = event.data.object;
+        if (typeof dispute !== "object" || dispute === null || dispute.object !== "dispute") {
+          break;
+        }
+        await handleChargeDisputeClosed(dispute);
+        break;
+      }
+      case "radar.early_fraud_warning.created": {
+        const warning = event.data.object;
+        if (
+          typeof warning !== "object" ||
+          warning === null ||
+          warning.object !== "radar.early_fraud_warning"
+        ) {
+          break;
+        }
+        await handleEarlyFraudWarning(warning);
         break;
       }
       default:

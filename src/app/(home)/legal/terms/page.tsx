@@ -100,7 +100,22 @@ export default function TermsPage() {
           <h2 className="text-xl font-semibold">{t("6. Paid Features")}</h2>
           <p className="text-muted-foreground">
             {t(
-              "If paid plans are offered, pricing and billing terms will be presented at purchase. You are responsible for applicable taxes and fees. Subscription cancellations take effect at the end of the current billing period unless stated otherwise.",
+              "If paid plans are offered, pricing and billing terms will be presented at purchase. You are responsible for applicable taxes and fees.",
+            )}
+          </p>
+          <p className="text-muted-foreground">
+            {t(
+              "Digital access to the Service is granted immediately after payment. Because the Service is a digital product delivered at once, paid plans are generally non-refundable once access has been provided, except where required by applicable law.",
+            )}
+          </p>
+          <p className="text-muted-foreground">
+            {t(
+              "You may cancel a subscription at any time from Billing settings or the customer portal. Cancellation takes effect at the end of the current billing period unless stated otherwise at purchase. You remain responsible for charges incurred before cancellation takes effect.",
+            )}
+          </p>
+          <p className="text-muted-foreground">
+            {t(
+              "If you believe a charge is in error, contact us at contact@deniai.app before disputing the charge with your payment provider. We may contest chargebacks when the account used the Service after payment.",
             )}
           </p>
         </section>

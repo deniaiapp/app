@@ -32,7 +32,11 @@ import { attachMaxModeMeteredItems } from "@/lib/max-mode-stripe";
 import { isTrialEligibleForCustomer } from "@/lib/billing-trials";
 import { escapeStripeSearchValue } from "@/lib/stripe-search";
 import { stripe } from "@/lib/stripe";
-import { customCheckoutRequestOptions } from "@/lib/stripe-checkout";
+import {
+  checkoutCardPaymentMethodOptions,
+  customCheckoutRequestOptions,
+  requestThreeDSecure,
+} from "@/lib/stripe-checkout";
 import { checkoutSessionExpand, summarizeCheckoutSession } from "@/lib/stripe-checkout-receipt";
 import {
   getLicensedPrice,
@@ -588,6 +592,7 @@ export const billingRouter = router({
                 }
               : undefined,
           discounts: flashOfferEligible ? [{ coupon: couponId! }] : undefined,
+          payment_method_options: checkoutCardPaymentMethodOptions,
           payment_intent_data:
             mode === "payment"
               ? {
@@ -1109,6 +1114,11 @@ export const billingRouter = router({
       capture_method: "manual",
       setup_future_usage: "off_session",
       description: "Card verification (released immediately, never charged)",
+      payment_method_options: {
+        card: {
+          request_three_d_secure: requestThreeDSecure,
+        },
+      },
       metadata: {
         userId: ctx.userId,
         purpose: "free_tier_verification",

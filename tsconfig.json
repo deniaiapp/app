@@ -35,7 +35,8 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "packages/disposable-email-domains/src/**/*.ts",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
   ],
   "exclude": ["node_modules", "tools", ".next/dev", "dist", "build", "coverage", ".turbo"]
 }
