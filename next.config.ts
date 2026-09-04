@@ -117,6 +117,10 @@ const nextConfig: NextConfig = {
         headers: marketingCacheHeaders,
       },
       {
+        source: "/legal/privacy-policy",
+        headers: marketingCacheHeaders,
+      },
+      {
         source: "/legal/:path*",
         headers: legalCacheHeaders,
       },
