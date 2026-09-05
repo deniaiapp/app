@@ -45,7 +45,6 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
   NODE_ENV=production \
   SKIP_TYPECHECK=1
 
-COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages ./packages
 COPY . .
 
@@ -119,10 +118,12 @@ ENV DATABASE_URL=$DATABASE_URL \
   NEXT_PUBLIC_ADSENSE_HOME_SLOT_ID=$NEXT_PUBLIC_ADSENSE_HOME_SLOT_ID \
   NEXT_PUBLIC_ADSENSE_CHAT_SLOT_ID=$NEXT_PUBLIC_ADSENSE_CHAT_SLOT_ID
 
+# Mount dependencies from the install stage instead of copying thousands of
+# files into the Node builder. This avoids a slow 40+ second node_modules COPY;
+# the mount is available for the build and is not copied into the runtime image.
 # Persist Turbopack's filesystem cache across Dokploy deploys on this host.
-# `COPY . .` busts the layer cache every push; this mount is what makes
-# subsequent compiles incremental.
-RUN --mount=type=cache,id=deni-ai-next,target=/app/.next/cache \
+RUN --mount=type=bind,from=deps,source=/app/node_modules,target=/app/node_modules \
+  --mount=type=cache,id=deni-ai-next,target=/app/.next/cache \
   node ./node_modules/next/dist/bin/next build
 
 # Temporary disabled (runtime is now bun)
