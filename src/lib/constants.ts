@@ -125,6 +125,18 @@ export function formatModelDeprecationDate(date: string, locale: string): string
 
 export const models: readonly ModelDefinition[] = [
   {
+    name: "GPT-6 Astra",
+    value: "gpt-6-astra",
+    author: "openai",
+    description: "OpenAI flagship for complex reasoning, coding, and agentic work.",
+    premium: true,
+    featured: true,
+    features: ["smartest", "reasoning", "coding", "smart"],
+    efforts: ["low", "medium", "high", "max"],
+    contextWindow: 1_000_000,
+    tokenMultiplier: 3,
+  },
+  {
     name: "GPT-5.6 Sol",
     value: "gpt-5.6-sol",
     author: "openai",
