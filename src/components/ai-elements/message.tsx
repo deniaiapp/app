@@ -7,15 +7,12 @@ import { Button } from "@/components/ui/button";
 import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { cjk } from "@streamdown/cjk";
-import { code } from "@streamdown/code";
-import { math } from "@streamdown/math";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { createContext, memo, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { Streamdown, type PluginConfig } from "streamdown";
+import { Streamdown } from "streamdown";
 import { streamdownLinkSafety } from "@/components/chat/streamdown-link-safety";
-import { lazyMermaid } from "@/components/chat/streamdown-mermaid-plugin";
 import { streamdownOverrideComponents } from "@/components/chat/streamdown-overrides";
+import { useStreamdownPlugins } from "@/components/chat/streamdown-plugins";
 import { streamdownRemarkPlugins } from "@/components/chat/streamdown-remark-plugins";
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
@@ -274,25 +271,23 @@ export const MessageBranchPage = ({ className, ...props }: MessageBranchPageProp
 
 export type MessageResponseProps = ComponentProps<typeof Streamdown>;
 
-const streamdownPlugins: PluginConfig = {
-  cjk,
-  // @streamdown/code currently ships Shiki 3 types while Streamdown uses Shiki 4.
-  code: code as unknown as NonNullable<PluginConfig["code"]>,
-  math,
-  mermaid: lazyMermaid,
-};
-
 export const MessageResponse = memo(
-  ({ className, ...props }: MessageResponseProps) => (
-    <Streamdown
-      className={cn("size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0", className)}
-      plugins={streamdownPlugins}
-      components={streamdownOverrideComponents}
-      remarkPlugins={streamdownRemarkPlugins}
-      linkSafety={streamdownLinkSafety}
-      {...props}
-    />
-  ),
+  ({ className, children, ...props }: MessageResponseProps) => {
+    const plugins = useStreamdownPlugins(children ?? "");
+
+    return (
+      <Streamdown
+        className={cn("size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0", className)}
+        plugins={plugins}
+        components={streamdownOverrideComponents}
+        remarkPlugins={streamdownRemarkPlugins}
+        linkSafety={streamdownLinkSafety}
+        {...props}
+      >
+        {children}
+      </Streamdown>
+    );
+  },
   (prevProps, nextProps) => prevProps.children === nextProps.children,
 );
 

@@ -5,9 +5,6 @@ import type { ComponentProps, ReactNode } from "react";
 import { useControllableState } from "@/lib/base-ui-compat";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { cjk } from "@streamdown/cjk";
-import { code } from "@streamdown/code";
-import { math } from "@streamdown/math";
 import { BrainIcon, ChevronDownIcon } from "lucide-react";
 import {
   createContext,
@@ -19,9 +16,9 @@ import {
   useRef,
   useState,
 } from "react";
-import { Streamdown, type PluginConfig } from "streamdown";
+import { Streamdown } from "streamdown";
 import { streamdownLinkSafety } from "@/components/chat/streamdown-link-safety";
-import { lazyMermaid } from "@/components/chat/streamdown-mermaid-plugin";
+import { useStreamdownPlugins } from "@/components/chat/streamdown-plugins";
 import { streamdownRemarkPlugins } from "@/components/chat/streamdown-remark-plugins";
 
 import { Shimmer } from "./shimmer";
@@ -191,32 +188,28 @@ export type ReasoningContentProps = ComponentProps<typeof CollapsibleContent> & 
   children: string;
 };
 
-const streamdownPlugins: PluginConfig = {
-  cjk,
-  // @streamdown/code currently ships Shiki 3 types while Streamdown uses Shiki 4.
-  code: code as unknown as NonNullable<PluginConfig["code"]>,
-  math,
-  mermaid: lazyMermaid,
-};
+export const ReasoningContent = memo(({ className, children, ...props }: ReasoningContentProps) => {
+  const plugins = useStreamdownPlugins(children);
 
-export const ReasoningContent = memo(({ className, children, ...props }: ReasoningContentProps) => (
-  <CollapsibleContent
-    className={cn(
-      "mt-4 text-sm",
-      "data-closed:fade-out-0 data-closed:slide-out-to-top-2 data-open:slide-in-from-top-2 text-muted-foreground outline-none data-closed:animate-out data-open:animate-in",
-      className,
-    )}
-    {...props}
-  >
-    <Streamdown
-      plugins={streamdownPlugins}
-      remarkPlugins={streamdownRemarkPlugins}
-      linkSafety={streamdownLinkSafety}
+  return (
+    <CollapsibleContent
+      className={cn(
+        "mt-4 text-sm",
+        "data-closed:fade-out-0 data-closed:slide-out-to-top-2 data-open:slide-in-from-top-2 text-muted-foreground outline-none data-closed:animate-out data-open:animate-in",
+        className,
+      )}
+      {...props}
     >
-      {children}
-    </Streamdown>
-  </CollapsibleContent>
-));
+      <Streamdown
+        plugins={plugins}
+        remarkPlugins={streamdownRemarkPlugins}
+        linkSafety={streamdownLinkSafety}
+      >
+        {children}
+      </Streamdown>
+    </CollapsibleContent>
+  );
+});
 
 Reasoning.displayName = "Reasoning";
 ReasoningTrigger.displayName = "ReasoningTrigger";
