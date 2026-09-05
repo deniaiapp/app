@@ -26,6 +26,8 @@
         "@openrouter/ai-sdk-provider": "^3.0.0",
         "@react-email/components": "^1.0.12",
         "@react-email/render": "^2.1.0",
+        "@shikijs/langs": "4.4.3",
+        "@shikijs/themes": "4.4.3",
         "@streamdown/cjk": "^1.0.3",
         "@streamdown/math": "^1.0.2",
         "@streamdown/mermaid": "^1.0.2",
