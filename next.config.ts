@@ -18,8 +18,17 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: skipTypecheck,
   },
-  // Leave large Node-only SDKs unbundled; Next already treats `shiki` as external.
-  serverExternalPackages: ["stripe", "drizzle-orm", "@neondatabase/serverless", "cheerio"],
+  // Keep server dependencies inside the standalone bundle. Bun's isolated
+  // virtual store can otherwise leave Turbopack external aliases unresolved
+  // after the standalone output is copied into the runtime image.
+  transpilePackages: [
+    "stripe",
+    "drizzle-orm",
+    "@neondatabase/serverless",
+    "cheerio",
+    "shiki",
+    "prettier",
+  ],
   // Tree-shake large icon/date packages more aggressively
   experimental: {
     optimizePackageImports: [
