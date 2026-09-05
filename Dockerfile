@@ -16,6 +16,8 @@
 #   - NEXT_PUBLIC_* MUST be build-time (embedded into the client bundle).
 #   - Server secrets are also injected at build for `@t3-oss/env-nextjs`
 #     validation / prerender; runtime still uses service Environment.
+#   - Leave Docker layer/BuildKit cache enabled. `.next/cache` is a cache
+#     mount so later deploys compile incrementally on the same host.
 #
 # Local:
 #   docker build -t deni-ai .
@@ -30,15 +32,18 @@ FROM oven/bun:1 AS deps
 WORKDIR /app
 COPY package.json bun.lock ./
 COPY packages/disposable-email-domains ./packages/disposable-email-domains
-RUN bun install --frozen-lockfile
+RUN --mount=type=cache,id=deni-ai-bun,target=/root/.bun/install/cache \
+  bun install --frozen-lockfile
 
 # ---------------------------------------------------------------------------
 # Build (Next.js production build)
+# Node, not Bun: Next's compiler/workers are more stable on small VPS CPUs.
 # ---------------------------------------------------------------------------
-FROM oven/bun:1 AS builder
+FROM node:22-bookworm-slim AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1 \
-  NODE_ENV=production
+  NODE_ENV=production \
+  SKIP_TYPECHECK=1
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages ./packages
@@ -114,7 +119,11 @@ ENV DATABASE_URL=$DATABASE_URL \
   NEXT_PUBLIC_ADSENSE_HOME_SLOT_ID=$NEXT_PUBLIC_ADSENSE_HOME_SLOT_ID \
   NEXT_PUBLIC_ADSENSE_CHAT_SLOT_ID=$NEXT_PUBLIC_ADSENSE_CHAT_SLOT_ID
 
-RUN bun --bun run build
+# Persist Turbopack's filesystem cache across Dokploy deploys on this host.
+# `COPY . .` busts the layer cache every push; this mount is what makes
+# subsequent compiles incremental.
+RUN --mount=type=cache,id=deni-ai-next,target=/app/.next/cache \
+  node ./node_modules/next/dist/bin/next build
 
 # Temporary disabled (runtime is now bun)
 # # Next's standalone tracer can copy only the CJS side of Bun's virtual-store

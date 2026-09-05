@@ -1,17 +1,25 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
+const skipTypecheck = process.env.SKIP_TYPECHECK === "1";
+
 const nextConfig: NextConfig = {
   /* config options here */
   // Smaller runtime image for Docker / self-hosting (Vercel ignores this).
   output: "standalone",
-  transpilePackages: ["shiki"],
   cacheComponents: true,
   // One App Shell per route (shared across every /chat/[id] link). Required for
   // instant chat list navigations under Cache Components.
   partialPrefetching: true,
   reactCompiler: true,
   poweredByHeader: false,
+  // Docker / Dokploy sets SKIP_TYPECHECK=1 so tsc does not contend with Turbopack
+  // on small VPS CPUs. Run `bun run typecheck` locally or in CI instead.
+  typescript: {
+    ignoreBuildErrors: skipTypecheck,
+  },
+  // Leave large Node-only SDKs unbundled; Next already treats `shiki` as external.
+  serverExternalPackages: ["stripe", "drizzle-orm", "@neondatabase/serverless", "cheerio"],
   // Tree-shake large icon/date packages more aggressively
   experimental: {
     optimizePackageImports: [
@@ -21,6 +29,7 @@ const nextConfig: NextConfig = {
       "motion",
       "@dnd-kit/core",
       "@dnd-kit/utilities",
+      "@base-ui/react",
     ],
     turbopackFileSystemCacheForBuild: true,
     turbopackRustReactCompiler: true,

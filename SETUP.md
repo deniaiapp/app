@@ -296,8 +296,10 @@ Schema change workflow:
 
 A multi-stage `Dockerfile` is included for self-hosting (e.g. Dokploy):
 
-- **Build:** Bun installs deps and runs `next build` (standalone output)
-- **Run:** Node serves `.next/standalone` on port **3000**
+- **Install:** Bun (`bun.lock`)
+- **Build:** Node 22 runs `next build` (standalone output). Typecheck is skipped in the image (`SKIP_TYPECHECK=1`) so tsc does not fight Turbopack on small VPS CPUs — run `bun run typecheck` locally or in CI.
+- **Run:** Bun serves `.next/standalone` on port **3000**
+- Turbopack's `.next/cache` is stored in a BuildKit cache mount, so later deploys on the **same Dokploy host** compile incrementally. Do not enable “disable cache” / `--no-cache` in the service settings.
 - `NEXT_PUBLIC_*` values must be present at **build time** (inlined into the client bundle)
 - Server secrets should also be available at build time for `@t3-oss/env-nextjs` validation / prerender; optional provider keys can be omitted and disable their features
 
@@ -309,6 +311,7 @@ Dokploy application settings (typical):
 | Dockerfile path | `Dockerfile` |
 | Context         | `.`          |
 | Port            | `3000`       |
+| Build cache     | enabled      |
 
 Put the same keys as production `.env` in the service **Environment** tab, and pass them as **build-time** args/env for `NEXT_PUBLIC_*` plus any provider keys you want enabled during the build. See comments at the top of `Dockerfile`.
 
