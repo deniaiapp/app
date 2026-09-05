@@ -126,6 +126,29 @@ RUN --mount=type=bind,from=deps,source=/app/node_modules,target=/app/node_module
   --mount=type=cache,id=deni-ai-next,target=/app/.next/cache \
   node ./node_modules/next/dist/bin/next build
 
+# Turbopack emits aliases for external packages under `.next/node_modules`.
+# Bun resolves those aliases through absolute paths in the builder's virtual
+# store, which would be broken after only `.next/standalone` is copied to the
+# runtime image. Re-home the aliases to the traced virtual store that
+# standalone already contains.
+RUN set -eu; \
+  alias_dir=.next/standalone/.next/node_modules; \
+  if [ -d "$alias_dir" ]; then \
+    for alias in "$alias_dir"/*; do \
+      [ -L "$alias" ] || continue; \
+      target="$(readlink "$alias")"; \
+      case "$target" in \
+        /app/node_modules/.bun/*) \
+          store_path="${target#/app/node_modules/.bun/}"; \
+          traced_path=".next/standalone/node_modules/.bun/$store_path"; \
+          [ -e "$traced_path" ] || { echo "Missing traced external package: $traced_path" >&2; exit 1; }; \
+          rm "$alias"; \
+          ln -s "../../node_modules/.bun/$store_path" "$alias"; \
+          ;; \
+      esac; \
+    done; \
+  fi
+
 # Temporary disabled (runtime is now bun)
 # # Next's standalone tracer can copy only the CJS side of Bun's virtual-store
 # # @swc/helpers package. Node 22 resolves its `module-sync` condition to ESM,
