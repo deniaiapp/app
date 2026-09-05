@@ -131,11 +131,10 @@ Default branch for day-to-day work is **`canary`**. **`master`** is the promotio
 
 When the user asks to commit / push / PR / merge (including phrasing like 「全commit & push & pr & instant merge」):
 
-1. **Work branch → `canary`**
-   - Create a feature/fix branch from up-to-date `canary`.
-   - Commit scoped changes (conventional commits).
-   - Push the branch and open a PR with **base = `canary`**.
-   - If the user asked to merge (or "instant merge"), merge that PR into `canary` (delete the head branch when appropriate) and pull `canary` locally.
+1. **Directly on `canary`**
+   - Do not create a feature/fix branch or a PR into `canary` unless the user explicitly requests one.
+   - Update the local `canary` from its remote, then commit scoped changes there using a conventional commit message.
+   - Push `canary` directly to `origin/canary`.
 2. **`canary` → `master` (required promotion step)**
    - After landing work on `canary`, **always open a PR with base = `master` and head = `canary`** to promote.
    - If the user asked to merge / instant merge, merge that PR into `master` as well (do not leave promotion only on `canary`).
