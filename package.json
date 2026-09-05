@@ -48,7 +48,6 @@
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.1.0",
     "@streamdown/cjk": "^1.0.3",
-    "@streamdown/code": "^1.1.1",
     "@streamdown/math": "^1.0.2",
     "@streamdown/mermaid": "^1.0.2",
     "@stripe/react-stripe-js": "^6.8.2",

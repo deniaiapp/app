@@ -48,6 +48,8 @@ tools
 scripts
 coverage
 public/sw.js.map
+ts-files.txt
+ts-files-after.txt
 
 # OS junk
 .DS_Store

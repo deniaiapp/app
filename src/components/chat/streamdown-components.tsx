@@ -1,7 +1,6 @@
 "use client";
 
 import type { ComponentProps, ReactNode } from "react";
-import type { BundledLanguage } from "shiki";
 import { EyeIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
@@ -67,7 +66,7 @@ export function StreamdownCode({ className, children, ...props }: StreamdownCode
     );
   }
 
-  const language = resolveLanguage(className) as BundledLanguage;
+  const language = resolveLanguage(className);
   const code = extractText(children).replace(/\n$/, "");
   const isPreviewable = PREVIEWABLE.has(language.toLowerCase());
 
