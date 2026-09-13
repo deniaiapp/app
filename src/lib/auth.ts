@@ -193,7 +193,11 @@ export const auth = betterAuth({
     // Expose Deni AI as an OpenID Connect-compatible OAuth 2.1 provider for
     // external applications. The authorization-code flow is intentionally the
     // only interactive grant; refresh tokens require the offline_access scope.
-    jwt(),
+    // The OAuth provider signs its own access and ID tokens. Do not mirror the
+    // complete session user into a `set-auth-jwt` response header: profile
+    // images can be data URLs, and a large image would exceed Cloudflare's
+    // response-header limit and turn `/get-session` into a 502.
+    jwt({ disableSettingJwtHeader: true }),
     oauthProvider({
       loginPage: "/auth/sign-in",
       consentPage: "/oauth/consent",
