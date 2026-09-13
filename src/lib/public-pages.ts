@@ -30,6 +30,7 @@ export const publicPages: PublicPage[] = [
   { path: "/guides/free-ai-chat", changeFrequency: "monthly", priority: 0.85 },
   { path: "/changelog", changeFrequency: "weekly", priority: 0.8 },
   { path: "/migration", changeFrequency: "monthly", priority: 0.4 },
+  { path: "/oauth/example", changeFrequency: "monthly", priority: 0.6 },
   { path: "/legal/terms", changeFrequency: "yearly", priority: 0.3 },
   { path: "/legal/privacy-policy", changeFrequency: "yearly", priority: 0.3 },
   { path: "/legal/tokusho", changeFrequency: "yearly", priority: 0.3 },

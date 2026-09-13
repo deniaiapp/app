@@ -15,7 +15,7 @@ Deni AI is a multi-model AI chat app for people who want strong model choice wit
 - **Teams** — organizations, seats, shared Pro or Max access (per-seat billing), and team projects
 - **Billing** — Stripe subscriptions (personal and team) plus Max Mode metered overage; optional self-host disable via `NEXT_PUBLIC_BILLING_DISABLED`
 - **Affiliate referrals** — shareable invite links, QR codes, milestone reset credits, and selectable paid-plan rewards (three resets or a manually sent 30% OFF coupon)
-- **Auth** — Google / GitHub OAuth, magic link, anonymous guest, passkeys, and 2FA (better-auth)
+- **Auth** — Google / GitHub sign-in, Deni AI OAuth 2.1 / OpenID Connect provider, magic link, anonymous guest, passkeys, and 2FA (better-auth)
 - **i18n** — English and Japanese (`next-intl`)
 - **Public guides & blog** — original articles on model choice, verification, and practical AI use, available without an account
 - **PWA** — installable progressive web app assets and service worker
