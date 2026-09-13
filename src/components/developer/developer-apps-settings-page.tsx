@@ -340,6 +340,8 @@ export default function DeveloperAppsSettingsPage() {
   const queryClient = useQueryClient();
   const { data: session, isPending: sessionPending } = authClient.useSession();
   const isAnonymous = session?.user?.isAnonymous === true;
+  const clientQueryKey = [...CLIENTS_QUERY_KEY, session?.user?.id ?? "anonymous"] as const;
+  const isAuthenticated = Boolean(session?.user) && !isAnonymous;
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<OAuthClient | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<OAuthClient | null>(null);
@@ -349,7 +351,7 @@ export default function DeveloperAppsSettingsPage() {
   const [credentialReveal, setCredentialReveal] = useState<CredentialReveal | null>(null);
 
   const clientsQuery = useQuery({
-    queryKey: CLIENTS_QUERY_KEY,
+    queryKey: clientQueryKey,
     queryFn: async () => {
       const { data, error } = await authClient.oauth2.getClients();
       if (error) throw new Error(error.message);
@@ -357,8 +359,10 @@ export default function DeveloperAppsSettingsPage() {
     },
     enabled: Boolean(session?.user) && !isAnonymous,
   });
+  const hasReachedLimit = clientsQuery.data ? clientsQuery.data.length >= 10 : false;
 
-  const refreshClients = () => queryClient.invalidateQueries({ queryKey: CLIENTS_QUERY_KEY });
+  const refreshClients = () =>
+    queryClient.invalidateQueries({ queryKey: CLIENTS_QUERY_KEY, refetchType: "active" });
 
   const createMutation = useMutation({
     mutationFn: async (input: AppFormState) => {
@@ -380,6 +384,11 @@ export default function DeveloperAppsSettingsPage() {
       return data;
     },
     onSuccess: (client) => {
+      const clientForList = { ...client, client_secret: undefined };
+      queryClient.setQueryData<OAuthClient[]>(clientQueryKey, (current) => [
+        ...(current ?? []),
+        clientForList,
+      ]);
       void refreshClients();
       setCreateOpen(false);
       setForm(EMPTY_FORM);
@@ -424,8 +433,12 @@ export default function DeveloperAppsSettingsPage() {
     mutationFn: async (clientId: string) => {
       const { error } = await authClient.oauth2.deleteClient({ client_id: clientId });
       if (error) throw new Error(error.message);
+      return clientId;
     },
-    onSuccess: () => {
+    onSuccess: (deletedClientId) => {
+      queryClient.setQueryData<OAuthClient[]>(clientQueryKey, (current) =>
+        current?.filter((client) => client.client_id !== deletedClientId),
+      );
       void refreshClients();
       setDeleteTarget(null);
       toast.success(t("OAuth application deleted."));
@@ -490,7 +503,16 @@ export default function DeveloperAppsSettingsPage() {
       actions={
         <Button
           onClick={openCreate}
-          disabled={sessionPending || !session?.user || isAnonymous || clients.length >= 10}
+          disabled={sessionPending || !isAuthenticated || hasReachedLimit}
+          title={
+            sessionPending
+              ? t("Loading your session…")
+              : !session?.user || isAnonymous
+                ? t("Sign in with a permanent account to create applications.")
+                : hasReachedLimit
+                  ? t("You can register up to 10 applications.")
+                  : undefined
+          }
         >
           <Plus data-icon="inline-start" />
           {t("Create application")}
@@ -508,9 +530,24 @@ export default function DeveloperAppsSettingsPage() {
                 )}
               </CardDescription>
             </div>
-            <Badge variant="outline">
-              {t("{count}/10 apps", { count: String(clients.length) })}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline">
+                {t("{count}/10 apps", { count: String(clients.length) })}
+              </Badge>
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                aria-label={t("Refresh applications")}
+                onClick={() => void clientsQuery.refetch()}
+                disabled={!isAuthenticated || clientsQuery.isFetching}
+              >
+                <RefreshCw
+                  data-icon="inline-start"
+                  className={clientsQuery.isFetching ? "animate-spin" : undefined}
+                />
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -529,6 +566,11 @@ export default function DeveloperAppsSettingsPage() {
                   {t("Guest accounts cannot register OAuth applications.")}
                 </EmptyDescription>
               </EmptyHeader>
+              <EmptyContent>
+                <Button render={<Link href="/auth/sign-in?redirectTo=/settings/developer" />}>
+                  {t("Sign in")}
+                </Button>
+              </EmptyContent>
             </Empty>
           ) : clientsQuery.isLoading ? (
             <div className="flex min-h-56 items-center justify-center">
