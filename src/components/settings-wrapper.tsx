@@ -98,6 +98,11 @@ export default function SettingsWrapper({ children }: { children: React.ReactNod
       href: "/settings/api-keys",
     },
     {
+      label: t("Developer"),
+      value: "developer",
+      href: "/settings/developer",
+    },
+    {
       label: t("Sharing"),
       value: "sharing",
       href: "/settings/sharing",

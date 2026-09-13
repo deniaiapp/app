@@ -1,4 +1,5 @@
 import { passkeyClient } from "@better-auth/passkey/client";
+import { oauthProviderClient } from "@better-auth/oauth-provider/client";
 import {
   anonymousClient,
   lastLoginMethodClient,
@@ -19,6 +20,9 @@ if (!baseURL) {
 export const authClient = createAuthClient({
   baseURL,
   plugins: [
+    // For OAuth authorization redirects, forward the signed query from the
+    // current login/consent page to Better Auth's continuation endpoints.
+    oauthProviderClient(),
     anonymousClient(),
     twoFactorClient({
       // Prefer SPA navigation when possible; fall back is still a hard assign so
