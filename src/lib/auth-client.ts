@@ -29,7 +29,10 @@ export const authClient = createAuthClient({
       // users never land on /chat without a completed second factor.
       onTwoFactorRedirect() {
         if (typeof window === "undefined") return;
-        window.location.assign(TWO_FACTOR_PATH);
+        // Keep OAuth's signed query (and any explicit redirectTo) attached to
+        // the challenge page so its verification request can continue the
+        // original authorization flow.
+        window.location.assign(`${TWO_FACTOR_PATH}${window.location.search}`);
       },
     }),
     lastLoginMethodClient(),
