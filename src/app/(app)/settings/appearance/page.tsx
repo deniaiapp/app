@@ -165,7 +165,7 @@ export default function AppearancePage() {
                 variant={activeMode === value ? "default" : "outline"}
                 size="sm"
                 onClick={() => setTheme(value)}
-                className="flex-1 gap-2 h-9"
+                className="flex-1 flex-col md:flex-row py-8! gap-2 h-9"
               >
                 <Icon className="size-4" />
                 {label}
