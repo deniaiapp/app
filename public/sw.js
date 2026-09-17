@@ -1,4 +1,4 @@
-const STATIC_CACHE = "deni-ai-static-v1";
+const STATIC_CACHE = "deni-ai-static-v2";
 const PAGE_CACHE = "deni-ai-pages-v1";
 const PRECACHE_URLS = [
   "/home",
@@ -6,6 +6,8 @@ const PRECACHE_URLS = [
   "/favicon.ico",
   "/pwa/apple-touch-icon.png",
   "/pwa/favicon-32x32.png",
+  "/pwa/android-chrome-192x192.png",
+  "/pwa/android-chrome-512x512.png",
   "/icon-192x192",
   "/icon-512x512",
   "/og.png",
