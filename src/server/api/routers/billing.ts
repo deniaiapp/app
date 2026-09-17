@@ -27,7 +27,7 @@ import {
   isFlashOfferPlan,
   SUBSCRIPTION_TRIAL_DAYS,
 } from "@/lib/billing-offers";
-import { disableMaxMode, enableMaxMode, getMaxModeStatus, MAX_MODE_PRICING } from "@/lib/max-mode";
+import { disableMaxMode, enableMaxMode, getMaxModeStatus } from "@/lib/max-mode";
 import { attachMaxModeMeteredItems } from "@/lib/max-mode-stripe";
 import { isTrialEligibleForCustomer } from "@/lib/billing-trials";
 import { escapeStripeSearchValue } from "@/lib/stripe-search";
@@ -1074,11 +1074,7 @@ export const billingRouter = router({
     }),
   // Max Mode endpoints
   maxModeStatus: protectedProcedure.query(async ({ ctx }) => {
-    const status = await getMaxModeStatus(ctx.userId);
-    return {
-      ...status,
-      pricing: MAX_MODE_PRICING,
-    };
+    return getMaxModeStatus(ctx.userId);
   }),
   enableMaxMode: billingEnabledProcedure.mutation(async ({ ctx }) => {
     const result = await enableMaxMode(ctx.userId);

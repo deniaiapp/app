@@ -50,10 +50,6 @@ export function useFormatCurrencyMinor() {
     formatMinorCurrency(amountMinor, currency, { currencyDisplay: "code" }, locale);
 }
 
-export function formatDollarFromCents(cents: number) {
-  return `$${(cents / 100).toFixed(2)}`;
-}
-
 export function calculateYearlySavingsPercent(
   yearlyPlan?: ClientPlan | null,
   monthlyPlan?: ClientPlan | null,

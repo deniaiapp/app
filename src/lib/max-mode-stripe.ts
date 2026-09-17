@@ -8,6 +8,7 @@ import {
   getLicensedPrice,
   isMaxModeOnlySubscription,
   isMeteredMaxModePrice,
+  pickLicensedSubscription,
 } from "@/lib/stripe-subscriptions";
 
 const MAX_MODE_EVENT_NAMES = {
@@ -16,6 +17,10 @@ const MAX_MODE_EVENT_NAMES = {
 } as const;
 
 export type MaxModeCategory = keyof typeof MAX_MODE_EVENT_NAMES;
+
+export type MaxModeCurrency = "usd" | "jpy";
+
+const DEFAULT_MAX_MODE_CURRENCY: MaxModeCurrency = "usd";
 
 /** Max Mode overage is always invoiced monthly, including on yearly plans. */
 export function maxModePriceLookupKey(category: MaxModeCategory) {
@@ -41,16 +46,53 @@ type AttachResult =
 
 const ACTIVE_STATUSES = new Set(["active", "trialing", "past_due"]);
 
-async function listMonthlyMaxModePrices() {
+function normalizeMaxModeCurrency(currency: string | null | undefined): MaxModeCurrency {
+  return currency?.toLowerCase() === "jpy" ? "jpy" : DEFAULT_MAX_MODE_CURRENCY;
+}
+
+async function listMonthlyMaxModePrices(currency: MaxModeCurrency) {
   const lookupKeys = [maxModePriceLookupKey("basic"), maxModePriceLookupKey("premium")];
   const prices = await stripe.prices.list({
     lookup_keys: lookupKeys,
     active: true,
-    limit: 4,
+    expand: ["data.currency_options"],
+    limit: 100,
   });
-  const basic = prices.data.find((price) => price.lookup_key === lookupKeys[0]) ?? null;
-  const premium = prices.data.find((price) => price.lookup_key === lookupKeys[1]) ?? null;
+
+  const findPrice = (lookupKey: string) =>
+    prices.data.find(
+      (price) =>
+        price.lookup_key === lookupKey &&
+        (price.currency.toLowerCase() === currency || Boolean(price.currency_options?.[currency])),
+    ) ?? null;
+
+  const basic = findPrice(lookupKeys[0]);
+  const premium = findPrice(lookupKeys[1]);
   return { basic, premium };
+}
+
+function getPriceUnitAmount(price: Stripe.Price | null, currency: MaxModeCurrency) {
+  if (!price) {
+    return null;
+  }
+
+  if (price.currency.toLowerCase() === currency) {
+    return price.unit_amount;
+  }
+
+  return price.currency_options?.[currency]?.unit_amount ?? null;
+}
+
+export async function getMaxModePriceAmounts(currency: MaxModeCurrency) {
+  try {
+    const prices = await listMonthlyMaxModePrices(currency);
+    return {
+      basic: getPriceUnitAmount(prices.basic, currency),
+      premium: getPriceUnitAmount(prices.premium, currency),
+    };
+  } catch {
+    return { basic: null, premium: null };
+  }
 }
 
 function findMeteredItem(subscription: Stripe.Subscription, lookupKey: string) {
@@ -92,20 +134,25 @@ async function ensureSubscriptionItem(
   return created.id;
 }
 
-async function createMeteredOnlySubscription(customerId: string, userId: string) {
-  const prices = await listMonthlyMaxModePrices();
+async function createMeteredOnlySubscription(
+  customerId: string,
+  userId: string,
+  currency: MaxModeCurrency,
+) {
+  const prices = await listMonthlyMaxModePrices(currency);
   if (!prices.basic || !prices.premium) {
     return null;
   }
 
   return stripe.subscriptions.create({
     customer: customerId,
+    currency,
     items: [{ price: prices.basic.id }, { price: prices.premium.id }],
     metadata: { purpose: "max_mode", userId },
   });
 }
 
-async function findExistingMaxModeSubscription(customerId: string) {
+async function findExistingMaxModeSubscription(customerId: string, currency: MaxModeCurrency) {
   const listed = await stripe.subscriptions.list({
     customer: customerId,
     status: "all",
@@ -113,8 +160,12 @@ async function findExistingMaxModeSubscription(customerId: string) {
     expand: ["data.items"],
   });
   return (
-    listed.data.find((sub) => ACTIVE_STATUSES.has(sub.status) && isMaxModeOnlySubscription(sub)) ??
-    null
+    listed.data.find(
+      (sub) =>
+        ACTIVE_STATUSES.has(sub.status) &&
+        isMaxModeOnlySubscription(sub) &&
+        normalizeMaxModeCurrency(sub.currency) === currency,
+    ) ?? null
   );
 }
 
@@ -134,12 +185,22 @@ async function pruneDuplicateMaxModeHosts(customerId: string, host: Stripe.Subsc
       continue;
     }
 
-    if (isMaxModeOnlySubscription(sub) && !isMaxModeOnlySubscription(host)) {
+    const subIsMaxModeOnly = isMaxModeOnlySubscription(sub);
+    const hostIsMaxModeOnly = isMaxModeOnlySubscription(host);
+
+    if (subIsMaxModeOnly && hostIsMaxModeOnly) {
+      if (normalizeMaxModeCurrency(sub.currency) !== normalizeMaxModeCurrency(host.currency)) {
+        cancellations.push(stripe.subscriptions.cancel(sub.id, { prorate: true }));
+      }
+      continue;
+    }
+
+    if (subIsMaxModeOnly && !hostIsMaxModeOnly) {
       cancellations.push(stripe.subscriptions.cancel(sub.id, { prorate: true }));
       continue;
     }
 
-    if (!isMaxModeOnlySubscription(sub) && isMaxModeOnlySubscription(host)) {
+    if (!subIsMaxModeOnly && hostIsMaxModeOnly) {
       for (const item of sub.items.data) {
         if (isMeteredMaxModePrice(item.price)) {
           itemDeletes.push(
@@ -161,6 +222,38 @@ async function retrieveSubscription(id: string) {
   }
 }
 
+export async function getMaxModeBillingCurrency(
+  record: MaxModeStripeRecord,
+): Promise<MaxModeCurrency> {
+  if (isBillingDisabled) {
+    return DEFAULT_MAX_MODE_CURRENCY;
+  }
+
+  const storedSubscription = record.stripeSubscriptionId
+    ? await retrieveSubscription(record.stripeSubscriptionId)
+    : null;
+
+  if (storedSubscription && !isMaxModeOnlySubscription(storedSubscription)) {
+    return normalizeMaxModeCurrency(storedSubscription.currency);
+  }
+
+  try {
+    const listed = await stripe.subscriptions.list({
+      customer: record.stripeCustomerId,
+      status: "all",
+      limit: 20,
+      expand: ["data.items"],
+    });
+    const licensedSubscription = pickLicensedSubscription(listed.data, (status) =>
+      ACTIVE_STATUSES.has(status),
+    );
+
+    return normalizeMaxModeCurrency(licensedSubscription?.currency);
+  } catch {
+    return DEFAULT_MAX_MODE_CURRENCY;
+  }
+}
+
 /**
  * Host Max Mode meters on a monthly Stripe subscription.
  * Monthly plans reuse the plan subscription; yearly (and other) plans get a
@@ -169,6 +262,7 @@ async function retrieveSubscription(id: string) {
 async function resolveMaxModeHostSubscription(
   record: MaxModeStripeRecord,
   userId: string,
+  currency: MaxModeCurrency,
 ): Promise<Stripe.Subscription | { error: string }> {
   const planSubscription = record.stripeSubscriptionId
     ? await retrieveSubscription(record.stripeSubscriptionId)
@@ -181,17 +275,22 @@ async function resolveMaxModeHostSubscription(
     }
   }
 
-  if (planIsActive && planSubscription && isMaxModeOnlySubscription(planSubscription)) {
+  if (
+    planIsActive &&
+    planSubscription &&
+    isMaxModeOnlySubscription(planSubscription) &&
+    normalizeMaxModeCurrency(planSubscription.currency) === currency
+  ) {
     return planSubscription;
   }
 
-  const existing = await findExistingMaxModeSubscription(record.stripeCustomerId);
+  const existing = await findExistingMaxModeSubscription(record.stripeCustomerId, currency);
   if (existing) {
     return existing;
   }
 
   try {
-    const created = await createMeteredOnlySubscription(record.stripeCustomerId, userId);
+    const created = await createMeteredOnlySubscription(record.stripeCustomerId, userId, currency);
     if (!created) {
       return {
         error:
@@ -222,12 +321,13 @@ export async function attachMaxModeMeteredItems(
     return { ok: false, error: "No Stripe customer is linked to this account." };
   }
 
-  const host = await resolveMaxModeHostSubscription(record, userId);
+  const currency = await getMaxModeBillingCurrency(record);
+  const host = await resolveMaxModeHostSubscription(record, userId, currency);
   if ("error" in host) {
     return { ok: false, error: host.error };
   }
 
-  const prices = await listMonthlyMaxModePrices();
+  const prices = await listMonthlyMaxModePrices(currency);
   if (!prices.basic || !prices.premium) {
     return {
       ok: false,

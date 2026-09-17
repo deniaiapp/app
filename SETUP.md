@@ -323,10 +323,12 @@ bun --env-file=.env.local ./tools/stripe-max-mode-setup.ts
 
 That script creates:
 
-| Meter event name   | Lookup key               | Rate                   |
+| Meter event name   | Lookup key               | Rate (USD default)     |
 | ------------------ | ------------------------ | ---------------------- |
 | `max_mode_basic`   | `max_mode_basic_month`   | $0.01 per 1,000 tokens |
 | `max_mode_premium` | `max_mode_premium_month` | $0.05 per 1,000 tokens |
+
+Configure both USD and JPY availability for each Max Mode price (as currency options or matching active prices). The app reads the currency from the customer's active plan subscription: JPY subscriptions use JPY Max Mode prices, while USD subscriptions use USD prices.
 
 Without these lookup keys, Max Mode can still record usage locally but enabling it (and invoicing) fails until the prices exist.
 

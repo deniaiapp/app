@@ -4,18 +4,29 @@ import { db } from "@/db/drizzle";
 import { billing, member, teamMemberUsagePolicy, teamUsagePolicy } from "@/db/schema";
 import { isProOrHigherTier } from "@/lib/billing";
 import { isBillingDisabled } from "@/lib/billing-config";
-import { attachMaxModeMeteredItems } from "@/lib/max-mode-stripe";
+import {
+  attachMaxModeMeteredItems,
+  getMaxModeBillingCurrency,
+  getMaxModePriceAmounts,
+  type MaxModeCurrency,
+} from "@/lib/max-mode-stripe";
 import { stripe } from "@/lib/stripe";
 
 import type { UsageCategory } from "./usage";
 
-// Max Mode pricing in cents per token unit. Chat usage sends token counts,
-// so configure the Stripe meter price to bill per 1,000 tokens.
+// Max Mode pricing in minor currency units per token unit. Chat usage sends
+// token counts, so configure the Stripe meter price to bill per 1,000 tokens.
 export const MAX_MODE_PRICING = {
   unitTokens: 1_000,
-  basic: 1, // $0.01 per 1K basic tokens
-  premium: 5, // $0.05 per 1K premium tokens
+  basic: 1, // $0.01 / ¥1 per 1K basic tokens
+  premium: 5, // $0.05 / ¥5 per 1K premium tokens
 } as const;
+
+export type MaxModePricing = {
+  unitTokens: number;
+  basic: number;
+  premium: number;
+};
 
 // Max Mode is only available for Pro and Max plan users
 export function isMaxModeEligible(planId: string | null | undefined): boolean {
@@ -87,13 +98,15 @@ async function getEffectiveBillingRecord(userId: string) {
 }
 
 export type MaxModeStatus = {
+  currency: MaxModeCurrency;
+  pricing: MaxModePricing;
   eligible: boolean;
   enabled: boolean;
   memberEnabled: boolean;
   usageBasic: number;
   usagePremium: number;
   periodStart: Date | null;
-  estimatedCost: number; // in cents, may include fractions below one cent
+  estimatedCost: number; // in minor currency units, may include fractions below one unit
 };
 
 export async function getMaxModeStatus(userId: string): Promise<MaxModeStatus> {
@@ -101,6 +114,8 @@ export async function getMaxModeStatus(userId: string): Promise<MaxModeStatus> {
 
   if (!record) {
     return {
+      currency: "usd",
+      pricing: MAX_MODE_PRICING,
       eligible: false,
       enabled: false,
       memberEnabled: true,
@@ -111,6 +126,13 @@ export async function getMaxModeStatus(userId: string): Promise<MaxModeStatus> {
     };
   }
 
+  const currency = await getMaxModeBillingCurrency(record);
+  const stripePriceAmounts = await getMaxModePriceAmounts(currency);
+  const pricing = {
+    ...MAX_MODE_PRICING,
+    basic: stripePriceAmounts.basic ?? MAX_MODE_PRICING.basic,
+    premium: stripePriceAmounts.premium ?? MAX_MODE_PRICING.premium,
+  };
   const eligible = isMaxModeEligible(record.planId) && record.status === "active";
   const [memberPolicy, defaultPolicy] = record.organizationId
     ? await Promise.all([
@@ -136,10 +158,12 @@ export async function getMaxModeStatus(userId: string): Promise<MaxModeStatus> {
   const memberEnabled =
     memberPolicy?.maxModeEnabled ?? defaultPolicy?.defaultMaxModeEnabled ?? true;
   const estimatedCost =
-    (record.maxModeUsageBasic / MAX_MODE_PRICING.unitTokens) * MAX_MODE_PRICING.basic +
-    (record.maxModeUsagePremium / MAX_MODE_PRICING.unitTokens) * MAX_MODE_PRICING.premium;
+    (record.maxModeUsageBasic / pricing.unitTokens) * pricing.basic +
+    (record.maxModeUsagePremium / pricing.unitTokens) * pricing.premium;
 
   return {
+    currency,
+    pricing,
     eligible: eligible && memberEnabled,
     enabled: eligible && record.maxModeEnabled && memberEnabled,
     memberEnabled,

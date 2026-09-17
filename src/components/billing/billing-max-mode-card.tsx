@@ -1,15 +1,16 @@
 "use client";
 
 import { Zap } from "lucide-react";
-import { useExtracted } from "next-intl";
+import { useExtracted, useLocale } from "next-intl";
+import { formatMinorCurrency } from "@/lib/currency";
 import { formatCompactUsageValue } from "@/lib/utils";
-import { formatDollarFromCents } from "./billing-utils";
 import { Badge } from "../ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Label } from "../ui/label";
 import { Switch } from "../ui/switch";
 
 type MaxModeData = {
+  currency?: string | null;
   enabled: boolean;
   usageBasic?: number;
   usagePremium?: number;
@@ -31,6 +32,9 @@ export function BillingMaxModeCard({
   isToggling: boolean;
 }) {
   const t = useExtracted();
+  const locale = useLocale();
+  const formatMaxModeCurrency = (amountMinor: number) =>
+    formatMinorCurrency(amountMinor, data.currency, { currencyDisplay: "code" }, locale);
 
   return (
     <Card className="border-border/80">
@@ -67,7 +71,7 @@ export function BillingMaxModeCard({
               </span>
               <span className="text-sm text-muted-foreground">
                 {t("{price} / {tokens} tokens", {
-                  price: formatDollarFromCents(data.pricing.basic ?? 1),
+                  price: formatMaxModeCurrency(data.pricing.basic ?? 1),
                   tokens: formatCompactUsageValue(data.pricing.unitTokens ?? 1_000),
                 })}
               </span>
@@ -81,7 +85,7 @@ export function BillingMaxModeCard({
               </span>
               <span className="text-sm text-muted-foreground">
                 {t("{price} / {tokens} tokens", {
-                  price: formatDollarFromCents(data.pricing.premium ?? 5),
+                  price: formatMaxModeCurrency(data.pricing.premium ?? 5),
                   tokens: formatCompactUsageValue(data.pricing.unitTokens ?? 1_000),
                 })}
               </span>
@@ -91,14 +95,9 @@ export function BillingMaxModeCard({
         <div className="flex items-center justify-between rounded-lg bg-muted/50 p-4">
           <div className="text-sm text-muted-foreground">{t("Estimated cost this period")}</div>
           <div className="text-lg font-semibold">
-            ${((data.estimatedCost ?? 0) / 100).toFixed(2)}
+            {formatMaxModeCurrency(data.estimatedCost ?? 0)}
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">
-          {t(
-            "Overage is billed monthly on Stripe, including if your plan is yearly. Pricing: $0.01 per 1K basic tokens, $0.05 per 1K premium tokens.",
-          )}
-        </p>
       </CardContent>
     </Card>
   );
