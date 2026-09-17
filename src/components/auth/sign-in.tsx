@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { TWO_FACTOR_PATH } from "@/lib/auth-paths";
+import { getAuthRedirectUrl } from "@/lib/auth-redirect";
 import { cn } from "@/lib/utils";
 import { ProviderButtons, type SocialLayout } from "./provider-buttons";
 
@@ -79,6 +80,15 @@ export function SignIn({ className, socialLayout, socialPosition = "bottom" }: S
         navigate({ to: TWO_FACTOR_PATH });
         return;
       }
+
+      // OAuth provider sign-in returns a signed continuation URL. It must win
+      // over the app-wide `/chat` default or the playground loses the code flow.
+      const authRedirectUrl = getAuthRedirectUrl(data);
+      if (authRedirectUrl) {
+        window.location.assign(authRedirectUrl);
+        return;
+      }
+
       navigate({ to: redirectTo });
     },
   });
