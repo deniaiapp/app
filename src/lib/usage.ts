@@ -183,7 +183,7 @@ async function getTierInfo(userId: string, now: Date): Promise<TierInfo> {
       status: teamStatus ?? null,
       periodEnd: teamRecord.currentPeriodEnd ?? null,
       maxModeEnabled: maxModeEligible && teamRecord.maxModeEnabled && memberMaxModeEnabled,
-      maxModeEligible: maxModeEligible && memberMaxModeEnabled,
+      maxModeEligible: maxModeEligible && teamRecord.maxModeEnabled && memberMaxModeEnabled,
       maxModeMemberEnabled: memberMaxModeEnabled,
       maxModeLimitBasic:
         memberPolicy?.maxModeLimitBasic ?? defaultPolicy?.defaultMaxModeLimitBasic ?? null,

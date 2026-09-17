@@ -157,6 +157,7 @@ export async function getMaxModeStatus(userId: string): Promise<MaxModeStatus> {
     : [];
   const memberEnabled =
     memberPolicy?.maxModeEnabled ?? defaultPolicy?.defaultMaxModeEnabled ?? true;
+  const teamMaxModeEnabled = !record.organizationId || record.maxModeEnabled;
   const estimatedCost =
     (record.maxModeUsageBasic / pricing.unitTokens) * pricing.basic +
     (record.maxModeUsagePremium / pricing.unitTokens) * pricing.premium;
@@ -164,7 +165,7 @@ export async function getMaxModeStatus(userId: string): Promise<MaxModeStatus> {
   return {
     currency,
     pricing,
-    eligible: eligible && memberEnabled,
+    eligible: eligible && teamMaxModeEnabled && memberEnabled,
     enabled: eligible && record.maxModeEnabled && memberEnabled,
     memberEnabled,
     usageBasic: record.maxModeUsageBasic,
@@ -190,6 +191,13 @@ export async function enableMaxMode(userId: string): Promise<{ success: boolean;
 
   if (record.status !== "active") {
     return { success: false, error: "You need an active subscription to enable Max Mode." };
+  }
+
+  if (record.organizationId && !record.maxModeEnabled) {
+    return {
+      success: false,
+      error: "Team Max Mode is disabled. Ask a team owner to enable it.",
+    };
   }
 
   if (record.organizationId && !(await canManageTeamMaxMode(userId, record.organizationId))) {
