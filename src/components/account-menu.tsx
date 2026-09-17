@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
-import { SidebarMenuButton } from "@/components/ui/sidebar";
+import { SidebarMenuButton, useSidebar } from "@/components/ui/sidebar";
 import { usePlatformCapabilities } from "@/components/platform-capabilities-provider";
 import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/lib/trpc/react";
@@ -77,6 +77,7 @@ function AccountUsageRow({
 export function AccountMenu() {
   const t = useExtracted();
   const { push } = useRouter();
+  const { isMobile } = useSidebar();
   const utils = trpc.useUtils();
   const session = authClient.useSession();
   const isAnonymous = Boolean(session.data?.user?.isAnonymous);
@@ -162,7 +163,7 @@ export function AccountMenu() {
           </div>
         </SidebarMenuButton>
       </DropdownMenuTrigger>
-      <DropdownMenuContent side="right" align="start" className="w-64">
+      <DropdownMenuContent side={isMobile ? "top" : "right"} align="start" className="w-64">
         <div className="flex items-center gap-2 px-2 py-1.5">
           <div className="flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground overflow-hidden text-xs">
             {session.data?.user?.image ? (
