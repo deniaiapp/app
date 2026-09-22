@@ -573,6 +573,7 @@ export const defaultModel = models.find((model) => model.value === "gpt-5.6-luna
 export const FREE_PLAN_MODEL_VALUES = [
   "gpt-5.6-luna",
   "claude-haiku-4.5",
+  "claude-opus-5.5",
   "gemini-3.5-flash",
 ] as const;
 
