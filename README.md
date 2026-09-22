@@ -9,13 +9,15 @@ Deni AI is a multi-model AI chat app for people who want strong model choice wit
 ## Features
 
 - **Multi-model chat** — switch between OpenAI, Claude, Gemini, Groq, xAI, and other routed models
+- **Chat history** — the sidebar includes all conversation summaries, including older pinned and filed chats; message bodies load separately. Retry instructions apply only to explicit regeneration requests.
 - **BYOK** — connect your own provider API keys (encrypted at rest); model tokens are not counted against platform limits. Web search still uses platform quota.
 - **Tools** — web search (Exa) is available on every chat and used when current information is needed; each search call consumes a fixed amount of basic usage (Search mode forces a lookup). Page browse, image generation, and video (Veo) where enabled
 - **Memory & projects** — personalization memories and project-scoped context; projects can be shared with a team
 - **Teams** — organizations, seats, shared Pro or Max access (per-seat billing), and team projects
-- **Billing** — Stripe subscriptions (personal and team) plus Max Mode metered overage; optional self-host disable via `NEXT_PUBLIC_BILLING_DISABLED`
+- **Billing** — Stripe subscriptions (personal and team) plus Max Mode metered overage; scheduled cancellations keep the current paid plan through the period end, with an animated cancellation receipt. Enabling Max Mode requires an active subscription; cancellation, trial, and past-due states are not eligible. Optional self-host disable via `NEXT_PUBLIC_BILLING_DISABLED`
 - **Affiliate referrals** — shareable invite links, QR codes, milestone reset credits, and selectable paid-plan rewards (three resets or a manually sent 30% OFF coupon)
 - **Auth** — Google / GitHub sign-in, Deni AI OAuth 2.1 / OpenID Connect provider, magic link, anonymous guest, passkeys, and 2FA (better-auth)
+- **History APIs** — security and team audit logs use `{ createdAt, id }` cursors to preserve events with identical timestamps. Pass `nextCursor` unchanged when requesting another page.
 - **i18n** — English and Japanese (`next-intl`)
 - **Public guides & blog** — original articles on model choice, verification, and practical AI use, available without an account
 - **PWA** — installable progressive web app assets and service worker
@@ -91,6 +93,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Day-to-day development targets the **`ca
 bun run lint
 bun run format
 bun run typecheck
+bun test tools/chat-regressions.test.ts
 bun run build
 ```
 

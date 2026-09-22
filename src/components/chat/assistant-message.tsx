@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useExtracted, useLocale } from "next-intl";
 import { useSpeechSynthesis } from "@/hooks/use-speech-synthesis";
-import { useState } from "react";
+import { memo, useState } from "react";
 import {
   Message,
   MessageAction,
@@ -75,9 +75,10 @@ interface AssistantMessageProps {
   onModelChange: (value: string) => void;
   onWebSearchChange: (value: boolean) => void;
   webSearchAvailable?: boolean;
+  isActive?: boolean;
 }
 
-export function AssistantMessage({
+function AssistantMessage({
   message,
   state,
   projectId: _projectId,
@@ -87,10 +88,11 @@ export function AssistantMessage({
   onModelChange,
   onWebSearchChange,
   webSearchAvailable = true,
+  isActive = true,
 }: AssistantMessageProps) {
   const t = useExtracted();
   const locale = useLocale();
-  const speech = useSpeechSynthesis();
+  const speech = useSpeechSynthesis(isActive);
   const isStreamingThis = state.isStreaming && state.isLastMessage;
   const [retryMenuOpen, setRetryMenuOpen] = useState(false);
   const [additionalInstruction, setAdditionalInstruction] = useState("");
@@ -313,3 +315,25 @@ export function AssistantMessage({
     </div>
   );
 }
+
+const areAssistantMessagePropsEqual = (
+  previous: AssistantMessageProps,
+  next: AssistantMessageProps,
+) =>
+  previous.message === next.message &&
+  previous.state.isLastMessage === next.state.isLastMessage &&
+  previous.state.isStreaming === next.state.isStreaming &&
+  previous.state.showActions === next.state.showActions &&
+  previous.state.isSubmitBlocked === next.state.isSubmitBlocked &&
+  previous.projectId === next.projectId &&
+  previous.requestBody === next.requestBody &&
+  previous.onRegenerate === next.onRegenerate &&
+  previous.availableModels === next.availableModels &&
+  previous.onModelChange === next.onModelChange &&
+  previous.onWebSearchChange === next.onWebSearchChange &&
+  (previous.webSearchAvailable ?? true) === (next.webSearchAvailable ?? true) &&
+  previous.isActive === next.isActive;
+
+const MemoizedAssistantMessage = memo(AssistantMessage, areAssistantMessagePropsEqual);
+
+export { MemoizedAssistantMessage as AssistantMessage };

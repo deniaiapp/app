@@ -1,10 +1,11 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, lt } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { securityActivity } from "@/db/schema";
 import { buildAccountExport } from "@/lib/account-export";
 import { recordSecurityActivity } from "@/lib/security-activity";
 import { protectedProcedure, router } from "../trpc";
+import { historyBefore, historyCursorSchema, historyCursorTimestamp } from "../history-pagination";
 
 export const accountRouter = router({
   exportData: protectedProcedure.mutation(async ({ ctx }) => {
@@ -38,14 +39,14 @@ export const accountRouter = router({
     .input(
       z
         .object({
-          cursor: z.iso.datetime().optional(),
+          cursor: historyCursorSchema.optional(),
           limit: z.number().int().min(1).max(50).default(20),
         })
         .optional(),
     )
     .query(async ({ ctx, input }) => {
       const limit = input?.limit ?? 20;
-      const cursor = input?.cursor ? new Date(input.cursor) : undefined;
+      const cursor = input?.cursor;
 
       const rows = await ctx.db
         .select({
@@ -54,23 +55,25 @@ export const accountRouter = router({
           ipAddress: securityActivity.ipAddress,
           userAgent: securityActivity.userAgent,
           createdAt: securityActivity.createdAt,
+          cursorCreatedAt: historyCursorTimestamp(securityActivity.createdAt),
         })
         .from(securityActivity)
         .where(
-          and(
-            eq(securityActivity.userId, ctx.userId),
-            cursor ? lt(securityActivity.createdAt, cursor) : undefined,
-          ),
+          and(eq(securityActivity.userId, ctx.userId), historyBefore(securityActivity, cursor)),
         )
-        .orderBy(desc(securityActivity.createdAt))
+        .orderBy(desc(securityActivity.createdAt), desc(securityActivity.id))
         .limit(limit + 1);
 
       const page = rows.slice(0, limit);
-      const next = rows[limit];
+      const last = page.at(-1);
 
       return {
-        items: page,
-        nextCursor: next ? next.createdAt.toISOString() : null,
+        items: page.map(({ cursorCreatedAt, ...item }) => {
+          void cursorCreatedAt;
+          return item;
+        }),
+        nextCursor:
+          rows.length > limit && last ? { createdAt: last.cursorCreatedAt, id: last.id } : null,
       };
     }),
 });

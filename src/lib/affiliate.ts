@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNotNull, isNull, like, or, sql } from "drizzle-orm";
 import { customAlphabet } from "nanoid";
 import { db } from "@/db/drizzle";
 import {
@@ -6,14 +6,17 @@ import {
   affiliateReferral,
   affiliateReward,
   billing,
+  member,
   usageQuota,
   user,
 } from "@/db/schema";
 import { env } from "@/env";
 import { evaluateRegistrationReward, hashClaimIp } from "@/lib/affiliate-risk";
 import {
+  AFFILIATE_RESET_PLAN_TIERS,
   AFFILIATE_REWARD_PREFERENCES,
   AFFILIATE_REWARD_TYPES,
+  type AffiliateResetPlanTier,
   type AffiliateRewardPreference,
 } from "@/lib/affiliate-types";
 import { resetMaxModeUsage } from "@/lib/max-mode";
@@ -37,6 +40,14 @@ const AFFILIATE_PURCHASE_PLAN_IDS = new Set([
   "max_monthly",
   "max_yearly",
 ]);
+
+const ACTIVE_RESET_BILLING_STATUSES = ["active", "trialing", "past_due", "paid"] as const;
+const RESET_PROFILE_BATCH_SIZE = 500;
+
+export type AffiliateResetGrantTarget =
+  | { type: "all" }
+  | { type: "plan"; planTier: AffiliateResetPlanTier }
+  | { type: "user"; identifier: string };
 
 export function normalizeAffiliateCode(value: string | null | undefined) {
   const normalized = value?.trim().toUpperCase() ?? "";
@@ -80,6 +91,167 @@ export function getAffiliateAdminEmails() {
 
 export function isAffiliateAdmin(email: string | null | undefined) {
   return Boolean(email && getAffiliateAdminEmails().has(email.trim().toLowerCase()));
+}
+
+function getPaidPlanCondition(planTier?: Exclude<AffiliateResetPlanTier, "free">) {
+  if (!planTier) {
+    return or(
+      like(billing.planId, "plus_%"),
+      like(billing.planId, "pro_%"),
+      like(billing.planId, "max_%"),
+    );
+  }
+
+  return like(billing.planId, `${planTier}_%`);
+}
+
+function getActiveBillingCondition(now: Date) {
+  return or(
+    inArray(billing.status, ACTIVE_RESET_BILLING_STATUSES),
+    and(eq(billing.status, "canceled"), gt(billing.currentPeriodEnd, now)),
+  );
+}
+
+function getPermanentUserCondition() {
+  return or(eq(user.isAnonymous, false), isNull(user.isAnonymous));
+}
+
+async function getPaidResetTargetUserIds(
+  planTier?: Exclude<AffiliateResetPlanTier, "free">,
+): Promise<string[]> {
+  const activeBillingCondition = getActiveBillingCondition(new Date());
+  const planCondition = getPaidPlanCondition(planTier);
+  const [personalRows, teamRows] = await Promise.all([
+    db
+      .select({ userId: billing.userId })
+      .from(billing)
+      .innerJoin(user, eq(billing.userId, user.id))
+      .where(
+        and(
+          getPermanentUserCondition(),
+          isNull(billing.organizationId),
+          activeBillingCondition,
+          planCondition,
+        ),
+      ),
+    db
+      .select({ userId: member.userId, planId: billing.planId })
+      .from(member)
+      .innerJoin(billing, eq(member.organizationId, billing.organizationId))
+      .innerJoin(user, eq(member.userId, user.id))
+      .where(
+        and(
+          getPermanentUserCondition(),
+          isNotNull(billing.organizationId),
+          activeBillingCondition,
+          or(like(billing.planId, "pro_team%"), like(billing.planId, "max_team%")),
+        ),
+      ),
+  ]);
+
+  const activeTeamUserIds = new Set(teamRows.map((row) => row.userId));
+  const selectedTeamUserIds = teamRows
+    .filter((row) => !planTier || (row.planId != null && row.planId.startsWith(`${planTier}_team`)))
+    .map((row) => row.userId);
+  const selectedPersonalUserIds = personalRows
+    .map((row) => row.userId)
+    .filter((userId) => !activeTeamUserIds.has(userId));
+
+  return [...new Set([...selectedTeamUserIds, ...selectedPersonalUserIds])];
+}
+
+async function getResetGrantTargetUserIds(target: AffiliateResetGrantTarget) {
+  const permanentUserCondition = getPermanentUserCondition();
+
+  if (target.type === "user") {
+    const identifier = target.identifier.trim();
+    const rows = await db
+      .select({ userId: user.id })
+      .from(user)
+      .where(
+        and(
+          permanentUserCondition,
+          or(eq(user.id, identifier), sql`lower(${user.email}) = ${identifier.toLowerCase()}`),
+        ),
+      )
+      .limit(1);
+    return rows.map((row) => row.userId);
+  }
+
+  if (target.type === "all") {
+    const rows = await db.select({ userId: user.id }).from(user).where(permanentUserCondition);
+    return rows.map((row) => row.userId);
+  }
+
+  if (!AFFILIATE_RESET_PLAN_TIERS.includes(target.planTier)) {
+    throw new Error("Unknown reset target plan.");
+  }
+
+  if (target.planTier !== "free") {
+    return getPaidResetTargetUserIds(target.planTier);
+  }
+
+  const [allUserRows, paidUserIds] = await Promise.all([
+    db.select({ userId: user.id }).from(user).where(permanentUserCondition),
+    getPaidResetTargetUserIds(),
+  ]);
+  const paidUsers = new Set(paidUserIds);
+  return allUserRows.map((row) => row.userId).filter((userId) => !paidUsers.has(userId));
+}
+
+async function ensureAffiliateProfilesForUsers(userIds: string[]) {
+  for (let index = 0; index < userIds.length; index += RESET_PROFILE_BATCH_SIZE) {
+    const batch = userIds.slice(index, index + RESET_PROFILE_BATCH_SIZE);
+    await db
+      .insert(affiliateProfile)
+      .values(batch.map((userId) => ({ userId, code: createAffiliateCode() })))
+      .onConflictDoNothing();
+  }
+}
+
+export async function grantAffiliateResetCredits({
+  target,
+  quantity,
+  adminEmail,
+}: {
+  target: AffiliateResetGrantTarget;
+  quantity: number;
+  adminEmail: string;
+}) {
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 100) {
+    throw new Error("Reset credit quantity must be between 1 and 100.");
+  }
+
+  const userIds = await getResetGrantTargetUserIds(target);
+  if (userIds.length === 0) {
+    return { matchedUsers: 0, grantedUsers: 0, quantity };
+  }
+
+  await ensureAffiliateProfilesForUsers(userIds);
+
+  let grantedUsers = 0;
+  for (let index = 0; index < userIds.length; index += RESET_PROFILE_BATCH_SIZE) {
+    const batch = userIds.slice(index, index + RESET_PROFILE_BATCH_SIZE);
+    const updated = await db
+      .update(affiliateProfile)
+      .set({
+        resetCredits: sql`${affiliateProfile.resetCredits} + ${quantity}`,
+        updatedAt: new Date(),
+      })
+      .where(inArray(affiliateProfile.userId, batch))
+      .returning({ userId: affiliateProfile.userId });
+    grantedUsers += updated.length;
+  }
+
+  console.info("[affiliate] Admin reset credits granted", {
+    adminEmail,
+    target,
+    quantity,
+    matchedUsers: userIds.length,
+    grantedUsers,
+  });
+
+  return { matchedUsers: userIds.length, grantedUsers, quantity };
 }
 
 export async function ensureAffiliateProfile(userId: string) {

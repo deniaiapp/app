@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, LoaderCircle } from "lucide-react";
-import { useReducedMotion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { useExtracted, useLocale } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -188,8 +188,18 @@ function SubscriptionShredderActive({
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-[min(24rem,100%)]">
+    <motion.div
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: shouldReduceMotion ? 0 : 0.2 }}
+    >
+      <motion.div
+        className="w-full max-w-[min(24rem,100%)]"
+        initial={shouldReduceMotion ? false : { opacity: 0, y: 24, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+      >
         <ReceiptPrinterCard
           homeHref={data.homeHref}
           homeLabel={data.homeLabel}
@@ -223,7 +233,7 @@ function SubscriptionShredderActive({
         >
           <ShredStatus phase={phase} />
         </ReceiptPrinterCard>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

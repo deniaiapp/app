@@ -189,7 +189,7 @@ export async function POST(req: Request) {
     video: videoMode = false,
     image: imageMode = false,
     deepResearch = false,
-    responseStyle = "retry",
+    responseStyle,
     forceWebSearch = false,
     additionalInstruction,
   } = parsedBody.data;

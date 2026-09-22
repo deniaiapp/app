@@ -1,6 +1,6 @@
 import type { UIMessage } from "ai";
 import { nanoid } from "nanoid";
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 type PendingMetadata = {
   branchGroupId?: string;
@@ -100,35 +100,41 @@ function mergePendingBranch(messages: UIMessage[], pending: PendingBranch | null
 export function useChatBranches({ messages, setMessages, regenerate }: UseChatBranchesOptions) {
   const [pendingBranch, setPendingBranch] = useState<PendingBranch | null>(null);
 
-  function handleRegenerate(options?: RegenOptions) {
-    const lastAssistantIdx = [...messages].map((m) => m.role).lastIndexOf("assistant");
-    if (lastAssistantIdx === -1) {
-      void regenerate(options);
-      return;
-    }
+  const handleRegenerate = useCallback(
+    (options?: RegenOptions) => {
+      const lastAssistantIdx = [...messages].map((m) => m.role).lastIndexOf("assistant");
+      if (lastAssistantIdx === -1) {
+        void regenerate(options);
+        return;
+      }
 
-    const lastAssistant = messages[lastAssistantIdx];
-    const existingGroupId = getBranchGroupId(lastAssistant);
-    const groupId = existingGroupId ?? nanoid(8);
-    const pending: PendingBranch = {
-      groupId,
-      originalMessage: lastAssistant,
-      messagesBeforeRegen: messages.slice(0, lastAssistantIdx),
-    };
+      const lastAssistant = messages[lastAssistantIdx];
+      const existingGroupId = getBranchGroupId(lastAssistant);
+      const groupId = existingGroupId ?? nanoid(8);
+      const pending: PendingBranch = {
+        groupId,
+        originalMessage: lastAssistant,
+        messagesBeforeRegen: messages.slice(0, lastAssistantIdx),
+      };
 
-    setPendingBranch(pending);
+      setPendingBranch(pending);
 
-    void Promise.resolve()
-      .then(() => regenerate(options))
-      .then(() => {
-        setMessages((prev) => mergePendingBranch(prev, pending));
-      })
-      .finally(() => {
-        setPendingBranch(null);
-      });
-  }
+      void Promise.resolve()
+        .then(() => regenerate(options))
+        .then(() => {
+          setMessages((prev) => mergePendingBranch(prev, pending));
+        })
+        .finally(() => {
+          setPendingBranch(null);
+        });
+    },
+    [messages, regenerate, setMessages],
+  );
 
-  const groupedMessages = groupMessages(mergePendingBranch(messages, pendingBranch));
+  const groupedMessages = useMemo(
+    () => groupMessages(mergePendingBranch(messages, pendingBranch)),
+    [messages, pendingBranch],
+  );
 
   return { handleRegenerate, groupedMessages };
 }

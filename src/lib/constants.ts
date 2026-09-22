@@ -368,6 +368,18 @@ export const models: readonly ModelDefinition[] = [
     efforts: false,
   },
   {
+    name: "Claude Opus 5.5",
+    value: "claude-opus-5.5",
+    author: "anthropic",
+    description: "Anthropic's flagship for agentic coding, computer use, and knowledge work.",
+    premium: true,
+    featured: true,
+    features: ["smartest", "reasoning", "coding", "smart"],
+    efforts: ["low", "medium", "high", "max"],
+    contextWindow: 1_000_000,
+    tokenMultiplier: 3,
+  },
+  {
     name: "Claude Fable 5.1",
     value: "claude-fable-5.1",
     author: "anthropic",

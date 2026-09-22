@@ -1,6 +1,6 @@
 ---
 name: web-design-guidelines
-description: Review UI code for Web Interface Guidelines compliance. Use when asked to "review my UI", "check accessibility", "audit design", "review UX", or "check my site against best practices".
+description: Audit UI accessibility and usability when a design or interface review is requested.
 metadata:
   author: vercel
   version: "1.0.0"
@@ -9,32 +9,12 @@ metadata:
 
 # Web Interface Guidelines
 
-Review files for compliance with Web Interface Guidelines.
-
-## How It Works
-
-1. Fetch the latest guidelines from the source URL below
-2. Read the specified files (or prompt user for files/pattern)
-3. Check against all rules in the fetched guidelines
-4. Output findings in the terse `file:line` format
-
-## Guidelines Source
-
-Fetch fresh guidelines before each review:
-
-```
+Review the requested UI against the current guidelines:
 https://raw.githubusercontent.com/vercel-labs/web-interface-guidelines/main/command.md
-```
 
-Use WebFetch to retrieve the latest rules. The fetched content contains all the rules and output format instructions.
+Fetch the guidelines once per review using an available retrieval tool. If they
+cannot be retrieved, state that limitation. Infer the affected files from the
+request and current changes; ask only when the review target remains ambiguous.
 
-## Usage
-
-When a user provides a file or pattern argument:
-
-1. Fetch guidelines from the source URL above
-2. Read the specified files
-3. Apply all rules from the fetched guidelines
-4. Output findings using the format specified in the guidelines
-
-If no files specified, ask the user which files to review.
+Report actionable findings with file and line references, the user impact, and a
+suggested correction. Use the requested report format when one is provided.

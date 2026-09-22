@@ -498,6 +498,8 @@ export function useTeamSettings() {
       await Promise.all([
         utils.organization.teamBillingStatus.invalidate({ organizationId: activeOrg.id }),
         utils.organization.teamPlans.invalidate(),
+        utils.organization.teamMaxModeSettings.invalidate({ organizationId: activeOrg.id }),
+        utils.billing.maxModeStatus.invalidate(),
         utils.billing.status.invalidate(),
         utils.billing.usage.invalidate(),
       ]);
@@ -545,6 +547,9 @@ export function useTeamSettings() {
     );
     await Promise.all([
       utils.organization.teamBillingStatus.invalidate({ organizationId: activeOrg.id }),
+      utils.organization.teamMaxModeSettings.invalidate({ organizationId: activeOrg.id }),
+      utils.billing.maxModeStatus.invalidate(),
+      utils.billing.usage.invalidate(),
       utils.billing.status.invalidate(),
     ]);
   }
@@ -554,7 +559,13 @@ export function useTeamSettings() {
     try {
       await resumeSub.mutateAsync({ organizationId: activeOrg.id });
       toast.success(t("Subscription resumed."));
-      utils.organization.teamBillingStatus.invalidate();
+      await Promise.all([
+        utils.organization.teamBillingStatus.invalidate({ organizationId: activeOrg.id }),
+        utils.organization.teamMaxModeSettings.invalidate({ organizationId: activeOrg.id }),
+        utils.billing.status.invalidate(),
+        utils.billing.maxModeStatus.invalidate(),
+        utils.billing.usage.invalidate(),
+      ]);
     } catch (error) {
       console.error("Failed to resume", error);
       toast.error(t("Failed to resume subscription"));

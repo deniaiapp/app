@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 
 interface KeyboardShortcutsOptions {
+  enabled?: boolean;
   onFocusComposer?: () => void;
   onNewChat?: () => void;
   onNavigateUp?: () => void;
@@ -16,12 +17,17 @@ function isEditableTarget(target: EventTarget | null): boolean {
 }
 
 export function useKeyboardShortcuts({
+  enabled = true,
   onFocusComposer,
   onNewChat,
   onNavigateUp,
   onNavigateDown,
 }: KeyboardShortcutsOptions) {
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
     const handleKeyDown = (e: KeyboardEvent) => {
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
 
@@ -59,5 +65,5 @@ export function useKeyboardShortcuts({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onFocusComposer, onNewChat, onNavigateUp, onNavigateDown]);
+  }, [enabled, onFocusComposer, onNewChat, onNavigateUp, onNavigateDown]);
 }

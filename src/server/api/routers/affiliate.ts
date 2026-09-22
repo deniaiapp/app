@@ -9,7 +9,11 @@ import {
   sendAffiliatePlusCouponEmail,
   sendAffiliateResetRewardEmail,
 } from "@/lib/affiliate-email";
-import { AFFILIATE_DISCOUNT_PERCENT, AFFILIATE_REWARD_PREFERENCES } from "@/lib/affiliate-types";
+import {
+  AFFILIATE_DISCOUNT_PERCENT,
+  AFFILIATE_RESET_PLAN_TIERS,
+  AFFILIATE_REWARD_PREFERENCES,
+} from "@/lib/affiliate-types";
 import {
   AFFILIATE_COOKIE_NAME,
   AFFILIATE_REWARD_TYPES,
@@ -19,6 +23,7 @@ import {
   getAffiliateCouponRecipient,
   getAffiliateResetRewardRecipient,
   getAffiliateStatus,
+  grantAffiliateResetCredits,
   isAffiliateAdmin,
   markAffiliateCouponSending,
   rejectAffiliateResetReward,
@@ -32,6 +37,12 @@ const referredUser = alias(user, "affiliate_admin_referred_user");
 const affiliateRewardPreferenceSchema = z.enum([
   AFFILIATE_REWARD_PREFERENCES.resetCredits,
   AFFILIATE_REWARD_PREFERENCES.discountCoupon,
+]);
+const affiliateResetPlanTierSchema = z.enum(AFFILIATE_RESET_PLAN_TIERS);
+const affiliateResetGrantTargetSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("all") }),
+  z.object({ type: z.literal("plan"), planTier: affiliateResetPlanTierSchema }),
+  z.object({ type: z.literal("user"), identifier: z.string().trim().min(1).max(320) }),
 ]);
 
 function getAdminEmail(ctx: { session: { user?: { email?: string | null } } | null }) {
@@ -127,6 +138,31 @@ export const affiliateRouter = router({
 
     return { remaining };
   }),
+
+  adminGrantResetCredits: protectedProcedure
+    .input(
+      z.object({
+        target: affiliateResetGrantTargetSchema,
+        quantity: z.number().int().min(1).max(100),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const adminEmail = getAdminEmail(ctx);
+      const result = await grantAffiliateResetCredits({
+        target: input.target,
+        quantity: input.quantity,
+        adminEmail,
+      });
+
+      if (result.matchedUsers === 0) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "No users matched the selected reset target.",
+        });
+      }
+
+      return result;
+    }),
 
   adminOverview: protectedProcedure.query(async ({ ctx }) => {
     getAdminEmail(ctx);

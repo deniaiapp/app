@@ -1,8 +1,8 @@
 "use client";
 
 import { loadStripe } from "@stripe/stripe-js";
-import { env } from "@/env";
+import { clientEnv } from "@/env.client";
 
-export const stripeJsPromise = env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-  ? loadStripe(env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+export const stripeJsPromise = clientEnv.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  ? loadStripe(clientEnv.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
   : null;

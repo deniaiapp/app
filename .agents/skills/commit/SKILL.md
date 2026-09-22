@@ -1,14 +1,12 @@
 ---
 name: commit
-description: Create a git commit for staged and unstaged changes in this repository. Use when the user asks to commit the current work, prepare a commit message, or stage and commit changes. Review git status and diffs, follow recent commit message style, avoid staging secrets such as .env files, create a concise conventional commit message, make the commit, and verify the result.
+description: Prepare or create a scoped conventional commit when requested in this repository.
 ---
 
-Create a git commit for the current repository changes.
+Prepare a scoped conventional commit using the current diff and recent commit
+style. Follow the root AGENTS.md branch and promotion policy.
 
-1. Run `git status` to inspect changed and untracked files.
-2. Run `git diff` and `git diff --staged` to inspect unstaged and staged changes.
-3. Run `git log --oneline -5` to match recent commit message style.
-4. Draft a concise conventional commit message such as `feat: ...`, `fix: ...`, `refactor: ...`, `chore: ...`, or `docs: ...`.
-5. Stage only the relevant files. Do not stage secrets, credential files, or unrelated changes.
-6. Create the commit with the drafted message.
-7. Run `git status` again to confirm the commit succeeded.
+Inspect staged, unstaged, and untracked changes before staging relevant files;
+exclude secrets and unrelated work. A request for a message alone does not
+authorize a commit. When committing is requested, create it and verify the
+resulting commit and working-tree state.

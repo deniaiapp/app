@@ -107,6 +107,7 @@ export const projectsRouter = router({
           description: input.description ?? null,
           instructions: input.instructions,
           color: input.color,
+          defaultModel: input.defaultModel ?? null,
         })
         .returning();
 

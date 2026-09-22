@@ -1,6 +1,6 @@
 ---
 name: typecheck
-description: Run TypeScript type checking for this repository. Use when the user asks to typecheck, validate TypeScript changes, or inspect compiler errors. Execute `bun run typecheck`, summarize any errors, and suggest targeted fixes when type errors remain.
+description: Run TypeScript checks and diagnose compiler errors when type validation is needed.
 ---
 
 Run TypeScript type checking.

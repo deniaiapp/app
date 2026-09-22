@@ -15,6 +15,13 @@ import { protectedProcedure, router } from "../trpc";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+async function requireActiveProject(database: typeof Db, userId: string, projectId: string) {
+  const project = await getAccessibleProject(database, userId, projectId);
+  if (!project || project.archivedAt) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
+  }
+}
+
 export type ChatPagePayload = {
   id: string;
   title: string | null;
@@ -113,8 +120,7 @@ export const chatRouter = router({
       })
       .from(chats)
       .where(eq(chats.uid, ctx.userId))
-      .orderBy(desc(chats.updated_at))
-      .limit(100);
+      .orderBy(desc(chats.updated_at), desc(chats.id));
     return userChats;
   }),
   createChat: protectedProcedure
@@ -126,6 +132,9 @@ export const chatRouter = router({
         .optional(),
     )
     .mutation(async ({ ctx, input }) => {
+      if (input?.projectId) {
+        await requireActiveProject(ctx.db, ctx.userId, input.projectId);
+      }
       const newChat = await ctx.db
         .insert(chats)
         .values({
@@ -267,6 +276,9 @@ export const chatRouter = router({
         });
       }
       const { id, ...fields } = input;
+      if (fields.projectId) {
+        await requireActiveProject(ctx.db, ctx.userId, fields.projectId);
+      }
       const updatedChat = await ctx.db
         .update(chats)
         .set({ ...fields, updated_at: new Date() })

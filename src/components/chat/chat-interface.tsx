@@ -13,7 +13,7 @@ import { ChatComposer, type ComposerMessage } from "@/components/chat/chat-compo
 import { ChatInterfaceHeader } from "@/components/chat/chat-interface-header";
 import { ChatInterfaceMessages } from "@/components/chat/chat-interface-messages";
 import { UsageAlerts } from "@/components/chat/usage-alerts";
-import { env } from "@/env";
+import { clientEnv } from "@/env.client";
 import { useAvailableModels } from "@/hooks/use-available-models";
 import { useChatPageSync } from "@/hooks/use-chat-page-sync";
 import { useInitialMessage } from "@/hooks/use-initial-message";
@@ -46,6 +46,7 @@ interface ChatInterfaceProps {
   initialProjectId?: string | null;
   initialProjectName?: string | null;
   initialProjectDefaultModel?: string | null;
+  isActive?: boolean;
 }
 
 type UploadableFileUIPart = FileUIPart & { file?: File };
@@ -216,6 +217,7 @@ export function ChatInterface({
   initialProjectId = null,
   initialProjectName = null,
   initialProjectDefaultModel = null,
+  isActive = true,
 }: ChatInterfaceProps) {
   const t = useExtracted();
   const session = authClient.useSession();
@@ -286,8 +288,11 @@ export function ChatInterface({
       ? initialProjectDefaultModel
       : null;
   const fallbackModel = availableModels[0]?.value ?? defaultModel.value;
-  const availableModelValues =
-    availableModels.length > 0 ? new Set(availableModels.map((entry) => entry.value)) : undefined;
+  const availableModelValues = useMemo(
+    () =>
+      availableModels.length > 0 ? new Set(availableModels.map((entry) => entry.value)) : undefined,
+    [availableModels],
+  );
 
   const seed = useInitialMessage({
     id,
@@ -328,17 +333,20 @@ export function ChatInterface({
     enableMaxMode,
   } = useUsageStatus({ model, availableModels, providerKeys, providerSettings, proMode });
 
-  const requestBody = {
-    model,
-    webSearch,
-    reasoningEffort,
-    proMode,
-    fastMode,
-    deepResearch,
-    video: videoMode,
-    image: imageMode,
-    id,
-  };
+  const requestBody = useMemo(
+    () => ({
+      model,
+      webSearch,
+      reasoningEffort,
+      proMode,
+      fastMode,
+      deepResearch,
+      video: videoMode,
+      image: imageMode,
+      id,
+    }),
+    [model, webSearch, reasoningEffort, proMode, fastMode, deepResearch, videoMode, imageMode, id],
+  );
 
   const { handleRegenerate, groupedMessages } = useChatBranches({
     messages,
@@ -406,25 +414,7 @@ export function ChatInterface({
     setModel(availableModels[0].value);
   }
 
-  const handleModelChange = (value: string) => {
-    setModel(value);
-    const nextModel = availableModels.find((entry) => entry.value === value);
-    const nextEfforts = nextModel?.efforts;
-    if (!nextModel?.supportsProMode) {
-      setProMode(false);
-    }
-    if (!nextModel?.supportsFastMode) {
-      setFastMode(false);
-    }
-    if (!nextEfforts) {
-      return;
-    }
-    setReasoningEffort((current) =>
-      current && nextEfforts.includes(current) ? current : getPreferredReasoningEffort(nextEfforts),
-    );
-  };
-
-  const handleStop = () => {
+  const handleStop = useCallback(() => {
     stop();
 
     void fetch("/api/chat/stop", {
@@ -434,19 +424,50 @@ export function ChatInterface({
       },
       body: JSON.stringify({ id }),
     });
-  };
+  }, [id, stop]);
 
-  const messageRenderKeys = getMessageRenderKeys(messages);
-  const messageIndexMap = new Map<UIMessage, number>();
-  for (let i = 0; i < messages.length; i++) {
-    messageIndexMap.set(messages[i], i);
-  }
+  const messageRenderKeys = useMemo(() => getMessageRenderKeys(messages), [messages]);
+  const messageIndexMap = useMemo(() => {
+    const indexMap = new Map<UIMessage, number>();
+    for (let i = 0; i < messages.length; i++) {
+      indexMap.set(messages[i], i);
+    }
+    return indexMap;
+  }, [messages]);
 
   const startNewChat = useNewChat();
+  const handleNewChat = useCallback(() => startNewChat(), [startNewChat]);
+  const handleModelChange = useCallback(
+    (value: string) => {
+      setModel(value);
+      const nextModel = availableModels.find((entry) => entry.value === value);
+      const nextEfforts = nextModel?.efforts;
+      if (!nextModel?.supportsProMode) {
+        setProMode(false);
+      }
+      if (!nextModel?.supportsFastMode) {
+        setFastMode(false);
+      }
+      if (!nextEfforts) {
+        return;
+      }
+      setReasoningEffort((current) =>
+        current && nextEfforts.includes(current)
+          ? current
+          : getPreferredReasoningEffort(nextEfforts),
+      );
+    },
+    [availableModels],
+  );
+  const handleWebSearchChange = useCallback(
+    (enabled: boolean) => setWebSearch(enabled && features.webSearch),
+    [features.webSearch],
+  );
 
   useKeyboardShortcuts({
+    enabled: isActive,
     onFocusComposer: handleFocusComposer,
-    onNewChat: () => startNewChat(),
+    onNewChat: handleNewChat,
   });
 
   return (
@@ -476,8 +497,9 @@ export function ChatInterface({
           onRegenerate={handleRegenerate}
           availableModels={availableModels}
           onModelChange={handleModelChange}
-          onWebSearchChange={(enabled) => setWebSearch(enabled && features.webSearch)}
+          onWebSearchChange={handleWebSearchChange}
           webSearchAvailable={features.webSearch}
+          isActive={isActive}
           hasMore={hasMore}
           isLoadingOlder={isLoadingOlder}
           onLoadOlder={
@@ -506,12 +528,14 @@ export function ChatInterface({
 
         <ChatComposer
           className="mt-4"
+          globalDrop={isActive}
           value={input}
           onValueChange={setInput}
           onSubmit={handleSubmit}
           onStop={handleStop}
           status={status}
           isSubmitDisabled={isSubmitBlocked}
+          availableModels={availableModels}
           model={model}
           onModelChange={handleModelChange}
           webSearch={webSearch}
@@ -534,7 +558,7 @@ export function ChatInterface({
           showByokBadge={isByokActive}
         />
         <AdSenseSlot
-          slot={env.NEXT_PUBLIC_ADSENSE_CHAT_SLOT_ID ?? ""}
+          slot={clientEnv.NEXT_PUBLIC_ADSENSE_CHAT_SLOT_ID ?? ""}
           className="mx-auto mt-3 w-full max-w-xl border-border/40 bg-background/40 p-2 shadow-none"
         />
       </div>

@@ -8,7 +8,6 @@ import {
   ChatComposerTools,
 } from "@/components/chat/chat-composer-controls";
 import { Composer, type ComposerMessage } from "@/components/chat/composer";
-import { useAvailableModels } from "@/hooks/use-available-models";
 import {
   OPENAI_FAST_MODE_MULTIPLIER,
   OPENAI_PRO_MODE_MULTIPLIER,
@@ -39,8 +38,10 @@ export interface ChatComposerProps {
   onStop?: () => void;
   placeholder?: string;
   className?: string;
+  globalDrop?: boolean;
   status?: ChatStatus;
   isSubmitDisabled?: boolean;
+  availableModels: ModelOption[];
   model: string;
   onModelChange: (model: string) => void;
   webSearch: boolean;
@@ -70,8 +71,10 @@ export function ChatComposer({
   onStop,
   placeholder,
   className,
+  globalDrop = true,
   status,
   isSubmitDisabled,
+  availableModels,
   model,
   onModelChange,
   webSearch,
@@ -94,7 +97,6 @@ export function ChatComposer({
   showByokBadge = false,
 }: ChatComposerProps) {
   const t = useExtracted();
-  const { availableModels } = useAvailableModels();
   const selectedModel = availableModels.find((m) => m.value === model);
   const supportedEfforts = selectedModel?.efforts ?? false;
   const supportsReasoningEffort = supportedEfforts !== false;
@@ -104,6 +106,10 @@ export function ChatComposer({
   const composerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!globalDrop) {
+      return;
+    }
+
     const handleFocusComposer = () => {
       const textarea = composerRef.current?.querySelector<HTMLTextAreaElement>(
         'textarea[name="message"]',
@@ -112,7 +118,7 @@ export function ChatComposer({
     };
     window.addEventListener("deni:focus-composer", handleFocusComposer);
     return () => window.removeEventListener("deni:focus-composer", handleFocusComposer);
-  }, []);
+  }, [globalDrop]);
 
   const handleVideoToggle = (enabled: boolean) => {
     onVideoModeChange(enabled);
@@ -190,7 +196,7 @@ export function ChatComposer({
         onSubmit={handleSubmit}
         onStop={onStop}
         className={className}
-        globalDrop
+        globalDrop={globalDrop}
         multiple
         placeholder={resolvedPlaceholder}
         headerClassName="py-0.5!"

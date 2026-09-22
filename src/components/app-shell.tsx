@@ -6,12 +6,15 @@ import { useEffect, useState } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AffiliateSessionClaim } from "@/components/affiliate/affiliate-session-claim";
 import { ChatRouteHost } from "@/components/chat/chat-route-host";
-import { TwoFactorBanner } from "@/components/two-factor-banner";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { useNewChat } from "@/hooks/use-new-chat";
 
 const ChatSearch = dynamic(
   () => import("@/components/chat/chat-search").then((mod) => mod.ChatSearch),
+  { loading: () => null },
+);
+const TwoFactorBanner = dynamic(
+  () => import("@/components/two-factor-banner").then((mod) => mod.TwoFactorBanner),
   { loading: () => null },
 );
 

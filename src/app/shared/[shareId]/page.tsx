@@ -77,7 +77,10 @@ async function SharedChatContent({ params }: { params: Promise<{ shareId: string
   }
 
   const [chatRows, ownerRows] = await Promise.all([
-    db.select().from(chats).where(eq(chats.id, share.chatId)),
+    db
+      .select({ id: chats.id, title: chats.title, messages: chats.messages })
+      .from(chats)
+      .where(eq(chats.id, share.chatId)),
     db
       .select({ id: user.id, name: user.name, image: user.image })
       .from(user)
@@ -100,7 +103,7 @@ async function SharedChatContent({ params }: { params: Promise<{ shareId: string
   return (
     <SharedChatInterface
       shareId={shareId}
-      chat={chat}
+      chat={{ id: chat.id, title: chat.title }}
       messages={messages}
       owner={owner}
       allowFork={share.allowFork}

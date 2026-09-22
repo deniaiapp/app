@@ -5,7 +5,7 @@ import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { useLocale } from "next-intl";
 import { useTheme } from "next-themes";
 import { useEffect, useRef } from "react";
-import { env } from "@/env";
+import { clientEnv } from "@/env.client";
 
 /**
  * Cloudflare Turnstile widget wired for better-auth-ui `captchaPlugin`.
@@ -15,7 +15,7 @@ export function TurnstileCaptcha({ setToken, clearToken, setReset }: CaptchaRend
   const ref = useRef<TurnstileInstance | null>(null);
   const { resolvedTheme } = useTheme();
   const locale = useLocale();
-  const siteKey = env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  const siteKey = clientEnv.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
   const handleSuccess = (token: string) => {
     setToken(token);

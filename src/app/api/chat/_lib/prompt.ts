@@ -16,7 +16,7 @@ export function buildChatSystemPrompt({
   persistentMemory,
   projectPrompt,
   additionalInstruction,
-  responseStyle = "retry",
+  responseStyle,
   webSearchEnabled = false,
   deepResearch = false,
   forceWebSearch = false,
@@ -28,7 +28,9 @@ export function buildChatSystemPrompt({
       ? "The user asked to regenerate the previous answer with more detail. Keep the same intent, but expand the explanation, include more useful specifics, and improve completeness."
       : responseStyle === "concise"
         ? "The user asked to regenerate the previous answer more concisely. Keep the same intent, but shorten the response, reduce repetition, and prioritize the most important points."
-        : "The user asked for a fresh retry of the previous answer. Preserve the intent, but vary the phrasing and structure while keeping the response accurate and useful.";
+        : responseStyle === "retry"
+          ? "The user asked for a fresh retry of the previous answer. Preserve the intent, but vary the phrasing and structure while keeping the response accurate and useful."
+          : null;
   const forceWebSearchInstruction =
     forceWebSearch && !videoMode && !imageMode
       ? "Web search is required for this response. Use the search tool at least once before answering, then cite the sources you used. Use the browse tool when a specific page needs a full read."

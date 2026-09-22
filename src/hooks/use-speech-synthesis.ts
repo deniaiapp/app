@@ -39,6 +39,9 @@ function getServerSnapshot(): SpeechSnapshot {
   return serverSnapshot;
 }
 
+const subscribeToNothing = () => () => {};
+const getDisabledSnapshot = () => serverSnapshot;
+
 function detectSupport() {
   if (supportDetected || typeof window === "undefined") {
     return;
@@ -113,10 +116,18 @@ function startUtterance(id: string, text: string, lang: string) {
   }, 50);
 }
 
-export function useSpeechSynthesis() {
-  const current = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+export function useSpeechSynthesis(enabled = true) {
+  const current = useSyncExternalStore(
+    enabled ? subscribe : subscribeToNothing,
+    enabled ? getSnapshot : getDisabledSnapshot,
+    getServerSnapshot,
+  );
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
     detectSupport();
     const stopOnLeave = () => {
       cancelSpeech();
@@ -125,14 +136,14 @@ export function useSpeechSynthesis() {
     return () => {
       window.removeEventListener("pagehide", stopOnLeave);
     };
-  }, []);
+  }, [enabled]);
 
   function stop() {
     cancelSpeech();
   }
 
   function toggle(id: string, text: string, lang: string) {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+    if (!enabled || typeof window === "undefined" || !("speechSynthesis" in window)) {
       return;
     }
     if (speakingId === id) {
@@ -143,7 +154,7 @@ export function useSpeechSynthesis() {
   }
 
   return {
-    supported: current.supported,
+    supported: enabled && current.supported,
     speakingId: current.speakingId,
     toggle,
     stop,

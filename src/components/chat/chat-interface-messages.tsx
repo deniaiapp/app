@@ -2,7 +2,7 @@
 
 import type { ChatStatus, FileUIPart, UIMessage } from "ai";
 import { useExtracted } from "next-intl";
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { memo, useEffect, useLayoutEffect, useRef } from "react";
 import { useStickToBottomContext } from "use-stick-to-bottom";
 import {
   Attachment,
@@ -78,6 +78,7 @@ export interface ChatInterfaceMessagesProps {
   onModelChange: (value: string) => void;
   onWebSearchChange: (value: boolean) => void;
   webSearchAvailable?: boolean;
+  isActive?: boolean;
   hasMore?: boolean;
   isLoadingOlder?: boolean;
   onLoadOlder?: () => void | Promise<void>;
@@ -148,7 +149,7 @@ function ChatHistoryLoader({
   );
 }
 
-export function ChatInterfaceMessages({
+export const ChatInterfaceMessages = memo(function ChatInterfaceMessages({
   messages,
   groupedMessages,
   messageRenderKeys,
@@ -166,6 +167,7 @@ export function ChatInterfaceMessages({
   onModelChange,
   onWebSearchChange,
   webSearchAvailable = true,
+  isActive = true,
   hasMore = false,
   isLoadingOlder = false,
   onLoadOlder,
@@ -231,6 +233,7 @@ export function ChatInterfaceMessages({
                     onModelChange={onModelChange}
                     onWebSearchChange={onWebSearchChange}
                     webSearchAvailable={webSearchAvailable}
+                    isActive={isActive}
                   />
                 )}
               </div>
@@ -270,6 +273,7 @@ export function ChatInterfaceMessages({
                     onModelChange={onModelChange}
                     onWebSearchChange={onWebSearchChange}
                     webSearchAvailable={webSearchAvailable}
+                    isActive={isActive}
                   />
                 ))}
               </MessageBranchContent>
@@ -324,4 +328,4 @@ export function ChatInterfaceMessages({
       <ConversationScrollButton />
     </Conversation>
   );
-}
+});

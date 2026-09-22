@@ -1,6 +1,6 @@
 ---
 name: translate
-description: Sync `messages/en.json` and `messages/ja.json` for this repository. Use when the user asks to update translations, fill missing Japanese strings, or remove stale i18n keys. Run `bun run build` before reading translations, then add missing Japanese entries, fill empty values, remove stale keys, preserve key order from `en.json`, and keep placeholders, ICU syntax, and brand names unchanged.
+description: Synchronize English and Japanese message catalogs when updating translations or extracted copy.
 ---
 
 Sync translations between `messages/en.json` and `messages/ja.json`.

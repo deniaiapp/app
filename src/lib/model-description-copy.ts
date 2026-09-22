@@ -56,6 +56,9 @@ export function useModelDescriptionCopy() {
     "Best for complex tasks": t("Best for complex tasks"),
     "Best for everyday tasks": t("Best for everyday tasks"),
     "Best for high volume tasks": t("Best for high volume tasks"),
+    "Anthropic's flagship for agentic coding, computer use, and knowledge work.": t(
+      "Anthropic's flagship for agentic coding, computer use, and knowledge work.",
+    ),
     "Successor to Claude Fable 5 for long-running agentic coding, knowledge work, and research.": t(
       "Successor to Claude Fable 5 for long-running agentic coding, knowledge work, and research.",
     ),

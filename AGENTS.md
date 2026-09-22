@@ -1,166 +1,80 @@
-AGENTS.md (Agent Working Guide for deni-ai)
+# Agent guide for deni-ai
 
-This file applies to the entire repository tree rooted here. Follow these rules, steps, and cautions when making changes. If a deeper directory contains its own AGENTS.md, the more specific one takes precedence. Direct instructions from system/developers/users override this file.
+Bun, Next.js App Router, React Compiler, strict TypeScript, Tailwind v4,
+shadcn/ui, Drizzle/Postgres, and better-auth.
 
-■ Project Overview
+## Task boundaries
 
-- Framework: Next.js App Router (next@16 canary, React 19, React Compiler enabled)
-- Language/Types: TypeScript (strict)
-- Runtime: Bun (preferred; bun.lock present) or Node.js 20+
-- Lint/Format: oxlint (linting) and oxfmt (formatting)
-- Styles: Tailwind CSS v4 (via `@tailwindcss/postcss`)
-- UI: shadcn/ui (generated under `src/components/ui/*`)
-- DB: Postgres (Neon serverless) + Drizzle ORM (`drizzle-kit`)
-- Auth: better-auth (Drizzle adapter)
+Complete the requested change and relevant verification, fixing issues caused by
+the change before handing it back. Routine local edits and checks do not need
+additional approval. Ask when missing information affects scope or an external
+action is not already authorized.
 
-■ Required Environment Variables (as enforced by `src/env.ts`)
+Keep changes scoped. Preserve unrelated work. Do not add heavyweight dependencies
+or change the toolchain without approval. Do not commit or create branches unless
+requested; see the Git policy below.
 
-Source of truth: `src/env.ts`. Starter: `.env.example`. Human setup guide: `SETUP.md`.
-Empty optional strings are treated as unset (`emptyStringAsUndefined`) for Docker/Dokploy.
+## Sources of truth
 
-Required (Zod will fail startup/build without them):
+Read these when relevant rather than loading the whole project:
 
-- `DATABASE_URL` (Postgres / Neon)
-- `NEXT_PUBLIC_BETTER_AUTH_URL` (public app URL, e.g. http://localhost:3000)
-- `BETTER_AUTH_SECRET` (exactly 32 characters)
+- Commands and dependency versions: `package.json` (Bun preferred).
+- Environment validation: `src/env.ts`; setup: `.env.example` and `SETUP.md`.
+  Optional empty strings are treated as unset. Never hardcode secrets.
+- Database: `src/db/schema/`, `src/db/schema/index.ts`, `drizzle.config.ts`;
+  generated SQL: `migrations/`. Runtime uses a pooled Postgres URL.
+- Auth: `src/lib/auth.ts` and `src/lib/auth-client.ts`.
+  Change the client baseURL only when requested.
+  `bun run auth:generate` overwrites `src/db/schema/auth-schema.ts`.
+- Task-specific workflows: `.agents/skills/`; load only the applicable skill and
+  references.
 
-Optional:
+## Project conventions
 
-- OAuth: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` (missing pairs hide that sign-in provider)
-- Stripe: `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_FLASH_OFFER_COUPON_ID` (missing Stripe keys disable billing)
-- AI providers: `GOOGLE_GENERATIVE_AI_API_KEY`, `ANTHROPIC_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY` (missing keys hide the dependent models/features)
-- Deni AI API (OpenAI-compatible): `DENI_API_KEY` + `DENI_API_BASE_URL` (missing pair hides DeepSeek / MiniMax models)
-- Search: `EXA_API_KEY` (missing key hides web search)
-- CAPTCHA: `TURNSTILE_SECRET_KEY`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (missing pair disables Turnstile)
-- voids.top: `VOIDS_MODE=true|1` routes platform OpenAI + Anthropic via voids when `VOIDS_API_KEY` is present; without it, normal provider routing is used; optional `VOIDS_BASE_URL`
-- Email (Cloudflare Email Sending): `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`
-- Blog admin: `BLOG_ADMIN_EMAILS` (falls back to `AFFILIATE_ADMIN_EMAILS`)
-- Blog admin: `BLOG_ADMIN_EMAILS` (falls back to `AFFILIATE_ADMIN_EMAILS`)
-- Rate limit: `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` or `KV_REST_API_URL` / `KV_REST_API_TOKEN`
-- Uploads: `UPLOADTHING_TOKEN`
-- Client: `NEXT_PUBLIC_BILLING_DISABLED`, AdSense (`NEXT_PUBLIC_ADSENSE_*`)
+- Match neighboring code: named exports where practical, kebab-case files, and
+  `@/*` imports. Keep TypeScript strict.
+- Pages/layouts: `src/app/`; shared components: `src/components/`; reusable
+  logic: `src/lib/`; hooks: `src/hooks/`.
+- Keep edits to generated `src/components/ui/` minimal and API-compatible.
+- Use `next-intl` (including `useExtracted()`) for user-facing copy. Keep
+  `messages/en.json` and `messages/ja.json` keys synchronized, preserving
+  placeholders and ICU syntax. Avoid locale-conditional copy when translations
+  can express it.
+- Update related documentation when changing user-facing behavior, environment
+  configuration, deployment, or architecture.
+- Respond in the user's language; write code and identifiers in English.
 
-■ Common Scripts (Bun preferred)
+## Verification
 
-- Dev server: `bun dev`
-- Build: `bun run build` (runs `typecheck` then `next build`)
-- Start: `bun start` / `bun run start`
-- Lint: `bun run lint` (oxlint); fix: `bun run lint:fix`
-- Format: `bun run format` (oxfmt)
-- Typecheck: `bun run typecheck`
-- Drizzle generate: `bun run db:generate`
-- Drizzle migrate: `bun run db:migrate` (`.env.production`); local: `bun run db:migrate:dev` (`.env.local`)
-- Drizzle push: `bun run db:push`
-- Regenerate better-auth schema: `bun run auth:generate` (overwrites `src/db/schema/auth-schema.ts`)
-- Disposable email list: `bun run disposable:refresh`
-- Tools: `bun run tools:commit`, `bun run tools:codename`
-- React doctor: `bun run doctor`
+Choose checks that establish the changed behavior:
 
-■ Coding Conventions
+- Documentation/skill-only edits: check formatting, links, and instruction
+  consistency; no app build or dev server is needed.
+- Code changes: `bun run lint`, `bun run format`, and `bun run typecheck`.
+  Review formatter changes for unrelated edits.
+- Runtime/UI changes: use an existing dev server or `bun dev` and exercise the
+  affected route. Use `bun run build` for build/prerender/configuration changes.
+- Schema changes: `bun run db:generate`, then inspect the generated SQL.
+  Apply migrations only when requested for the target environment:
+  `db:migrate:dev` loads `.env.local`; `db:migrate` loads `.env.production`.
+  Do not infer permission to apply migrations or use `db:push` from schema edits.
 
-- Formatting/Linting: Adhere to oxlint and oxfmt. Run `bun run lint` and `bun run format` before submitting changes.
-- Exports: Prefer named exports where reasonable. Match existing code style.
-- Type safety: Keep TypeScript strict. Avoid `any`; if unavoidable, scope it narrowly.
-- Module paths: Use the `@/*` alias (from `tsconfig.json`) to avoid deep relative paths.
-- File naming: Follow existing kebab-case for files (e.g., `auth-client.ts`).
-- React/Next: App Router patterns (`src/app/**/page.tsx`, `layout.tsx`). Respect server/client component boundaries.
-- React Compiler: Avoid sharing mutable closures or side effects that break assumptions. Follow existing patterns.
+Report what was checked and any remaining blockers. Rerun affected checks after
+fixes; avoid repeating successful checks without a relevant change.
 
-■ Database & Migrations (Drizzle)
+## Git policy
 
-- Schema files live in `src/db/schema/*`; aggregated exports in `src/db/schema/index.ts`.
-- Migrations are output to `migrations/` (see `drizzle.config.ts`).
-- Driver: Neon over TCP (`postgres.js` + `drizzle-orm/postgres-js`). `DATABASE_URL` must be set. Use the pooled (`-pooler`) URL at runtime.
-- Typical flow:
-  1. Edit schema → 2) `bun run db:generate` → 3) `bun run db:migrate` or `bun run db:push`
-- Caution: For destructive changes (dropping columns, type changes), plan safe migrations and backups.
+Daily work lands directly on `canary`; `master` is the release target.
 
-■ Authentication (better-auth)
+When commit/push/PR work is requested, update local `canary` from its remote while
+preserving local changes, commit scoped changes with a conventional message, and
+push to `origin/canary`. Do not create a feature branch or a PR into `canary`
+unless explicitly requested.
 
-- Server config: `src/lib/auth.ts` (Drizzle adapter + Google/GitHub OAuth, magic link, anonymous, passkey, 2FA).
-- Route: `src/app/api/auth/[...all]/route.ts` exports the better-auth handler.
-- Client: `src/lib/auth-client.ts` — do not change baseURL unless explicitly requested.
-- Regenerate schema with `bun run auth:generate` (may overwrite `auth-schema.ts`).
-
-■ Frontend & Styles
-
-- Tailwind v4; keep a utility-first approach.
-- shadcn/ui generated files under `src/components/ui/*` are generally not edited and are excluded from linting.
-  - If changes are absolutely necessary, keep them minimal and non-breaking to component APIs.
-- Shared utilities belong in `src/lib/utils.ts`; reusable logic goes under `src/lib/`.
-
-■ Internationalization (i18n)
-
-- Translation files are located in `messages/` directory (`en.json`, `ja.json`, etc.).
-- When adding new user-facing text strings:
-  1. Add the key and English text to `messages/en.json`.
-  2. Add the corresponding Japanese translation to `messages/ja.json`.
-  3. Ensure all translation files have the same keys.
-- Use `next-intl` for translations in components (e.g., `useExtracted()` hook).
-- Do not branch UI copy on locale with flags like `isJapanese` or `locale === "ja"` when `useExtracted()` can express it. Prefer translated strings and structure the JSX so ordering and wording come from translations, not locale conditionals.
-- Before completing i18n-related changes, verify that all language files are in sync.
-
-■ Directory Guidelines
-
-- Pages/Layouts: `src/app/**`
-- Shared components: `src/components/**`
-- UI (generated): `src/components/ui/**`
-- DB/ORM: `src/db/**`
-- Auth/Client libs: `src/lib/**`
-- Custom hooks: `src/hooks/**`
-
-■ Prohibited/Use Caution
-
-- Do not add heavyweight dependencies or change the toolchain (e.g., new formatter) without explicit approval.
-- Avoid unnecessary renames of files/exports. Keep diffs minimal and targeted.
-- Do not add license/copyright headers.
-- Avoid destructive edits to generated files (especially `src/components/ui/*`). If required, justify and document impact.
-- Never hardcode secrets. Use environment variables.
-
-■ Validating Changes
-
-- At minimum locally:
-  - Run `bun run lint`, `bun run format`, and `bun run typecheck`.
-  - Start dev: `bun dev` and open http://localhost:3000.
-  - For schema changes: run `db:generate` → `db:migrate:dev` / `db:migrate` / `db:push` (requires `DATABASE_URL`).
-- Tests are not set up. For riskier areas, note manual verification steps or TODOs where appropriate.
-- When changing user-facing behavior, env surface, deploy, or architecture, update `README.md` / `SETUP.md` / related docs in the same change.
-
-■ Branch / PR / Merge Policy (Agents)
-
-Default branch for day-to-day work is **`canary`**. **`master`** is the promotion/release target.
-
-When the user asks to commit / push / PR / merge (including phrasing like 「全commit & push & pr & instant merge」):
-
-1. **Directly on `canary`**
-   - Do not create a feature/fix branch or a PR into `canary` unless the user explicitly requests one.
-   - Update the local `canary` from its remote, then commit scoped changes there using a conventional commit message.
-   - Push `canary` directly to `origin/canary`.
-2. **`canary` → `master` (required promotion step)**
-   - After landing work on `canary`, **always open a PR with base = `master` and head = `canary`** to promote.
-   - If the user asked to merge / instant merge, merge that PR into `master` as well (do not leave promotion only on `canary`).
-   - Reuse an open canary→master PR if one already exists; otherwise create one. Title/body should summarize what is being promoted.
-
-Other rules:
-
-- Keep changes scoped to the task. Separate incidental refactors.
-- Document purpose, context, and verification steps concisely.
-- Do not force-push shared branches (`canary`, `master`) unless the user explicitly requests it.
-- In this environment, do not perform git commits/branching unless explicitly instructed (patches only)—except when the user asked for commit/push/PR/merge as above.
-
-■ Communication
-
-- Agent responses should match the user's language. Detect from recent user messages; if unclear, ask briefly.
-- Code, identifiers, and file contents should be written in English unless the user explicitly requests otherwise.
-
-■ Troubleshooting
-
-- Build failures (React Compiler/Next canary):
-  - Revisit hooks, side effects, and dependency arrays in recent changes.
-  - Confirm runtime (Node 20+/Bun).
-- Env validation failures: Ensure `.env` has the core keys (see `src/env.ts`); optional provider keys disable their dependent features when omitted.
-
-If you need to deviate from these guidelines, propose a minimal plan first (goal/impact/alternatives) before proceeding.
+After landing on `canary`, reuse or create a promotion PR with base `master` and
+head `canary`. Merge it when merge/instant merge was requested. Summarize the
+promoted changes and verification. Never force-push shared branches unless
+explicitly requested.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

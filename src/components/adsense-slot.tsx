@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { env } from "@/env";
+import { clientEnv } from "@/env.client";
 import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/lib/trpc/react";
 import { passiveUsageQueryOptions } from "@/lib/usage-query-options";
@@ -25,7 +25,7 @@ export function AdSenseSlot({ slot, className }: AdSenseSlotProps) {
   const shouldCheckUsage =
     hasSession &&
     process.env.NODE_ENV === "production" &&
-    Boolean(env.NEXT_PUBLIC_ADSENSE_CLIENT_ID) &&
+    Boolean(clientEnv.NEXT_PUBLIC_ADSENSE_CLIENT_ID) &&
     Boolean(slot);
   const usageQuery = trpc.billing.usage.useQuery(undefined, {
     enabled: shouldCheckUsage,
@@ -68,7 +68,7 @@ export function AdSenseSlot({ slot, className }: AdSenseSlotProps) {
       <ins
         ref={slotRef}
         className="adsbygoogle relative block min-h-[96px] w-full overflow-hidden rounded-[1.2rem]"
-        data-ad-client={env.NEXT_PUBLIC_ADSENSE_CLIENT_ID}
+        data-ad-client={clientEnv.NEXT_PUBLIC_ADSENSE_CLIENT_ID}
         data-ad-format="auto"
         data-ad-slot={slot}
         data-full-width-responsive="true"

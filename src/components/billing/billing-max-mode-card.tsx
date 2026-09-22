@@ -10,6 +10,7 @@ import { Label } from "../ui/label";
 import { Switch } from "../ui/switch";
 
 type MaxModeData = {
+  eligible: boolean;
   currency?: string | null;
   enabled: boolean;
   usageBasic?: number;
@@ -57,7 +58,7 @@ export function BillingMaxModeCard({
             id="max-mode-toggle"
             checked={data.enabled}
             onCheckedChange={onToggle}
-            disabled={isToggling}
+            disabled={isToggling || (!data.enabled && !data.eligible)}
           />
         </div>
       </CardHeader>

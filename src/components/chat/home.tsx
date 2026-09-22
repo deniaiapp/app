@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { AdSenseSlot } from "@/components/adsense-slot";
 import { ChatComposer, type ComposerMessage } from "@/components/chat/chat-composer";
 import { ProjectSelect } from "@/components/projects/project-select";
-import { env } from "@/env";
+import { clientEnv } from "@/env.client";
 import { useAvailableModels } from "@/hooks/use-available-models";
 import { useNewChat } from "@/hooks/use-new-chat";
 import { defaultModel, getPreferredReasoningEffort, type ReasoningEffort } from "@/lib/constants";
@@ -244,6 +244,7 @@ export default function ChatHome() {
             onSubmit={handleSubmit}
             placeholder={t("Ask me anything...")}
             isSubmitDisabled={isSubmitting || availableModels.length === 0}
+            availableModels={availableModels}
             model={model}
             onModelChange={handleModelChange}
             webSearch={effectiveWebSearch}
@@ -265,7 +266,7 @@ export default function ChatHome() {
             onDeepResearchChange={(enabled) => setDeepResearch(enabled && features.webSearch)}
           />
           <AdSenseSlot
-            slot={env.NEXT_PUBLIC_ADSENSE_CHAT_SLOT_ID ?? ""}
+            slot={clientEnv.NEXT_PUBLIC_ADSENSE_CHAT_SLOT_ID ?? ""}
             className="mx-auto mt-3 max-w-xl border-border/40 bg-background/40 p-2 shadow-none"
           />
         </div>

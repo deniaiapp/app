@@ -83,6 +83,7 @@ export function useBillingPage() {
     onSuccess: async () => {
       toast.success(t("Plan updated."));
       await utils.billing.status.invalidate();
+      await utils.billing.maxModeStatus.invalidate();
       await utils.billing.usage.invalidate();
     },
     onError: (error) => toast.error(error.message),
@@ -112,6 +113,7 @@ export function useBillingPage() {
   const cancel = trpc.billing.cancelSubscription.useMutation({
     onSuccess: async () => {
       await utils.billing.status.invalidate();
+      await utils.billing.maxModeStatus.invalidate();
       await utils.billing.usage.invalidate();
     },
   });
@@ -120,6 +122,7 @@ export function useBillingPage() {
     onSuccess: async () => {
       toast.success(t("Subscription resumed."));
       await utils.billing.status.invalidate();
+      await utils.billing.maxModeStatus.invalidate();
       await utils.billing.usage.invalidate();
     },
     onError: (error) => toast.error(error.message),
@@ -149,6 +152,7 @@ export function useBillingPage() {
 
   const handleMaxModeToggle = (enabled: boolean) => {
     if (enabled) {
+      if (statusQuery.data?.status !== "active" || !maxModeQuery.data?.eligible) return;
       enableMaxMode.mutate();
     } else {
       disableMaxMode.mutate();
@@ -157,7 +161,13 @@ export function useBillingPage() {
 
   const statusLabel = statusQuery.data?.status ?? "inactive";
   const rawPlanId = (statusQuery.data?.planId as BillingPlanId) ?? undefined;
-  const activePlanId = ACTIVE_STATUSES.has(statusLabel) ? rawPlanId : undefined;
+  const currentPeriodEnd = statusQuery.data?.currentPeriodEnd;
+  const isSubscribed =
+    ACTIVE_STATUSES.has(statusLabel) ||
+    (statusLabel === "canceled" &&
+      currentPeriodEnd != null &&
+      new Date(currentPeriodEnd).getTime() > Date.now());
+  const activePlanId = isSubscribed ? rawPlanId : undefined;
   const isOnTeamPlan =
     statusQuery.data?.isTeamPlan === true && rawPlanId ? isTeamPlan(rawPlanId) : false;
   const usage = usageQuery.data?.usage ?? [];
@@ -177,7 +187,6 @@ export function useBillingPage() {
 
   const planMap = new Map((plansQuery.data?.plans ?? []).map((plan) => [plan.id, plan]));
   const currentPlan = activePlanId ? planMap.get(activePlanId) : undefined;
-  const isSubscribed = ACTIVE_STATUSES.has(statusLabel);
   const isSubscription = statusQuery.data?.mode === "subscription";
   const hasActiveSubscription = isSubscribed && isSubscription;
   const cancelAt = statusQuery.data?.cancelAt;

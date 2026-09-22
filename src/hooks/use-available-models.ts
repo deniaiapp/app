@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import type { ModelOption } from "@/components/chat/chat-composer";
 import { authClient } from "@/lib/auth-client";
 import { getModelsForGuest, getModelsForPlanTier } from "@/lib/constants";
@@ -30,16 +31,25 @@ export function useAvailableModels() {
     staleTime: 30000,
   });
 
-  const providerSettings = new Map<string, ProviderSetting>(
-    (providersQuery.data?.settings ?? []).map((setting) => [setting.provider, setting]),
+  const providerSettings = useMemo(
+    () =>
+      new Map<string, ProviderSetting>(
+        (providersQuery.data?.settings ?? []).map((setting) => [setting.provider, setting]),
+      ),
+    [providersQuery.data?.settings],
   );
 
-  const providerKeys = new Set((providersQuery.data?.keys ?? []).map((entry) => entry.provider));
-  const planModels = isAnonymous ? getModelsForGuest() : getModelsForPlanTier(planTier);
-  const availableModels: ModelOption[] = planModels.filter((model) => {
-    const provider = model.provider ?? model.author;
-    return isModelProviderAvailable(platformCapabilities, provider) || providerKeys.has(provider);
-  });
+  const providerKeys = useMemo(
+    () => new Set((providersQuery.data?.keys ?? []).map((entry) => entry.provider)),
+    [providersQuery.data?.keys],
+  );
+  const availableModels = useMemo<ModelOption[]>(() => {
+    const planModels = isAnonymous ? getModelsForGuest() : getModelsForPlanTier(planTier);
+    return planModels.filter((model) => {
+      const provider = model.provider ?? model.author;
+      return isModelProviderAvailable(platformCapabilities, provider) || providerKeys.has(provider);
+    });
+  }, [isAnonymous, planTier, platformCapabilities, providerKeys]);
 
   return {
     availableModels,

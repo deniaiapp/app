@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import {
@@ -39,6 +39,7 @@ import {
 import { getOrgMemberCount, updateTeamSeatCount } from "@/lib/team-billing";
 import { getUsageLimitConfig } from "@/lib/usage";
 import { type ProtectedContext, protectedProcedure, router } from "../trpc";
+import { historyBefore, historyCursorSchema, historyCursorTimestamp } from "../history-pagination";
 
 import type Stripe from "stripe";
 
@@ -617,7 +618,7 @@ export const organizationRouter = router({
     .input(
       z.object({
         organizationId: z.string().min(1),
-        cursor: z.string().nullish(),
+        cursor: historyCursorSchema.nullish(),
         limit: z.number().int().min(1).max(50).default(20),
       }),
     )
@@ -633,6 +634,7 @@ export const organizationRouter = router({
           action: teamUsageAuditLog.action,
           metadata: teamUsageAuditLog.metadata,
           createdAt: teamUsageAuditLog.createdAt,
+          cursorCreatedAt: historyCursorTimestamp(teamUsageAuditLog.createdAt),
           actorId: teamUsageAuditLog.actorUserId,
           actorName: actorUser.name,
           actorEmail: actorUser.email,
@@ -648,15 +650,20 @@ export const organizationRouter = router({
         .where(
           and(
             eq(teamUsageAuditLog.organizationId, input.organizationId),
-            input.cursor ? lt(teamUsageAuditLog.createdAt, new Date(input.cursor)) : undefined,
+            historyBefore(teamUsageAuditLog, input.cursor),
           ),
         )
-        .orderBy(desc(teamUsageAuditLog.createdAt))
+        .orderBy(desc(teamUsageAuditLog.createdAt), desc(teamUsageAuditLog.id))
         .limit(input.limit + 1);
 
       const hasMore = rows.length > input.limit;
-      const items = hasMore ? rows.slice(0, input.limit) : rows;
-      const nextCursor = hasMore ? (items.at(-1)?.createdAt.toISOString() ?? null) : null;
+      const page = rows.slice(0, input.limit);
+      const last = page.at(-1);
+      const nextCursor = hasMore && last ? { createdAt: last.cursorCreatedAt, id: last.id } : null;
+      const items = page.map(({ cursorCreatedAt, ...item }) => {
+        void cursorCreatedAt;
+        return item;
+      });
 
       return { items, nextCursor };
     }),

@@ -8,6 +8,7 @@ import { BillingChangePlanDialog } from "./billing-change-plan-dialog";
 import { BillingCurrentPlanCard } from "./billing-current-plan-card";
 import { BillingMaxModeCard } from "./billing-max-mode-card";
 import { BillingPlansSection } from "./billing-plans-section";
+import { BillingResetCard } from "./billing-reset-card";
 import { BillingUsageSection } from "./billing-usage-section";
 import { SubscriptionShredder } from "./subscription-shredder";
 import { useBillingPage } from "./use-billing-page";
@@ -130,12 +131,14 @@ function BillingPageContent() {
         maxModeEnabled={maxModeQuery.data?.enabled}
       />
 
+      <BillingResetCard />
+
       <CardVerificationCard
         isFreeTier={usageTier === "free"}
         hasVerifiedPaymentMethod={usageQuery.data?.hasVerifiedPaymentMethod ?? false}
       />
 
-      {maxModeQuery.data?.eligible && maxModeQuery.data && (
+      {statusQuery.data?.status === "active" && maxModeQuery.data?.eligible && (
         <BillingMaxModeCard
           data={maxModeQuery.data}
           onToggle={handleMaxModeToggle}
