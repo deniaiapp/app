@@ -124,10 +124,20 @@ export function formatModelDeprecationDate(date: string, locale: string): string
   }).format(parsedDate);
 }
 
+// Quota cost tiers use the mean standard input/output price per 1M tokens:
+// < $5 = 1x, < $10 = 1.5x, < $20 = 2x, < $40 = 3x, < $60 = 4x, otherwise 5x.
+// Rates checked 2026-09-23 against:
+// https://developers.openai.com/api/docs/pricing
+// https://platform.claude.com/docs/en/about-claude/pricing
+// https://ai.google.dev/gemini-api/docs/pricing
+// https://console.groq.com/docs/models
+// https://openrouter.ai/api/v1/models (routed model variants)
+// Pro/Fast mode and long-context multipliers are applied separately.
 export const models: readonly ModelDefinition[] = [
   {
     name: "GPT-6 Astra",
     value: "gpt-6-astra",
+    tokenMultiplier: 3,
     author: "openai",
     description: "OpenAI flagship for complex reasoning, coding, and agentic work.",
     premium: true,
@@ -135,11 +145,11 @@ export const models: readonly ModelDefinition[] = [
     features: ["smartest", "reasoning", "coding", "smart"],
     efforts: ["low", "medium", "high", "max"],
     contextWindow: 1_000_000,
-    tokenMultiplier: 3,
   },
   {
     name: "GPT-6 Sol",
     value: "gpt-6-sol",
+    tokenMultiplier: 1.5,
     author: "openai",
     description: "High-end GPT-6 model for demanding reasoning, coding, and agentic work.",
     featured: true,
@@ -152,6 +162,7 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "GPT-6 Luna",
     value: "gpt-6-luna",
+    tokenMultiplier: 1,
     author: "openai",
     description: "Fast, cost-efficient GPT-6 model for high-volume tasks.",
     featured: true,
@@ -164,12 +175,12 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "GPT-5.6 Sol",
     value: "gpt-5.6-sol",
+    tokenMultiplier: 2,
     author: "openai",
     description: "OpenAI flagship for complex reasoning, coding, and agentic work.",
     featured: true,
     features: ["smartest", "reasoning", "coding", "fast"],
     efforts: ["none", "low", "medium", "high", "xhigh", "max"],
-    tokenMultiplier: 2,
     supportsProMode: true,
     supportsFastMode: true,
     contextWindow: 1_050_000,
@@ -177,10 +188,10 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "GPT-5.6 Terra",
     value: "gpt-5.6-terra",
+    tokenMultiplier: 1,
     author: "openai",
     description: "Balanced GPT-5.6 model for everyday work at half the cost of Sol.",
     featured: true,
-    tokenMultiplier: 1.5,
     features: ["reasoning", "smart", "coding", "fast"],
     efforts: ["none", "low", "medium", "high", "xhigh", "max"],
     supportsProMode: true,
@@ -190,6 +201,7 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "GPT-5.6 Luna",
     value: "gpt-5.6-luna",
+    tokenMultiplier: 1,
     author: "openai",
     description: "Fastest, most affordable GPT-5.6 model for high-volume tasks.",
     featured: true,
@@ -203,16 +215,17 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "GPT-5.5",
     value: "gpt-5.5",
+    tokenMultiplier: 2,
     author: "openai",
     description: "A new class of intelligence for coding and professional work.",
     features: ["smartest", "reasoning", "coding", "fast"],
     efforts: ["none", "low", "medium", "high", "xhigh"],
-    tokenMultiplier: 1.5,
     contextWindow: 1_000_000,
   },
   {
     name: "GPT-5.4",
     value: "gpt-5.4",
+    tokenMultiplier: 1.5,
     author: "openai",
     description: "A more affordable model for coding and professional work.",
     features: ["reasoning", "smart", "fast"],
@@ -222,6 +235,7 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "GPT-5.4 mini",
     value: "gpt-5.4-mini",
+    tokenMultiplier: 1,
     author: "openai",
     description: "Our strongest mini model yet for coding, computer use, and subagents.",
     features: ["coding", "reasoning", "fast"],
@@ -231,6 +245,7 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "GPT-5.4 nano",
     value: "gpt-5.4-nano",
+    tokenMultiplier: 1,
     author: "openai",
     description: "Our cheapest GPT-5.4-class model for simple high-volume tasks.",
     features: ["reasoning", "fastest", "fast"],
@@ -240,6 +255,7 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "GPT-5.3 Codex",
     value: "gpt-5.3-codex",
+    tokenMultiplier: 1.5,
     author: "openai",
     description: "The most capable agentic coding model to date.",
     features: ["coding", "reasoning", "fast"],
@@ -248,6 +264,7 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "GPT-5.2",
     value: "gpt-5.2",
+    tokenMultiplier: 1.5,
     author: "openai",
     description: "General purpose OpenAI model",
     features: ["smart", "reasoning", "fast"],
@@ -257,6 +274,7 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "GPT-5",
     value: "gpt-5",
+    tokenMultiplier: 1.5,
     author: "openai",
     description: "Flagship model for coding, reasoning, and agentic tasks across domains.",
     deprecation: { date: "2026-12-11", kind: "shutdown" },
@@ -267,6 +285,7 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "GPT-5 mini",
     value: "gpt-5-mini",
+    tokenMultiplier: 1,
     author: "openai",
     description: "Faster, more affordable GPT-5 for well-defined tasks.",
     deprecation: { date: "2026-12-11", kind: "shutdown" },
@@ -277,6 +296,7 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "GPT-5 nano",
     value: "gpt-5-nano",
+    tokenMultiplier: 1,
     author: "openai",
     description: "Fastest, most cost-efficient GPT-5 model.",
     deprecation: { date: "2026-12-11", kind: "shutdown" },
@@ -287,6 +307,7 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "GPT-4.1",
     value: "gpt-4.1",
+    tokenMultiplier: 1.5,
     author: "openai",
     description: "Smartest model for fast, everyday tasks.",
     features: ["fast"],
@@ -296,6 +317,7 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "GPT-4o",
     value: "gpt-4o",
+    tokenMultiplier: 1.5,
     author: "openai",
     description: "Fast, intelligent, flexible GPT model.",
     deprecation: { date: "2026-10-23", kind: "shutdown" },
@@ -306,6 +328,7 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "GPT-4o mini",
     value: "gpt-4o-mini",
+    tokenMultiplier: 1,
     author: "openai",
     description: "Fast, affordable small model for focused tasks.",
     features: ["fast"],
@@ -322,6 +345,7 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "GPT-oss 120b",
     value: "openai/gpt-oss-120b",
+    tokenMultiplier: 1,
     author: "openai",
     provider: "groq",
     description: "Most powerful open-weight model",
@@ -331,6 +355,7 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "GPT-oss 20b",
     value: "openai/gpt-oss-20b",
+    tokenMultiplier: 1,
     author: "openai",
     provider: "groq",
     description: "Medium-sized open-weight model",
@@ -340,16 +365,17 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "Gemini 3.1 Pro",
     value: "gemini-3.1-pro-preview",
+    tokenMultiplier: 1.5,
     author: "google",
     description: "Best for complex tasks",
     featured: true,
     features: ["smartest", "smart", "reasoning"],
     efforts: ["low", "high"],
-    tokenMultiplier: 3,
   },
   {
     name: "Gemini 3.7 Flash",
     value: "gemini-3.7-flash",
+    tokenMultiplier: 1,
     author: "google",
     description: "Best for coding and agentic tasks",
     featured: true,
@@ -360,6 +386,7 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "Gemini 3.6 Flash",
     value: "gemini-3.6-flash",
+    tokenMultiplier: 1,
     author: "google",
     description: "Best for everyday tasks",
     features: ["reasoning", "fast"],
@@ -369,6 +396,7 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "Gemini 3.5 Flash",
     value: "gemini-3.5-flash",
+    tokenMultiplier: 1,
     author: "google",
     description: "Best for everyday tasks",
     features: ["reasoning", "fast"],
@@ -377,6 +405,7 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "Gemini 3 Flash",
     value: "gemini-3-flash-preview",
+    tokenMultiplier: 1,
     author: "google",
     description: "Best for everyday tasks",
     default: false,
@@ -386,6 +415,7 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "Gemini 2.5 Flash Lite",
     value: "gemini-2.5-flash-lite",
+    tokenMultiplier: 1,
     author: "google",
     description: "Best for high volume tasks",
     features: ["reasoning", "fast"],
@@ -395,6 +425,7 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "Claude Opus 5.5",
     value: "claude-opus-5.5",
+    tokenMultiplier: 2,
     author: "anthropic",
     description: "Anthropic's flagship for agentic coding, computer use, and knowledge work.",
     premium: true,
@@ -402,11 +433,11 @@ export const models: readonly ModelDefinition[] = [
     features: ["smartest", "reasoning", "coding", "smart"],
     efforts: ["low", "medium", "high", "max"],
     contextWindow: 1_000_000,
-    tokenMultiplier: 3,
   },
   {
     name: "Claude Fable 5.1",
     value: "claude-fable-5.1",
+    tokenMultiplier: 3,
     author: "anthropic",
     description:
       "Successor to Claude Fable 5 for long-running agentic coding, knowledge work, and research.",
@@ -415,22 +446,22 @@ export const models: readonly ModelDefinition[] = [
     features: ["smartest", "reasoning", "coding", "smart"],
     efforts: ["low", "medium", "high", "max"],
     contextWindow: 1_000_000,
-    tokenMultiplier: 3,
   },
   {
     name: "Claude Fable 5",
     value: "claude-fable-5",
+    tokenMultiplier: 3,
     author: "anthropic",
     description: "Anthropic's most capable model for long-horizon agentic work.",
     premium: true,
     features: ["smartest", "reasoning", "coding", "smart"],
     efforts: ["low", "medium", "high", "max"],
     contextWindow: 1_000_000,
-    tokenMultiplier: 3,
   },
   {
     name: "Claude Opus 5",
     value: "claude-opus-5",
+    tokenMultiplier: 2,
     author: "anthropic",
     description: "For complex agentic coding and enterprise work.",
     premium: true,
@@ -438,11 +469,11 @@ export const models: readonly ModelDefinition[] = [
     features: ["reasoning", "smart", "coding"],
     efforts: ["low", "medium", "high", "max"],
     contextWindow: 1_000_000,
-    tokenMultiplier: 3,
   },
   {
     name: "Claude Sonnet 5",
     value: "claude-sonnet-5",
+    tokenMultiplier: 1.5,
     author: "anthropic",
     description: "Balanced Claude 5 model for coding, writing, and everyday agentic work.",
     premium: true,
@@ -454,28 +485,29 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "Claude Opus 4.7",
     value: "claude-opus-4.7",
+    tokenMultiplier: 2,
     author: "anthropic",
     description: "All-around professional model",
     premium: true,
     features: ["reasoning", "smart"],
     efforts: ["low", "medium", "high", "max"],
     contextWindow: 1_000_000,
-    tokenMultiplier: 3,
   },
   {
     name: "Claude Opus 4.6",
     value: "claude-opus-4.6",
+    tokenMultiplier: 2,
     author: "anthropic",
     description: "Legacy All-around professional model",
     premium: true,
     features: ["reasoning", "smart"],
     efforts: ["low", "medium", "high", "max"],
     contextWindow: 1_000_000,
-    tokenMultiplier: 3,
   },
   {
     name: "Claude Sonnet 4.6",
     value: "claude-sonnet-4.6",
+    tokenMultiplier: 1.5,
     author: "anthropic",
     description: "Hybrid reasoning model",
     premium: true,
@@ -486,6 +518,7 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "Claude Sonnet 4.5",
     value: "claude-sonnet-4.5",
+    tokenMultiplier: 1.5,
     author: "anthropic",
     description: "Hybrid reasoning model",
     premium: true,
@@ -496,6 +529,7 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "Claude Haiku 4.5",
     value: "claude-haiku-4.5",
+    tokenMultiplier: 1,
     author: "anthropic",
     description: "Fast, lightweight Claude model for everyday chat and quick reasoning.",
     featured: true,
@@ -505,13 +539,13 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "Claude Opus 4.5",
     value: "claude-opus-4.5",
+    tokenMultiplier: 2,
     author: "anthropic",
     description: "Legacy professional model",
     premium: true,
     default: false,
     features: ["reasoning", "smart"],
     efforts: ["low", "medium", "high"],
-    tokenMultiplier: 3,
   },
   // {
   //   name: "Grok 4.5",
@@ -562,6 +596,7 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "DeepSeek V4",
     value: "deepseek/deepseek-v4",
+    tokenMultiplier: 1,
     author: "deepseek",
     provider: "deni",
     description: "DeepSeek V4 for reasoning, coding, and general agentic work.",
@@ -571,6 +606,7 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "DeepSeek V4 Pro",
     value: "deepseek/deepseek-v4-pro",
+    tokenMultiplier: 1,
     author: "deepseek",
     provider: "deni",
     description: "Higher-capacity DeepSeek V4 for harder reasoning and coding tasks.",
@@ -581,6 +617,7 @@ export const models: readonly ModelDefinition[] = [
   {
     name: "MiniMax M3",
     value: "minimax/minimax-m3",
+    tokenMultiplier: 1,
     author: "minimax",
     provider: "deni",
     description: "MiniMax M3 for fast reasoning and everyday agentic tasks.",
