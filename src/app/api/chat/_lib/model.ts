@@ -1,7 +1,7 @@
 import { type AnthropicProviderOptions, createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI, type GoogleGenerativeAIProviderOptions } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
-import { createXai, type XaiProviderOptions } from "@ai-sdk/xai";
+import { createXai, type XaiResponsesProviderOptions } from "@ai-sdk/xai";
 import { createOpenAI, type OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import type { LanguageModel, ModelMessage, SystemModelMessage } from "ai";
 import { streamText } from "ai";
@@ -473,7 +473,7 @@ export async function resolveChatModelContext({
           apiKey: byokApiKey,
           baseURL: byokBaseUrl,
         });
-        model = provider.chat(resolvedModelId.replace("xai.", ""));
+        model = provider.responses(resolvedModelId.replace("xai.", ""));
       } else {
         model = getOpenRouterModel();
       }
@@ -557,7 +557,7 @@ export async function resolveChatModelContext({
       ? {
           xai: {
             reasoningEffort: xaiReasoningEffort,
-          } satisfies XaiProviderOptions,
+          } satisfies XaiResponsesProviderOptions,
         }
       : {}),
   };

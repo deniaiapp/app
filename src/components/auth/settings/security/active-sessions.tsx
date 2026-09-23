@@ -1,10 +1,11 @@
 "use client";
 
-import { isSessionNotFreshError } from "@better-auth-ui/core";
 import { useAuth, useListSessions, useSession } from "@better-auth-ui/react";
+import { isSessionNotFreshError } from "@/lib/auth-error-utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useFreshSessionLocalization } from "@/hooks/use-fresh-session-localization";
 import { cn } from "@/lib/utils";
 import { ActiveSession } from "./active-session";
 import { FreshSessionPrompt } from "./fresh-session-prompt";
@@ -27,6 +28,7 @@ export type ActiveSessionsProps = {
  */
 export function ActiveSessions({ className }: ActiveSessionsProps) {
   const { authClient, localization } = useAuth();
+  const freshSessionLocalization = useFreshSessionLocalization();
   const { data: session } = useSession(authClient);
 
   const { data: sessions, isPending, error, refetch } = useListSessions(authClient);
@@ -47,11 +49,11 @@ export function ActiveSessions({ className }: ActiveSessionsProps) {
             <div className="flex flex-col gap-4">
               <div>
                 <p className="text-sm font-medium leading-tight">
-                  {localization.settings.freshSessionTitle}
+                  {freshSessionLocalization.title}
                 </p>
 
                 <p className="text-muted-foreground text-xs mt-0.5">
-                  {localization.settings.freshSessionDescription}
+                  {freshSessionLocalization.description}
                 </p>
               </div>
 

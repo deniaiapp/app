@@ -1,7 +1,5 @@
 "use client";
 
-import { useAuth } from "@better-auth-ui/react";
-
 import {
   Dialog,
   DialogContent,
@@ -9,6 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useFreshSessionLocalization } from "@/hooks/use-fresh-session-localization";
 import { FreshSessionPrompt } from "./fresh-session-prompt";
 
 export type FreshSessionDialogProps = {
@@ -23,14 +22,14 @@ export type FreshSessionDialogProps = {
  * than being shown inline.
  */
 export function FreshSessionDialog({ open, onOpenChange, onVerified }: FreshSessionDialogProps) {
-  const { localization } = useAuth();
+  const freshSessionLocalization = useFreshSessionLocalization();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{localization.settings.freshSessionTitle}</DialogTitle>
-          <DialogDescription>{localization.settings.freshSessionDescription}</DialogDescription>
+          <DialogTitle>{freshSessionLocalization.title}</DialogTitle>
+          <DialogDescription>{freshSessionLocalization.description}</DialogDescription>
         </DialogHeader>
 
         <FreshSessionPrompt onVerified={onVerified} />

@@ -19,6 +19,7 @@ import { Field, FieldError, FieldSeparator } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
+import { useFreshSessionLocalization } from "@/hooks/use-fresh-session-localization";
 import { cn } from "@/lib/utils";
 
 export type FreshSessionPromptProps = {
@@ -39,6 +40,7 @@ export type FreshSessionPromptProps = {
  */
 export function FreshSessionPrompt({ onVerified, className }: FreshSessionPromptProps) {
   const { authClient, basePaths, localization, navigate, plugins, viewPaths } = useAuth();
+  const freshSessionLocalization = useFreshSessionLocalization();
   const { data: session } = useSession(authClient);
   const { data: accounts } = useListAccounts(authClient);
   const { fetchOptions, resetFetchOptions } = useFetchOptions();
@@ -64,7 +66,7 @@ export function FreshSessionPrompt({ onVerified, className }: FreshSessionPrompt
     },
     onSuccess: () => {
       setPassword("");
-      toast.success(localization.settings.freshSessionSuccess);
+      toast.success(freshSessionLocalization.success);
       onVerified();
     },
   });
@@ -108,7 +110,7 @@ export function FreshSessionPrompt({ onVerified, className }: FreshSessionPrompt
             disabled={isVerifyingPassword || !password || (Boolean(Captcha) && !fetchOptions)}
           >
             {isVerifyingPassword && <Spinner />}
-            {localization.settings.freshSessionSubmit}
+            {freshSessionLocalization.submit}
           </Button>
         </form>
       )}
@@ -134,9 +136,7 @@ export function FreshSessionPrompt({ onVerified, className }: FreshSessionPrompt
 
       {hasNoReauthMethod && (
         <div className="flex flex-col gap-3">
-          <p className="text-sm text-muted-foreground">
-            {localization.settings.freshSessionSignIn}
-          </p>
+          <p className="text-sm text-muted-foreground">{freshSessionLocalization.signIn}</p>
 
           <Button
             type="button"
