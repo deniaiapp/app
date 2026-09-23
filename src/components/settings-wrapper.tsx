@@ -1,6 +1,5 @@
 "use client";
 
-import { InfoIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useExtracted, useLocale } from "next-intl";
@@ -204,10 +203,6 @@ export default function SettingsWrapper({ children }: { children: React.ReactNod
                     );
                   })}
 
-                  <span className="block text-xs font-medium">
-                    <InfoIcon size="16" className="-mt-0.5 mr-1 inline-flex size-3 shrink-0" />
-                    {t("Usage is measured by requests on Free and by tokens on paid plans.")}
-                  </span>
                 </div>
               </CardContent>
             </Card>
