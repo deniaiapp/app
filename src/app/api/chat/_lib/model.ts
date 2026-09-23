@@ -45,7 +45,7 @@ type ResolveChatModelContextParams = {
   isAnonymous: boolean;
   baseModel: string;
   reasoningEffort: "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
-  /** GPT-5.6 Pro reasoning mode (`reasoning.mode: "pro"`). */
+  /** OpenAI Pro reasoning mode (`reasoning.mode: "pro"`). */
   proMode?: boolean;
   /** OpenAI Fast mode (`service_tier: "fast"`). */
   fastMode?: boolean;
@@ -284,7 +284,7 @@ export async function resolveChatModelContext({
     });
   }
 
-  // OpenRouter exposes GPT-5.6 Pro as `*-pro`. voids.top does not — keep base id there.
+  // OpenRouter exposes GPT-5.6 and GPT-6 Pro as `*-pro`. voids.top does not — keep base id there.
   const resolvedModelId =
     useProMode && usesOpenRouter ? `${selectedModel.value}-pro` : selectedModel.value;
 

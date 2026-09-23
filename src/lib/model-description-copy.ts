@@ -12,6 +12,12 @@ export function useModelDescriptionCopy() {
     "OpenAI flagship for complex reasoning, coding, and agentic work.": t(
       "OpenAI flagship for complex reasoning, coding, and agentic work.",
     ),
+    "High-end GPT-6 model for demanding reasoning, coding, and agentic work.": t(
+      "High-end GPT-6 model for demanding reasoning, coding, and agentic work.",
+    ),
+    "Fast, cost-efficient GPT-6 model for high-volume tasks.": t(
+      "Fast, cost-efficient GPT-6 model for high-volume tasks.",
+    ),
     "Balanced GPT-5.6 model for everyday work at half the cost of Sol.": t(
       "Balanced GPT-5.6 model for everyday work at half the cost of Sol.",
     ),

@@ -90,9 +90,10 @@ export type ModelDefinition = {
    */
   tokenMultiplier?: number;
   /**
-   * When true, the model supports OpenAI GPT-5.6 Pro reasoning mode
-   * (`reasoning.mode: "pro"`). Enabling Pro multiplies usage by
-   * {@link OPENAI_PRO_MODE_MULTIPLIER} on top of the base token multiplier.
+   * When true, the model supports OpenAI Pro reasoning mode
+   * (`reasoning.mode: "pro"`), available on GPT-5.6 and GPT-6. Enabling Pro
+   * multiplies usage by {@link OPENAI_PRO_MODE_MULTIPLIER} on top of the base
+   * token multiplier.
    */
   supportsProMode?: boolean;
   /**
@@ -135,6 +136,30 @@ export const models: readonly ModelDefinition[] = [
     efforts: ["low", "medium", "high", "max"],
     contextWindow: 1_000_000,
     tokenMultiplier: 3,
+  },
+  {
+    name: "GPT-6 Sol",
+    value: "gpt-6-sol",
+    author: "openai",
+    description: "High-end GPT-6 model for demanding reasoning, coding, and agentic work.",
+    featured: true,
+    features: ["reasoning", "coding", "smart", "fast"],
+    efforts: ["none", "low", "medium", "high", "xhigh", "max"],
+    supportsProMode: true,
+    supportsFastMode: true,
+    contextWindow: 1_050_000,
+  },
+  {
+    name: "GPT-6 Luna",
+    value: "gpt-6-luna",
+    author: "openai",
+    description: "Fast, cost-efficient GPT-6 model for high-volume tasks.",
+    featured: true,
+    features: ["reasoning", "fast", "fastest"],
+    efforts: ["none", "low", "medium", "high", "xhigh", "max"],
+    supportsProMode: true,
+    supportsFastMode: true,
+    contextWindow: 1_050_000,
   },
   {
     name: "GPT-5.6 Sol",
@@ -637,8 +662,8 @@ export const OPENAI_LONG_CONTEXT_MULTIPLIER = 2;
 const OPENAI_LONG_CONTEXT_MIN_WINDOW = 1_000_000;
 
 /**
- * GPT-5.6 Pro reasoning mode multiplies billed usage by this factor on top of
- * the model's base token multiplier (product policy: base × 3).
+ * GPT-5.6 and GPT-6 Pro reasoning modes multiply billed usage by this factor
+ * on top of the model's base token multiplier (product policy: base × 3).
  */
 export const OPENAI_PRO_MODE_MULTIPLIER = 3;
 
