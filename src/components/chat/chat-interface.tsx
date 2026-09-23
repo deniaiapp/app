@@ -287,7 +287,9 @@ export function ChatInterface({
     availableModels.some((entry) => entry.value === initialProjectDefaultModel)
       ? initialProjectDefaultModel
       : null;
-  const fallbackModel = availableModels[0]?.value ?? defaultModel.value;
+  const fallbackModel = availableModels.some((entry) => entry.value === defaultModel.value)
+    ? defaultModel.value
+    : (availableModels[0]?.value ?? defaultModel.value);
   const availableModelValues = useMemo(
     () =>
       availableModels.length > 0 ? new Set(availableModels.map((entry) => entry.value)) : undefined,
@@ -411,7 +413,7 @@ export function ChatInterface({
 
   // Adjust invalid model during render (avoids setState-in-effect cascade).
   if (!selectedModel && availableModels.length > 0) {
-    setModel(availableModels[0].value);
+    setModel(fallbackModel);
   }
 
   const handleStop = useCallback(() => {

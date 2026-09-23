@@ -88,7 +88,11 @@ export default function ChatHome() {
 
   // Fall back when the current selection is not allowed on this plan.
   if (!selectedModel && availableModels.length > 0) {
-    setModel(availableModels[0].value);
+    setModel(
+      availableModels.some((entry) => entry.value === defaultModel.value)
+        ? defaultModel.value
+        : availableModels[0].value,
+    );
   }
 
   const handleProjectChange = (nextProjectId: string | null) => {

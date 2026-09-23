@@ -626,14 +626,14 @@ export const models: readonly ModelDefinition[] = [
   },
 ];
 
-export const defaultModel = models.find((model) => model.value === "gpt-5.6-luna") ?? models[0];
+export const defaultModel = models.find((model) => model.value === "gpt-6-luna") ?? models[0];
 
 /**
  * Models available on the Free plan.
  * Paid tiers (Plus / Pro / Max / Team) unlock the full model catalog.
  */
 export const FREE_PLAN_MODEL_VALUES = [
-  "gpt-5.6-luna",
+  "gpt-6-luna",
   "claude-haiku-4.5",
   "claude-opus-5.5",
   "gemini-3.5-flash",
@@ -644,7 +644,7 @@ export type FreePlanModelValue = (typeof FREE_PLAN_MODEL_VALUES)[number];
 const freePlanModelSet = new Set<string>(FREE_PLAN_MODEL_VALUES);
 
 /** Guest sessions are intentionally limited to the default Luna model. */
-export const GUEST_MODEL_VALUES = ["gpt-5.6-luna"] as const;
+export const GUEST_MODEL_VALUES = ["gpt-6-luna"] as const;
 
 const guestModelSet = new Set<string>(GUEST_MODEL_VALUES);
 
