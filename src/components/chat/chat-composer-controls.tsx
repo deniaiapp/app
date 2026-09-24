@@ -241,7 +241,6 @@ export function ChatComposerTools({
   onModelChange,
   availableModels,
   selectedModel,
-  showByokBadge,
   reasoningEffort,
   onReasoningEffortChange,
   supportedEfforts,
@@ -269,7 +268,6 @@ export function ChatComposerTools({
   onModelChange: (model: string) => void;
   availableModels: ModelDefinition[];
   selectedModel: ModelDefinition | undefined;
-  showByokBadge: boolean;
   reasoningEffort: ReasoningEffort;
   onReasoningEffortChange: (effort: ReasoningEffort) => void;
   supportedEfforts: ModelEfforts;
@@ -322,7 +320,6 @@ export function ChatComposerTools({
         onModelChange={onModelChange}
         availableModels={availableModels}
         selectedModel={selectedModel}
-        showByokBadge={showByokBadge}
       />
 
       <div className="hidden md:flex md:items-center md:gap-1">

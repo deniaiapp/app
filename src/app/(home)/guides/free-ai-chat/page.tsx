@@ -117,7 +117,7 @@ export default function FreeAiChatGuidePage() {
         </p>
         <p>
           {t(
-            "Can I grow without restarting my workflow? History, projects, team features, and bring-your-own-key options matter once AI becomes part of weekly work.",
+            "Can I grow without restarting my workflow? History, projects, and team features matter once AI becomes part of weekly work.",
           )}
         </p>
       </GuideSection>
@@ -141,7 +141,7 @@ export default function FreeAiChatGuidePage() {
         </p>
         <p>
           {t(
-            "Also consider bring-your-own-key setups. If you already spend with providers, a workspace that accepts your keys can be more efficient than maintaining five separate chat websites.",
+            "Also compare plan tiers and usage limits. If you rely on AI for regular work, a paid plan may be more predictable than maintaining several separate chat websites.",
           )}
         </p>
       </GuideSection>

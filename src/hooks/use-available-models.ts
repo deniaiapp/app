@@ -7,12 +7,6 @@ import { usePlatformCapabilities } from "@/components/platform-capabilities-prov
 import { trpc } from "@/lib/trpc/react";
 import { liveUsageQueryOptions } from "@/lib/usage-query-options";
 
-type ProviderSetting = {
-  provider: string;
-  preferByok: boolean;
-  baseUrl: string | null;
-};
-
 export function useAvailableModels() {
   const session = authClient.useSession();
   const isAnonymous = Boolean(session.data?.user?.isAnonymous);
@@ -26,36 +20,16 @@ export function useAvailableModels() {
   });
   const planTier = isAnonymous ? "free" : (usageQuery.data?.tier ?? "free");
 
-  const providersQuery = trpc.providers.getConfig.useQuery(undefined, {
-    refetchOnWindowFocus: false,
-    staleTime: 30000,
-  });
-
-  const providerSettings = useMemo(
-    () =>
-      new Map<string, ProviderSetting>(
-        (providersQuery.data?.settings ?? []).map((setting) => [setting.provider, setting]),
-      ),
-    [providersQuery.data?.settings],
-  );
-
-  const providerKeys = useMemo(
-    () => new Set((providersQuery.data?.keys ?? []).map((entry) => entry.provider)),
-    [providersQuery.data?.keys],
-  );
   const availableModels = useMemo<ModelOption[]>(() => {
     const planModels = isAnonymous ? getModelsForGuest() : getModelsForPlanTier(planTier);
     return planModels.filter((model) => {
       const provider = model.provider ?? model.author;
-      return isModelProviderAvailable(platformCapabilities, provider) || providerKeys.has(provider);
+      return isModelProviderAvailable(platformCapabilities, provider);
     });
-  }, [isAnonymous, planTier, platformCapabilities, providerKeys]);
+  }, [isAnonymous, planTier, platformCapabilities]);
 
   return {
     availableModels,
-    providerSettings,
-    providerKeys,
-    providersQuery,
     isAnonymous,
     planTier,
     platformCapabilities,

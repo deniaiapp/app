@@ -84,7 +84,7 @@ export default function TermsPage() {
           </p>
           <p className="text-muted-foreground">
             {t(
-              "You are responsible for your content and the consequences of sharing it through the Service.",
+              "You are responsible for your content and for decisions or actions you take based on content generated or exported from the Service.",
             )}
           </p>
         </section>

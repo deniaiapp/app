@@ -1,19 +1,10 @@
 "use client";
 
-import {
-  ArchiveIcon,
-  FileIcon,
-  MessageSquareIcon,
-  PlusIcon,
-  SaveIcon,
-  Trash2Icon,
-  UploadIcon,
-  UsersIcon,
-} from "lucide-react";
+import { ArchiveIcon, MessageSquareIcon, PlusIcon, SaveIcon, UsersIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useExtracted } from "next-intl";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,27 +26,6 @@ import { trpc } from "@/lib/trpc/react";
 interface ProjectPageProps {
   projectId: string;
   initialProjectName: string;
-}
-
-async function uploadProjectFile(file: File) {
-  const formData = new FormData();
-  formData.set("file", file);
-
-  const res = await fetch("/api/upload-project-file", {
-    method: "POST",
-    body: formData,
-  });
-
-  if (!res.ok) {
-    const err = (await res.json()) as { error?: string };
-    throw new Error(err.error ?? "Upload failed");
-  }
-
-  return (await res.json()) as {
-    url: string;
-    size: number;
-    mimeType: string;
-  };
 }
 
 function ProjectChatList({
@@ -109,95 +79,6 @@ function ProjectChatList({
   );
 }
 
-function ProjectFilesSection({
-  files,
-  isLoading,
-  isUploading,
-  isDeleting,
-  fileInputRef,
-  onPickFile,
-  onFileChange,
-  onDelete,
-}: {
-  files: Array<{ id: string; filename: string; size: number; mimeType: string }>;
-  isLoading: boolean;
-  isUploading: boolean;
-  isDeleting: boolean;
-  fileInputRef: React.RefObject<HTMLInputElement | null>;
-  onPickFile: () => void;
-  onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  onDelete: (id: string) => void;
-}) {
-  return (
-    <section className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-sm font-semibold">
-          <FileIcon className="size-4" />
-          Knowledge files
-        </h2>
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-1.5"
-          disabled={isUploading}
-          onClick={onPickFile}
-        >
-          {isUploading ? <Spinner /> : <UploadIcon className="size-3.5" />}
-          Upload file
-        </Button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          className="hidden"
-          accept=".pdf,.txt,.md,image/*"
-          onChange={onFileChange}
-        />
-      </div>
-
-      {isLoading ? (
-        <div className="flex justify-center py-6">
-          <Spinner />
-        </div>
-      ) : files.length === 0 ? (
-        <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-          No files uploaded. Files are referenced in the system prompt so the AI is aware of them.
-        </div>
-      ) : (
-        <ul className="space-y-2">
-          {files.map((file) => (
-            <li
-              key={file.id}
-              className="flex items-center justify-between gap-3 rounded-xl border px-4 py-3"
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <FileIcon className="size-4 shrink-0 text-muted-foreground" />
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">{file.filename}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {(file.size / 1024).toFixed(0)} KB · {file.mimeType}
-                  </div>
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
-                onClick={() => {
-                  if (!window.confirm("Delete this file?")) return;
-                  onDelete(file.id);
-                }}
-                disabled={isDeleting}
-              >
-                <Trash2Icon className="size-3.5" />
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
 export function ProjectPage({ projectId, initialProjectName }: ProjectPageProps) {
   const t = useExtracted();
   const { push } = useRouter();
@@ -209,15 +90,12 @@ export function ProjectPage({ projectId, initialProjectName }: ProjectPageProps)
   const orgsQuery = trpc.projects.organizations.useQuery();
 
   const project = projectQuery.data?.project;
-  const files = projectQuery.data?.files ?? [];
   const chats = chatsQuery.data ?? [];
 
   const [name, setName] = useState(project?.name ?? initialProjectName);
   const [description, setDescription] = useState(project?.description ?? "");
   const [instructions, setInstructions] = useState(project?.instructions ?? "");
   const [defaultModel, setDefaultModel] = useState(project?.defaultModel ?? "");
-  const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync form when data loads
   const dataLoaded = !projectQuery.isLoading && project;
@@ -273,18 +151,6 @@ export function ProjectPage({ projectId, initialProjectName }: ProjectPageProps)
     startNewChat({ projectId });
   };
 
-  const deleteFile = trpc.projects.deleteFile.useMutation({
-    onSuccess: () => {
-      void utils.projects.get.invalidate({ id: projectId });
-    },
-  });
-
-  const recordFile = trpc.projects.recordFile.useMutation({
-    onSuccess: () => {
-      void utils.projects.get.invalidate({ id: projectId });
-    },
-  });
-
   const handleSave = () => {
     updateProject.mutate({
       id: projectId,
@@ -296,28 +162,6 @@ export function ProjectPage({ projectId, initialProjectName }: ProjectPageProps)
     });
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = "";
-
-    setIsUploading(true);
-    try {
-      const { url, size, mimeType } = await uploadProjectFile(file);
-
-      recordFile.mutate({
-        projectId,
-        filename: file.name,
-        url,
-        size,
-        mimeType,
-      });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Upload failed");
-    }
-    setIsUploading(false);
-  };
-
   return (
     <div className="flex h-full min-h-0 divide-x">
       <ProjectChatList
@@ -327,7 +171,7 @@ export function ProjectPage({ projectId, initialProjectName }: ProjectPageProps)
         onNewChat={handleNewProjectChat}
       />
 
-      {/* Right: Settings + Files */}
+      {/* Project settings */}
       <main className="flex flex-1 min-w-0 flex-col gap-6 overflow-y-auto p-6">
         <section className="space-y-4">
           <h2 className="flex items-center gap-2 text-sm font-semibold">
@@ -431,7 +275,7 @@ export function ProjectPage({ projectId, initialProjectName }: ProjectPageProps)
               </Select>
               <p className="text-xs text-muted-foreground">
                 {t(
-                  "Team members get the instructions, files, and default model. Their chats stay private.",
+                  "Team members get the project instructions and default model. Their chats stay private.",
                 )}
               </p>
             </div>
@@ -467,17 +311,6 @@ export function ProjectPage({ projectId, initialProjectName }: ProjectPageProps)
             </p>
           )}
         </section>
-
-        <ProjectFilesSection
-          files={files}
-          isLoading={projectQuery.isLoading}
-          isUploading={isUploading}
-          isDeleting={deleteFile.isPending}
-          fileInputRef={fileInputRef}
-          onPickFile={() => fileInputRef.current?.click()}
-          onFileChange={handleFileUpload}
-          onDelete={(id) => deleteFile.mutate({ id })}
-        />
       </main>
     </div>
   );

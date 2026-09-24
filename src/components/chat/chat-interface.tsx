@@ -233,8 +233,7 @@ export function ChatInterface({
   const [deepResearchOverride, setDeepResearch] = useState<boolean | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const utils = trpc.useUtils();
-  const { availableModels, providerSettings, providerKeys, platformCapabilities } =
-    useAvailableModels();
+  const { availableModels, platformCapabilities } = useAvailableModels();
   const { features } = platformCapabilities;
   const billingDisabled = !features.billing;
   const transport = useMemo(
@@ -323,7 +322,6 @@ export function ChatInterface({
     usageQuery,
     selectedModel,
     usageTier,
-    isByokActive,
     isUsageLow,
     isUsageBlocked,
     canEnableMaxMode,
@@ -333,7 +331,7 @@ export function ChatInterface({
     remainingUsage,
     usageUnitLabel,
     enableMaxMode,
-  } = useUsageStatus({ model, availableModels, providerKeys, providerSettings, proMode });
+  } = useUsageStatus({ model, availableModels, proMode });
 
   const requestBody = useMemo(
     () => ({
@@ -512,7 +510,6 @@ export function ChatInterface({
         <UsageAlerts
           status={{
             isAnonymous,
-            isByokActive,
             isUsageLow,
             isUsageBlocked,
             canEnableMaxMode,
@@ -557,7 +554,6 @@ export function ChatInterface({
           onFastModeChange={setFastMode}
           deepResearch={deepResearch}
           onDeepResearchChange={setDeepResearch}
-          showByokBadge={isByokActive}
         />
         <AdSenseSlot
           slot={clientEnv.NEXT_PUBLIC_ADSENSE_CHAT_SLOT_ID ?? ""}

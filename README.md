@@ -2,7 +2,7 @@
 
 > **AI Chatbot for Everyone** — access modern AI models in one place
 
-Deni AI is a multi-model AI chat app for people who want strong model choice without juggling many separate subscriptions. It supports OpenAI, Anthropic, Google, Groq, xAI, and more via platform keys or bring-your-own-key (BYOK).
+Deni AI is a multi-model AI chat app for people who want strong model choice without juggling many separate subscriptions. It supports OpenAI, Anthropic, Google, Groq, xAI, and more through platform-managed provider connections.
 
 **Live app:** [https://deniai.app](https://deniai.app)
 
@@ -10,7 +10,6 @@ Deni AI is a multi-model AI chat app for people who want strong model choice wit
 
 - **Multi-model chat** — switch between OpenAI, Claude, Gemini, Groq, xAI, and other routed models
 - **Chat history** — the sidebar includes all conversation summaries, including older pinned and filed chats; message bodies load separately. Retry instructions apply only to explicit regeneration requests.
-- **BYOK** — connect your own provider API keys (encrypted at rest); model tokens are not counted against platform limits. Web search still uses platform quota.
 - **Tools** — web search (Exa) is available on every chat and used when current information is needed; each search call consumes a fixed amount of basic usage (Search mode forces a lookup). Page browse, image generation, and video (Veo) where enabled
 - **Memory & projects** — personalization memories and project-scoped context; projects can be shared with a team
 - **Teams** — organizations, seats, shared Pro or Max access (per-seat billing), and team projects

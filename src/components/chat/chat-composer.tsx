@@ -61,7 +61,6 @@ export interface ChatComposerProps {
   onFastModeChange: (enabled: boolean) => void;
   deepResearch: boolean;
   onDeepResearchChange: (enabled: boolean) => void;
-  showByokBadge?: boolean;
 }
 
 export function ChatComposer({
@@ -94,7 +93,6 @@ export function ChatComposer({
   onFastModeChange,
   deepResearch,
   onDeepResearchChange,
-  showByokBadge = false,
 }: ChatComposerProps) {
   const t = useExtracted();
   const selectedModel = availableModels.find((m) => m.value === model);
@@ -245,7 +243,6 @@ export function ChatComposer({
             onModelChange={onModelChange}
             availableModels={availableModels}
             selectedModel={selectedModel}
-            showByokBadge={showByokBadge}
             reasoningEffort={reasoningEffort}
             onReasoningEffortChange={onReasoningEffortChange}
             supportedEfforts={supportedEfforts}

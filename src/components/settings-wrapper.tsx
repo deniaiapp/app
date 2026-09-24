@@ -77,11 +77,6 @@ export default function SettingsWrapper({ children }: { children: React.ReactNod
         ]
       : []),
     {
-      label: t("Providers"),
-      value: "providers",
-      href: "/settings/providers",
-    },
-    {
       label: t("Projects"),
       value: "projects",
       href: "/settings/projects",
@@ -100,11 +95,6 @@ export default function SettingsWrapper({ children }: { children: React.ReactNod
       label: t("Developer"),
       value: "developer",
       href: "/settings/developer",
-    },
-    {
-      label: t("Sharing"),
-      value: "sharing",
-      href: "/settings/sharing",
     },
     {
       label: t("Import"),
@@ -202,7 +192,6 @@ export default function SettingsWrapper({ children }: { children: React.ReactNod
                       </div>
                     );
                   })}
-
                 </div>
               </CardContent>
             </Card>

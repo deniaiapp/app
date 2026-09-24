@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, Ban, Plug, TriangleAlert, Zap } from "lucide-react";
+import { ArrowUpRight, Ban, TriangleAlert, Zap } from "lucide-react";
 import Link from "next/link";
 import { useExtracted } from "next-intl";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils";
 interface UsageAlertsProps {
   status: {
     isAnonymous: boolean;
-    isByokActive: boolean;
     isUsageLow: boolean;
     isUsageBlocked: boolean;
     canEnableMaxMode: boolean;
@@ -32,18 +31,6 @@ export function UsageAlerts({ status, usage, enableMaxMode, onRefreshUsage }: Us
 
   return (
     <>
-      {status.isByokActive && (
-        <Alert className="mt-3 border-emerald-500/40 bg-emerald-100/40 text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-50">
-          <Plug className="mt-0.5 size-4" />
-          <AlertTitle>{t("BYOK active")}</AlertTitle>
-          <AlertDescription>
-            {t(
-              "Model requests use your own API key and do not count toward usage limits. Web search still uses platform quota.",
-            )}
-          </AlertDescription>
-        </Alert>
-      )}
-
       {(status.isUsageLow || status.isUsageBlocked) && (
         <Alert
           className={cn(

@@ -109,12 +109,6 @@ export default function FaqPage() {
           ),
         },
         {
-          question: t("Can I bring my own API keys?"),
-          answer: t(
-            "Yes. If you already pay providers directly, you can connect your own keys and keep model usage separate from platform limits. Web search still uses platform quota. This is useful for teams and power users who want provider-level control.",
-          ),
-        },
-        {
           question: t("How does billing work?"),
           answer: t(
             "Paid plans are charged according to the selected offer and payment method shown at checkout. Digital services are generally non-refundable once access is delivered, as described in the commercial disclosure and terms.",

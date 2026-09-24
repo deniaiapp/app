@@ -9,7 +9,6 @@ const APP_PATH_PREFIXES = [
   "/auth",
   "/account",
   "/getting-started",
-  "/shared",
   "/invite",
 ] as const;
 

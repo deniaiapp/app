@@ -289,7 +289,6 @@ export interface ChatComposerModelPickerProps {
   onModelChange: (model: string) => void;
   availableModels: ModelOption[];
   selectedModel: ModelOption | undefined;
-  showByokBadge?: boolean;
 }
 
 export function ChatComposerModelPicker({
@@ -297,7 +296,6 @@ export function ChatComposerModelPicker({
   onModelChange,
   availableModels,
   selectedModel,
-  showByokBadge = false,
 }: ChatComposerModelPickerProps) {
   const t = useExtracted();
   const locale = useLocale();
@@ -426,14 +424,6 @@ export function ChatComposerModelPicker({
               aria-label={selectedModelDeprecationWarning}
             >
               <TriangleAlert className="size-3" aria-hidden="true" />
-            </Badge>
-          )}
-          {showByokBadge && (
-            <Badge
-              variant="secondary"
-              className="bg-primary/10 text-[10px] leading-none px-1 py-0.5 h-auto"
-            >
-              {t("BYOK")}
             </Badge>
           )}
           {selectedModel &&

@@ -136,7 +136,7 @@ export default function PrivacyWhenUsingAiGuidePage() {
         </p>
         <p>
           {t(
-            "If you bring your own provider keys, treat them like production secrets. Store them only in the designated key settings flow, rotate them if exposure is possible, and never embed them in prompts or screenshots.",
+            "Treat provider API keys like production secrets. Store them in your provider's secret manager, rotate them if exposure is possible, and never send them in prompts or include them in screenshots.",
           )}
         </p>
       </GuideSection>

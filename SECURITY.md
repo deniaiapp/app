@@ -30,9 +30,9 @@ Thank you for helping keep Deni AI and its users safe.
 In scope examples:
 
 - Authentication / session issues
-- Authorization bypasses (user, team, shared chat data)
+- Authorization bypasses involving user, team, or retained legacy share data
 - Injection, XSS, SSRF (including chat tools that fetch remote URLs)
-- Secrets exposure or unsafe handling of BYOK keys
+- Secrets exposure or unsafe handling of API keys, including credentials retained from the retired BYOK feature
 - Billing or usage-quota bypasses
 
 Out of scope examples (unless they lead to a real vulnerability):

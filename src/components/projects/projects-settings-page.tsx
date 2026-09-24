@@ -222,7 +222,7 @@ export function ProjectsSettingsPage() {
                 {t("Projects")}
               </CardTitle>
               <CardDescription>
-                {t("Organize chats with custom instructions and knowledge files.")}
+                {t("Organize chats with custom instructions and a default model.")}
               </CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-2">

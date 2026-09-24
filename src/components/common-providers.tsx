@@ -18,8 +18,7 @@ const trpcClient = makeTRPCClient();
 /**
  * Shared client infrastructure that does not require Better Auth UI.
  *
- * Keep this separate from AppProviders so read-only surfaces such as shared
- * chats do not pull authentication views and plugins into their browser graph.
+ * AppProviders composes this with authentication views and plugins for app routes.
  */
 export function CommonProviders({
   children,

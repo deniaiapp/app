@@ -87,13 +87,6 @@ export default async function BlogPage() {
       ),
     },
     {
-      slug: "platform-vs-own-api-key",
-      title: t("Platform credits vs your own API key"),
-      description: t(
-        "Two cost models for multi-model chat. When a workspace should pay the bill, and when bringing your own key is cheaper and clearer.",
-      ),
-    },
-    {
       slug: "keep-ai-chats-useful",
       title: t("How to keep AI chats useful after the first week"),
       description: t(

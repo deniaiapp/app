@@ -5,22 +5,14 @@ import { usePlatformCapabilities } from "@/components/platform-capabilities-prov
 import { trpc } from "@/lib/trpc/react";
 import { liveUsageQueryOptions } from "@/lib/usage-query-options";
 
-type ProviderSetting = {
-  provider: string;
-  preferByok: boolean;
-  baseUrl: string | null;
-};
-
 export function useUsageStatus(params: {
   model: string;
   availableModels: ModelOption[];
-  providerKeys: Set<string>;
-  providerSettings: Map<string, ProviderSetting>;
   /** When true on a Pro-capable model, usage is billed as premium. */
   proMode?: boolean;
 }) {
   const t = useExtracted();
-  const { model, availableModels, providerKeys, providerSettings, proMode = false } = params;
+  const { model, availableModels, proMode = false } = params;
   const { features } = usePlatformCapabilities();
 
   const usageQuery = trpc.billing.usage.useQuery(undefined, {
@@ -42,17 +34,8 @@ export function useUsageStatus(params: {
   const lowUsageThreshold =
     remaining == null || limit == null ? null : Math.max(3, Math.min(20, Math.ceil(limit * 0.1)));
 
-  const selectedProvider = selectedModel?.author ?? null;
-
-  const isByokActive = (() => {
-    if (!selectedProvider) return false;
-    const prefer = providerSettings.get(selectedProvider)?.preferByok ?? false;
-    return prefer && providerKeys.has(selectedProvider);
-  })();
-
   const maxModeEnabled = features.billing && (usageQuery.data?.maxModeEnabled ?? false);
   const isUsageLow =
-    !isByokActive &&
     !maxModeEnabled &&
     remainingUsage !== null &&
     remainingUsage !== undefined &&
@@ -62,7 +45,6 @@ export function useUsageStatus(params: {
     remainingUsage > 0 &&
     remainingUsage <= lowUsageThreshold;
   const isUsageBlocked =
-    !isByokActive &&
     !maxModeEnabled &&
     remainingUsage !== null &&
     remainingUsage !== undefined &&
@@ -98,7 +80,6 @@ export function useUsageStatus(params: {
     usageQuery,
     selectedModel,
     usageTier,
-    isByokActive,
     isUsageLow,
     isUsageBlocked,
     canEnableMaxMode,

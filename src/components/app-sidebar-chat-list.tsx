@@ -24,7 +24,6 @@ import {
   Pencil,
   Pin,
   Plus,
-  Share2,
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
@@ -57,7 +56,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { ShareDialog } from "@/components/chat/share-dialog";
 import { mergeFolderGroups, normalizeTags } from "@/components/app-sidebar-utils";
 import { trpc } from "@/lib/trpc/react";
 
@@ -212,7 +210,6 @@ function ChatItem({ item }: { item: ChatListItem }) {
   const { push } = useRouter();
   const utils = trpc.useUtils();
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  const [isShareOpen, setIsShareOpen] = useState(false);
   const [draft, setDraft] = useState(() => createChatItemDraft(item));
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: getChatDragId(item.id),
@@ -343,10 +340,6 @@ function ChatItem({ item }: { item: ChatListItem }) {
               <Pin className="size-4" />
               <span>{item.pinned ? t("Unpin") : t("Pin")}</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setIsShareOpen(true)}>
-              <Share2 className="size-4" />
-              <span>{t("Share")}</span>
-            </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => deleteChat.mutate({ id: item.id })}
               className="text-destructive focus:text-destructive"
@@ -424,8 +417,6 @@ function ChatItem({ item }: { item: ChatListItem }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <ShareDialog chatId={item.id} isOpen={isShareOpen} onOpenChange={setIsShareOpen} />
     </>
   );
 }

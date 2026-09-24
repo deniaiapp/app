@@ -237,22 +237,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: GENERIC_CHAT_REQUEST_ERROR }, { status: 500 });
   }
 
-  const { model, providerOptions, usageCategory, usageUnit, useByok, usesOpenRouter } =
-    modelContext;
+  const { model, providerOptions, usageCategory, usageUnit, usesOpenRouter } = modelContext;
 
-  // Pro / Fast: BYOK OpenAI or OpenRouter platform OpenAI (not voids.top).
+  // Pro / Fast are available for OpenAI models routed through OpenRouter.
   const modelDef = getModelDefinition(baseModel);
   const proMode = Boolean(
-    requestedProMode &&
-    modelDef?.supportsProMode &&
-    modelDef.author === "openai" &&
-    (useByok || usesOpenRouter),
+    requestedProMode && modelDef?.supportsProMode && modelDef.author === "openai" && usesOpenRouter,
   );
   const fastMode = Boolean(
     requestedFastMode &&
     modelDef?.supportsFastMode &&
     modelDef.author === "openai" &&
-    (useByok || usesOpenRouter),
+    usesOpenRouter,
   );
 
   const videoModeEnabled = platformCapabilities.features.videoGeneration && videoMode;
@@ -318,7 +314,7 @@ export async function POST(req: Request) {
   };
 
   const refundConsumedUsage = async () => {
-    if (useByok || !usageConsumed || usageRefunded || hasAssistantOutput) {
+    if (!usageConsumed || usageRefunded || hasAssistantOutput) {
       return;
     }
 
@@ -337,7 +333,7 @@ export async function POST(req: Request) {
   };
 
   const reconcileConsumedUsage = async (targetAmount: number) => {
-    if (useByok || usageUnit !== "tokens") {
+    if (usageUnit !== "tokens") {
       return;
     }
 
@@ -458,18 +454,16 @@ export async function POST(req: Request) {
       nextGenerationId: generationId,
     });
     projectPrompt = await buildProjectPrompt(chat.projectId, userId);
-    if (!useByok) {
-      if (usageUnit === "requests") {
-        consumedUsageAmount = 1;
-        const consumed = await consumeUsage({
-          userId,
-          category: usageCategory,
-          isAnonymous,
-          amount: consumedUsageAmount,
-        });
-        pendingMaxModeAmount += consumed.maxModeAmount;
-        usageConsumed = true;
-      }
+    if (usageUnit === "requests") {
+      consumedUsageAmount = 1;
+      const consumed = await consumeUsage({
+        userId,
+        category: usageCategory,
+        isAnonymous,
+        amount: consumedUsageAmount,
+      });
+      pendingMaxModeAmount += consumed.maxModeAmount;
+      usageConsumed = true;
     }
   } catch (error) {
     await rollbackPendingAssistantState();
@@ -514,7 +508,7 @@ export async function POST(req: Request) {
   let result: ReturnType<typeof streamText>;
 
   try {
-    if (!useByok && usageUnit === "tokens") {
+    if (usageUnit === "tokens") {
       consumedUsageAmount = estimateTokenReservation({
         modelMessages,
         systemPrompt,
@@ -708,13 +702,13 @@ export async function POST(req: Request) {
         if (isAborted) {
           if (!hasAssistantOutput) {
             await refundConsumedUsage();
-          } else if (!useByok && usageUnit === "tokens") {
+          } else if (usageUnit === "tokens") {
             await reconcileConsumedUsage(finalUsageAmount);
           }
           return;
         }
 
-        if (!useByok && usageUnit === "tokens") {
+        if (usageUnit === "tokens") {
           await reconcileConsumedUsage(finalUsageAmount);
         }
 

@@ -121,10 +121,10 @@ Notes:
 - Empty optional vars are treated as unset (`emptyStringAsUndefined` in `src/env.ts`), which helps Docker / Dokploy builds that inject `""` for missing keys.
 - Provider keys are capability switches: missing `ANTHROPIC_API_KEY` falls back to OpenRouter, missing `GOOGLE_GENERATIVE_AI_API_KEY` disables image/video/memory, missing `EXA_API_KEY` disables web search, and missing Stripe keys disables billing.
 - Guest sessions use only `gpt-5.6-luna` and have twice the basic request allowance of the standard guest limit (40 requests).
-- Each web `search` tool call consumes 10,000 basic tokens (1 basic request for guests), including BYOK chats. Failed searches are refunded. Browse/image/video tools are unchanged.
+- Each web `search` tool call consumes 10,000 basic tokens (1 basic request for guests). Failed searches are refunded. Browse/image/video tools are unchanged.
 - When adding or changing supported models, update `src/lib/constants.ts`.
 - `OPENROUTER_API_KEY` routes OpenAI-family and other OpenRouter models when voids mode is off. It also serves as the Anthropic fallback when `ANTHROPIC_API_KEY` is absent.
-- Optional voids.top mode: set `VOIDS_MODE=true` (or `1`) and provide **`VOIDS_API_KEY`** to send **platform** (non-BYOK) OpenAI and Anthropic traffic through the OpenAI-compatible voids.top gateway. Without the key, normal provider routing is used. Optional `VOIDS_BASE_URL` (default `https://capi.voids.top/v2`). When `VOIDS_MODE` is off, OpenAI uses OpenRouter and Anthropic uses its native key when present, otherwise OpenRouter.
+- Optional voids.top mode: set `VOIDS_MODE=true` (or `1`) and provide **`VOIDS_API_KEY`** to send OpenAI and Anthropic traffic through the OpenAI-compatible voids.top gateway. Without the key, normal provider routing is used. Optional `VOIDS_BASE_URL` (default `https://capi.voids.top/v2`). When `VOIDS_MODE` is off, OpenAI uses OpenRouter and Anthropic uses its native key when present, otherwise OpenRouter.
 - Optional Deni AI API: set **`DENI_API_KEY`** and **`DENI_API_BASE_URL`** (OpenAI-compatible Chat Completions endpoint) to expose DeepSeek V4, DeepSeek V4 Pro, and MiniMax M3. Missing either value hides those models.
 - Affiliate administration: set `AFFILIATE_ADMIN_EMAILS` to a comma-separated list of account emails that can approve reset rewards, grant reset credits, and send manual affiliate coupon emails. The address is read only on the server.
 - Blog administration: set `BLOG_ADMIN_EMAILS` to a comma-separated list of account emails that can write and publish posts at `/settings/blog`. If omitted, `AFFILIATE_ADMIN_EMAILS` is used.
@@ -340,13 +340,13 @@ Schemas live under `src/db/schema/`. Main domains:
 | ------------------------------------- | --------------------------------------------- |
 | **auth-schema**                       | Users, sessions, accounts, orgs (better-auth) |
 | **chat**                              | Conversations and messages                    |
-| **provider-keys / provider-settings** | BYOK keys and provider preferences            |
+| **provider-keys / provider-settings** | Legacy encrypted BYOK records; no longer used |
 | **api-keys**                          | User API key records                          |
 | **memory**                            | Personalization memories                      |
-| **project**                           | Project-scoped chat context                   |
+| **project**                           | Project context; legacy file records retained |
 | **billing**                           | Stripe subscriptions / payment data           |
 | **usage**                             | Platform usage and limits                     |
-| **share**                             | Shared chat links                             |
+| **share**                             | Legacy chat-share records; links are disabled |
 | **team-usage-policy**                 | Team usage policies                           |
 | **device-auth**                       | Device / desktop auth                         |
 

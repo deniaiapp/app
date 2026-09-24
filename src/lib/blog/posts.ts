@@ -44,13 +44,6 @@ export const blogPosts = [
       "A review checklist for AI patches: file boundaries, tests, invented APIs, and the moment you should throw the draft away.",
   },
   {
-    slug: "platform-vs-own-api-key",
-    date: "2026-06-28",
-    title: "Platform credits vs your own API key",
-    description:
-      "Two cost models for multi-model chat. When a workspace should pay the bill, and when bringing your own key is cheaper and clearer.",
-  },
-  {
     slug: "keep-ai-chats-useful",
     date: "2026-06-12",
     title: "How to keep AI chats useful after the first week",
@@ -64,6 +57,8 @@ export type BlogPostMeta = (typeof blogPosts)[number];
 export const RESERVED_BLOG_SLUGS = new Set<string>([
   "rss.xml",
   "new",
+  // Keep the retired BYOK article slug unavailable to managed posts.
+  "platform-vs-own-api-key",
   ...blogPosts.map((post) => post.slug),
 ]);
 

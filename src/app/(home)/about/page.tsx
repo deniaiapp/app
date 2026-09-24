@@ -260,7 +260,7 @@ export default function AboutPage() {
               icon={Code2}
               title={t("Developer-Friendly")}
               description={t(
-                "Built by developers, for everyone. Bring your own API keys or use ours.",
+                "Built by developers, for everyone. Use leading AI model families from one practical interface.",
               )}
             />
             <ValueCard

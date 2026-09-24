@@ -24,8 +24,8 @@ export const env = createEnv({
     GROQ_API_KEY: z.string().min(1).optional(),
     OPENROUTER_API_KEY: z.string().min(1).optional(),
     /**
-     * When "true" or "1", platform (non-BYOK) OpenAI + Anthropic traffic is
-     * routed through the voids.top OpenAI-compatible gateway.
+     * When "true" or "1", OpenAI + Anthropic traffic is routed through the
+     * voids.top OpenAI-compatible gateway.
      */
     VOIDS_MODE: z
       .string()

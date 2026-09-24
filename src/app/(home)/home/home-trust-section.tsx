@@ -6,7 +6,6 @@ import {
   BrainCircuit,
   CheckCircle2,
   CircleHelp,
-  KeyRound,
   Newspaper,
   ShieldCheck,
 } from "lucide-react";
@@ -23,13 +22,7 @@ export function HomeTrustSection() {
         "Your conversations are treated as your workspace content. We do not use chats to train our own models, and account controls are available inside the app.",
       ),
     },
-    {
-      icon: KeyRound,
-      title: t("Bring your own keys"),
-      description: t(
-        "People who already pay providers directly can connect their own API keys and keep model usage separate from Deni AI limits. Web search still uses platform quota.",
-      ),
-    },
+
     {
       icon: CheckCircle2,
       title: t("Transparent limits"),
@@ -82,7 +75,7 @@ export function HomeTrustSection() {
             </p>
           </div>
 
-          <div className="mt-10 grid gap-4 md:grid-cols-3">
+          <div className="mt-10 grid gap-4 md:grid-cols-2">
             {trustSignals.map((signal) => (
               <article
                 key={signal.title}

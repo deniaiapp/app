@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { chats, projectFiles, projects } from "@/db/schema";
+import { chats, projects } from "@/db/schema";
 import {
   getAccessibleProject,
   listUserMemberships,
@@ -78,13 +78,7 @@ export const projectsRouter = router({
         return null;
       }
 
-      const files = await ctx.db
-        .select()
-        .from(projectFiles)
-        .where(eq(projectFiles.projectId, input.id))
-        .orderBy(asc(projectFiles.createdAt));
-
-      return { project, files };
+      return { project };
     }),
 
   create: protectedProcedure
@@ -200,73 +194,6 @@ export const projectsRouter = router({
     .mutation(async ({ ctx, input }) => {
       await requireManageableProject(ctx, input.id);
       const [deleted] = await ctx.db.delete(projects).where(eq(projects.id, input.id)).returning();
-
-      return deleted ?? null;
-    }),
-
-  listFiles: protectedProcedure
-    .input(z.object({ projectId: z.string().min(1) }))
-    .query(async ({ ctx, input }) => {
-      await requireAccessibleProject(ctx, input.projectId);
-      return ctx.db
-        .select()
-        .from(projectFiles)
-        .where(eq(projectFiles.projectId, input.projectId))
-        .orderBy(asc(projectFiles.createdAt));
-    }),
-
-  recordFile: protectedProcedure
-    .input(
-      z.object({
-        projectId: z.string().min(1),
-        filename: z.string().trim().min(1).max(255),
-        url: z.url(),
-        size: z.number().int().nonnegative(),
-        mimeType: z.string().trim().min(1).max(128),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      await requireAccessibleProject(ctx, input.projectId);
-
-      const [file] = await ctx.db
-        .insert(projectFiles)
-        .values({
-          projectId: input.projectId,
-          userId: ctx.userId,
-          filename: input.filename,
-          url: input.url,
-          size: input.size,
-          mimeType: input.mimeType,
-        })
-        .returning();
-
-      return file;
-    }),
-
-  deleteFile: protectedProcedure
-    .input(z.object({ id: z.string().min(1) }))
-    .mutation(async ({ ctx, input }) => {
-      const [file] = await ctx.db
-        .select()
-        .from(projectFiles)
-        .where(eq(projectFiles.id, input.id))
-        .limit(1);
-      if (!file) {
-        return null;
-      }
-
-      const project = await requireAccessibleProject(ctx, file.projectId);
-      if (file.userId !== ctx.userId && !project.canManage) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You can only delete files you uploaded.",
-        });
-      }
-
-      const [deleted] = await ctx.db
-        .delete(projectFiles)
-        .where(eq(projectFiles.id, input.id))
-        .returning();
 
       return deleted ?? null;
     }),

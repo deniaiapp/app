@@ -195,7 +195,7 @@ export default function PrivacyPolicyPage() {
             </li>
             <li>
               {t(
-                "Content you submit: prompts, chat messages, uploaded files and images, project files, saved memories, custom instructions, shared chats, and similar workspace content.",
+                "Content you submit: prompts, chat messages, uploaded files and images, project descriptions and instructions, saved memories, custom instructions, and similar workspace content. Legacy project-file uploads and chat-share records created before those features were removed may remain stored with your account.",
               )}
             </li>
             <li>
@@ -215,7 +215,7 @@ export default function PrivacyPolicyPage() {
             </li>
             <li>
               {t(
-                "API keys you provide: bring-your-own-key provider credentials are stored in encrypted form so the Service can call the provider you selected. Deni AI-issued API keys are stored as hashes.",
+                "API keys you provide: Deni AI-issued API keys are stored as hashes. Provider credentials entered through the former BYOK feature remain encrypted, are no longer used by the Service, and are not included in exports.",
               )}
             </li>
             <li>
@@ -233,7 +233,7 @@ export default function PrivacyPolicyPage() {
           <ul className="list-disc space-y-2 pl-6 text-muted-foreground">
             <li>
               {t(
-                "Provide, maintain, and improve the Service, including chat, models, memory, projects, sharing, teams, desktop, and Flixa.",
+                "Provide, maintain, and improve the Service, including chat, models, memory, projects, teams, desktop, and Flixa.",
               )}
             </li>
             <li>
@@ -313,7 +313,7 @@ export default function PrivacyPolicyPage() {
           </ul>
           <p className="text-muted-foreground">
             {t(
-              "If you share a chat, the people or public visitors who open that link can see the shared conversation. Team members may see workspace content according to the roles you configure.",
+              "Chat sharing is no longer available, and shared-chat links created before its removal are no longer served by Deni AI. Legacy share records remain in account data until deletion. Team members may see workspace content according to the roles you configure.",
             )}
           </p>
           <p className="text-muted-foreground">
@@ -380,7 +380,7 @@ export default function PrivacyPolicyPage() {
         <PolicySection id="security" title={t("12. How we protect information")}>
           <p className="text-muted-foreground">
             {t(
-              "Security procedures are in place to protect the confidentiality of your data. We use HTTPS/TLS encryption in transit, access controls on production systems, hashed passwords, encrypted storage for bring-your-own-key credentials, and session controls. Account deletion and data-export tools are provided in the product.",
+              "Security procedures are in place to protect the confidentiality of your data. We use HTTPS/TLS encryption in transit, access controls on production systems, hashed passwords, encrypted storage for legacy provider credentials saved through the former BYOK feature, and session controls. Account deletion and data-export tools are provided in the product.",
             )}
           </p>
           <p className="text-muted-foreground">

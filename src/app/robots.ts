@@ -6,15 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: ["/", "/ads.txt"],
-        disallow: [
-          "/chat",
-          "/settings",
-          "/api",
-          "/auth",
-          "/account",
-          "/getting-started",
-          "/shared",
-        ],
+        disallow: ["/chat", "/settings", "/api", "/auth", "/account", "/getting-started"],
       },
     ],
     sitemap: "https://deniai.app/sitemap.xml",
