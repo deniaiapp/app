@@ -34,6 +34,7 @@ import type { ReasoningEffort } from "@/lib/constants";
 import { toDisplayChatRequestError } from "@/lib/chat-request-error";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
+import type { QuestionnaireToolOutput } from "@/lib/chat-tools/questionnaire";
 
 interface RequestBody {
   model: string;
@@ -77,6 +78,7 @@ export interface ChatInterfaceMessagesProps {
   availableModels: ModelOption[];
   onModelChange: (value: string) => void;
   onWebSearchChange: (value: boolean) => void;
+  onQuestionnaireComplete: (toolCallId: string, output: QuestionnaireToolOutput) => void;
   webSearchAvailable?: boolean;
   isActive?: boolean;
   hasMore?: boolean;
@@ -166,6 +168,7 @@ export const ChatInterfaceMessages = memo(function ChatInterfaceMessages({
   availableModels,
   onModelChange,
   onWebSearchChange,
+  onQuestionnaireComplete,
   webSearchAvailable = true,
   isActive = true,
   hasMore = false,
@@ -232,6 +235,7 @@ export const ChatInterfaceMessages = memo(function ChatInterfaceMessages({
                     availableModels={availableModels}
                     onModelChange={onModelChange}
                     onWebSearchChange={onWebSearchChange}
+                    onQuestionnaireComplete={onQuestionnaireComplete}
                     webSearchAvailable={webSearchAvailable}
                     isActive={isActive}
                   />
@@ -272,6 +276,7 @@ export const ChatInterfaceMessages = memo(function ChatInterfaceMessages({
                     availableModels={availableModels}
                     onModelChange={onModelChange}
                     onWebSearchChange={onWebSearchChange}
+                    onQuestionnaireComplete={onQuestionnaireComplete}
                     webSearchAvailable={webSearchAvailable}
                     isActive={isActive}
                   />

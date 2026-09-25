@@ -3,7 +3,7 @@
 import { useChat } from "@ai-sdk/react";
 import { sendGAEvent } from "@next/third-parties/google";
 import type { FileUIPart, UIMessage } from "ai";
-import { DefaultChatTransport } from "ai";
+import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from "ai";
 import dynamic from "next/dynamic";
 import { useExtracted } from "next-intl";
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -24,6 +24,7 @@ import { useNewChat } from "@/hooks/use-new-chat";
 import { useUsageStatus } from "@/hooks/use-usage-status";
 import { authClient } from "@/lib/auth-client";
 import { CHAT_OLDER_MESSAGE_COUNT, mergeMessageWindow } from "@/lib/chat-messages";
+import type { QuestionnaireToolOutput } from "@/lib/chat-tools/questionnaire";
 import {
   defaultModel,
   GA_ID,
@@ -138,6 +139,17 @@ function handleFocusComposer() {
   window.dispatchEvent(new CustomEvent("deni:focus-composer"));
 }
 
+function shouldResumeQuestionnaire({ messages }: { messages: UIMessage[] }) {
+  const lastMessage = messages.at(-1);
+  return (
+    lastAssistantMessageIsCompleteWithToolCalls({ messages }) &&
+    lastMessage?.role === "assistant" &&
+    lastMessage.parts.some(
+      (part) => part.type === "tool-questionnaire" && part.state === "output-available",
+    )
+  );
+}
+
 async function submitComposerMessage(params: {
   message: ComposerMessage;
   options: {
@@ -246,11 +258,13 @@ export function ChatInterface({
     [id],
   );
 
-  const { messages, sendMessage, regenerate, setMessages, status, error, stop } = useChat({
-    id,
-    messages: initialMessages,
-    transport,
-  });
+  const { messages, sendMessage, regenerate, setMessages, addToolOutput, status, error, stop } =
+    useChat({
+      id,
+      messages: initialMessages,
+      sendAutomaticallyWhen: shouldResumeQuestionnaire,
+      transport,
+    });
 
   const oldestIndexRef = useRef(initialOldestIndex);
   const hasMoreRef = useRef(initialHasMore);
@@ -353,6 +367,24 @@ export function ChatInterface({
     setMessages,
     regenerate,
   });
+  const hasPendingQuestionnaire = messages.some((message) =>
+    message.parts.some(
+      (part) =>
+        part.type === "tool-questionnaire" &&
+        (part.state === "input-streaming" || part.state === "input-available"),
+    ),
+  );
+  const handleQuestionnaireComplete = useCallback(
+    (toolCallId: string, output: QuestionnaireToolOutput) => {
+      addToolOutput({
+        tool: "questionnaire",
+        toolCallId,
+        output,
+        options: { body: requestBody },
+      });
+    },
+    [addToolOutput, requestBody],
+  );
   const showMessageActions = status !== "streaming" && status !== "submitted";
   const lastMessage = messages.at(-1);
   const isWaitingForResponse =
@@ -398,7 +430,7 @@ export function ChatInterface({
       message,
       options,
       id,
-      isSubmitBlocked,
+      isSubmitBlocked: isSubmitBlocked || hasPendingQuestionnaire,
       usageTier,
       sendMessage,
       invalidateChats: () => {
@@ -488,7 +520,7 @@ export function ChatInterface({
           messageIndexMap={messageIndexMap}
           status={status}
           showMessageActions={showMessageActions}
-          isSubmitBlocked={isSubmitBlocked}
+          isSubmitBlocked={isSubmitBlocked || hasPendingQuestionnaire}
           isWaitingForResponse={isWaitingForResponse}
           error={error}
           attachmentError={attachmentError}
@@ -498,6 +530,7 @@ export function ChatInterface({
           availableModels={availableModels}
           onModelChange={handleModelChange}
           onWebSearchChange={handleWebSearchChange}
+          onQuestionnaireComplete={handleQuestionnaireComplete}
           webSearchAvailable={features.webSearch}
           isActive={isActive}
           hasMore={hasMore}
@@ -533,7 +566,7 @@ export function ChatInterface({
           onSubmit={handleSubmit}
           onStop={handleStop}
           status={status}
-          isSubmitDisabled={isSubmitBlocked}
+          isSubmitDisabled={isSubmitBlocked || hasPendingQuestionnaire}
           availableModels={availableModels}
           model={model}
           onModelChange={handleModelChange}
@@ -542,10 +575,10 @@ export function ChatInterface({
           webSearchAvailable={features.webSearch}
           videoMode={videoMode}
           onVideoModeChange={(enabled) => setVideoMode(enabled && features.videoGeneration)}
-          videoAvailable={features.videoGeneration}
+          videoAvailable={features.videoGeneration && !hasPendingQuestionnaire}
           imageMode={imageMode}
           onImageModeChange={(enabled) => setImageMode(enabled && features.imageGeneration)}
-          imageAvailable={features.imageGeneration}
+          imageAvailable={features.imageGeneration && !hasPendingQuestionnaire}
           reasoningEffort={reasoningEffort}
           onReasoningEffortChange={setReasoningEffort}
           proMode={proMode}

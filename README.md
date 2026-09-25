@@ -10,7 +10,7 @@ Deni AI is a multi-model AI chat app for people who want strong model choice wit
 
 - **Multi-model chat** — switch between OpenAI, Claude, Gemini, Groq, xAI, and other routed models
 - **Chat history** — the sidebar includes all conversation summaries, including older pinned and filed chats; message bodies load separately. Retry instructions apply only to explicit regeneration requests.
-- **Tools** — web search (Exa) is available on every chat and used when current information is needed; each search call consumes a fixed amount of basic usage (Search mode forces a lookup). Page browse, image generation, and video (Veo) where enabled
+- **Tools** — web search (Exa) is available on every chat and used when current information is needed; each search call consumes a fixed amount of basic usage (Search mode forces a lookup). Page browse and agent-led interactive questionnaires for clarifications; image generation and video (Veo) are available where enabled
 - **Memory & projects** — personalization memories and project-scoped context; projects can be shared with a team
 - **Teams** — organizations, seats, shared Pro or Max access (per-seat billing), and team projects
 - **Billing** — Stripe subscriptions (personal and team) plus Max Mode metered overage; scheduled cancellations keep the current paid plan through the period end, with an animated cancellation receipt. Enabling Max Mode requires an active subscription; cancellation, trial, and past-due states are not eligible. Optional self-host disable via `NEXT_PUBLIC_BILLING_DISABLED`

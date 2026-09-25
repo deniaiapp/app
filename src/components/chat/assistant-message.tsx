@@ -28,6 +28,11 @@ import {
   AssistantMessageSources,
   AssistantMessageVideoParts,
 } from "@/components/chat/assistant-message-parts";
+import {
+  AssistantMessageQuestionnaireParts,
+  isQuestionnaireToolPart,
+} from "@/components/chat/questionnaire-tool";
+import type { QuestionnaireToolOutput } from "@/lib/chat-tools/questionnaire";
 import { isImageToolPart, isVideoToolPart } from "@/components/chat/chat-utils";
 import type { ReasoningEffort } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
@@ -74,6 +79,7 @@ interface AssistantMessageProps {
   availableModels: ModelOption[];
   onModelChange: (value: string) => void;
   onWebSearchChange: (value: boolean) => void;
+  onQuestionnaireComplete: (toolCallId: string, output: QuestionnaireToolOutput) => void;
   webSearchAvailable?: boolean;
   isActive?: boolean;
 }
@@ -87,6 +93,7 @@ function AssistantMessage({
   availableModels,
   onModelChange,
   onWebSearchChange,
+  onQuestionnaireComplete,
   webSearchAvailable = true,
   isActive = true,
 }: AssistantMessageProps) {
@@ -126,6 +133,7 @@ function AssistantMessage({
   const textParts = message.parts?.filter((part) => part.type === "text") ?? [];
   const videoToolParts = message.parts?.filter(isVideoToolPart) ?? [];
   const imageToolParts = message.parts?.filter(isImageToolPart) ?? [];
+  const questionnaireToolParts = message.parts?.filter(isQuestionnaireToolPart) ?? [];
   const sourceParts = message.parts?.filter((part) => part.type === "source-url") ?? [];
 
   return (
@@ -311,6 +319,11 @@ function AssistantMessage({
 
       <AssistantMessageVideoParts messageId={message.id} videoToolParts={videoToolParts} />
       <AssistantMessageImageParts messageId={message.id} imageToolParts={imageToolParts} />
+      <AssistantMessageQuestionnaireParts
+        isInteractive={state.isLastMessage && state.showActions}
+        onComplete={onQuestionnaireComplete}
+        parts={questionnaireToolParts}
+      />
       <AssistantMessageSources messageId={message.id} sourceParts={sourceParts} />
     </div>
   );
@@ -331,6 +344,7 @@ const areAssistantMessagePropsEqual = (
   previous.availableModels === next.availableModels &&
   previous.onModelChange === next.onModelChange &&
   previous.onWebSearchChange === next.onWebSearchChange &&
+  previous.onQuestionnaireComplete === next.onQuestionnaireComplete &&
   (previous.webSearchAvailable ?? true) === (next.webSearchAvailable ?? true) &&
   previous.isActive === next.isActive;
 

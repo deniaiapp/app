@@ -74,6 +74,9 @@ export function buildChatSystemPrompt({
     projectPrompt,
     "Guidelines:",
     "- Provide accurate, helpful, and concise responses.",
+    !imageMode
+      ? "- Use the `questionnaire` tool when several structured clarifications or selectable answers will help more than a prose question. Keep it short, mark genuinely optional questions optional, and continue using the user's answers after submission. A skipped answer is intentionally unanswered."
+      : null,
     ...webSearchInstructions,
     webSearchEnabled
       ? "- If you're unsure about something that can be checked on the web, use the search tool rather than guessing. Otherwise acknowledge the uncertainty."

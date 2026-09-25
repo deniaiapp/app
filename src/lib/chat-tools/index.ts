@@ -1,5 +1,6 @@
 import { createBrowseTool } from "./browse";
 import { createImageTool } from "./image";
+import { createQuestionnaireTool } from "./questionnaire";
 import { createSearchTool } from "./search";
 import { createVideoTool } from "./video";
 import { platformCapabilities } from "@/lib/platform-capabilities.server";
@@ -18,6 +19,7 @@ export function createChatTools({
   const webSearchEnabled = webSearch && features.webSearch && !videoMode && !imageMode;
 
   return {
+    ...(!videoMode && !imageMode ? { questionnaire: createQuestionnaireTool() } : {}),
     ...(webSearchEnabled
       ? {
           search: createSearchTool(usage),
