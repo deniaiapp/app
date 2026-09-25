@@ -1,6 +1,7 @@
 "use client";
 
 import type { ToolUIPart, UIMessage } from "ai";
+import { ChevronDownIcon, CircleCheckIcon } from "lucide-react";
 import { useExtracted } from "next-intl";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
@@ -8,10 +9,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Message, MessageContent } from "@/components/ai-elements/message";
 import { Spinner } from "@/components/ui/spinner";
-import type {
-  QuestionnaireToolAnswer,
-  QuestionnaireToolInput,
-  QuestionnaireToolOutput,
+import {
+  uniqueQuestionnaireParts,
+  type QuestionnaireToolAnswer,
+  type QuestionnaireToolInput,
+  type QuestionnaireToolOutput,
 } from "@/lib/chat-tools/questionnaire";
 
 export type QuestionnaireToolPart = ToolUIPart & { type: "tool-questionnaire" };
@@ -30,7 +32,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isQuestionnaireInput(value: unknown): value is QuestionnaireToolInput {
+export function isQuestionnaireInput(value: unknown): value is QuestionnaireToolInput {
   if (
     !isRecord(value) ||
     typeof value.title !== "string" ||
@@ -401,6 +403,79 @@ function QuestionnaireCard({
   const t = useExtracted();
   const input = isQuestionnaireInput(part.input) ? part.input : null;
 
+  if (part.state === "output-available") {
+    const output = part.output;
+    const answers =
+      isRecord(output) && output.status === "submitted" && Array.isArray(output.answers)
+        ? output.answers
+        : null;
+
+    return (
+      <Message from="assistant">
+        <MessageContent className="w-full">
+          {input && answers ? (
+            <details className="group w-fit min-w-56 max-w-full rounded-xl border border-border/70 bg-muted/40 open:w-full open:max-w-lg">
+              <summary className="flex cursor-pointer list-none items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-muted/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+                <CircleCheckIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
+                <span className="min-w-0 flex-1 truncate font-medium">{input.title}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">{t("Answered")}</span>
+                <ChevronDownIcon
+                  aria-hidden="true"
+                  className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
+                />
+              </summary>
+              <div className="border-t border-border/70 px-4 py-3">
+                <dl className="space-y-3">
+                  {input.questions.map((question) => {
+                    const answer = answers.find(
+                      (item): item is QuestionnaireToolAnswer =>
+                        isRecord(item) &&
+                        item.name === question.name &&
+                        (item.status === "skipped" || item.status === "answered"),
+                    );
+                    const values =
+                      answer?.status === "answered"
+                        ? Array.isArray(answer.value)
+                          ? answer.value
+                          : [answer.value]
+                        : [];
+                    const labels = values
+                      .filter((value): value is string => typeof value === "string" && !!value)
+                      .map(
+                        (value) =>
+                          question.choices?.find((choice) => choice.value === value)?.label ??
+                          value,
+                      );
+
+                    return (
+                      <div key={question.name}>
+                        <dt className="text-xs text-muted-foreground">{question.prompt}</dt>
+                        <dd className="mt-1 whitespace-pre-wrap break-words text-sm">
+                          {labels.length > 0
+                            ? labels.join(", ")
+                            : answer?.status === "skipped"
+                              ? t("Skipped")
+                              : t("No answer")}
+                        </dd>
+                      </div>
+                    );
+                  })}
+                </dl>
+              </div>
+            </details>
+          ) : (
+            <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
+              {answers ? (
+                <CircleCheckIcon aria-hidden="true" className="size-3.5 text-primary" />
+              ) : null}
+              {answers ? t("Answered") : t("This questionnaire is no longer active.")}
+            </span>
+          )}
+        </MessageContent>
+      </Message>
+    );
+  }
+
   return (
     <Message from="assistant">
       <MessageContent className="w-full">
@@ -459,12 +534,6 @@ function QuestionnaireCard({
                 ) : null}
               </CardContent>
             )
-          ) : part.state === "output-available" ? (
-            <CardContent className="py-5">
-              <p className="text-sm text-muted-foreground" role="status">
-                {t("Answers sent to the agent.")}
-              </p>
-            </CardContent>
           ) : part.state === "output-error" ? (
             <CardContent className="py-5">
               <p className="text-sm text-destructive" role="alert">
@@ -489,7 +558,7 @@ export function AssistantMessageQuestionnaireParts({
 }) {
   return (
     <>
-      {parts.map((part) => (
+      {uniqueQuestionnaireParts(parts).map((part) => (
         <QuestionnaireCard
           isInteractive={isInteractive}
           key={part.toolCallId}

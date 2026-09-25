@@ -53,6 +53,12 @@ export type QuestionnaireToolOutput =
       reason: string;
     };
 
+// Multiple questionnaires may be answered in one assistant message. Only
+// duplicate tool calls, not other completed questionnaires, should be hidden.
+export function uniqueQuestionnaireParts<T extends { toolCallId: string }>(parts: T[]): T[] {
+  return [...new Map(parts.map((part) => [part.toolCallId, part] as const)).values()];
+}
+
 export function createQuestionnaireTool() {
   return tool({
     description:

@@ -193,6 +193,17 @@ export const ChatInterfaceMessages = memo(function ChatInterfaceMessages({
             const renderKey = messageRenderKeys[msgIndex] ?? `group-${groupIndex}`;
             const fileParts = message.parts.filter(isFilePart);
             const textParts = message.parts.filter(isTextPart);
+            // The SDK starts a new assistant message after a questionnaire reply.
+            // Hide the prior reasoning; keep only completed forms not repeated in the continuation.
+            const nextMessage = messages[msgIndex + 1];
+            const followingAssistantMessage =
+              message.role === "assistant" &&
+              message.parts.some(
+                (part) => part.type === "tool-questionnaire" && part.state === "output-available",
+              ) &&
+              nextMessage?.role === "assistant"
+                ? nextMessage
+                : undefined;
             return (
               <div className="chat-message-group" key={renderKey}>
                 {message.role === "user" && (
@@ -223,6 +234,7 @@ export const ChatInterfaceMessages = memo(function ChatInterfaceMessages({
                 {message.role === "assistant" && (
                   <AssistantMessage
                     message={message}
+                    followingAssistantMessage={followingAssistantMessage}
                     state={{
                       isLastMessage: msgIndex === messages.length - 1,
                       isStreaming: status === "streaming",

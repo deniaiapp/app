@@ -30,6 +30,7 @@ import {
 } from "@/components/chat/assistant-message-parts";
 import {
   AssistantMessageQuestionnaireParts,
+  isQuestionnaireInput,
   isQuestionnaireToolPart,
 } from "@/components/chat/questionnaire-tool";
 import type { QuestionnaireToolOutput } from "@/lib/chat-tools/questionnaire";
@@ -82,6 +83,7 @@ interface AssistantMessageProps {
   onQuestionnaireComplete: (toolCallId: string, output: QuestionnaireToolOutput) => void;
   webSearchAvailable?: boolean;
   isActive?: boolean;
+  followingAssistantMessage?: UIMessage;
 }
 
 function AssistantMessage({
@@ -96,6 +98,7 @@ function AssistantMessage({
   onQuestionnaireComplete,
   webSearchAvailable = true,
   isActive = true,
+  followingAssistantMessage,
 }: AssistantMessageProps) {
   const t = useExtracted();
   const locale = useLocale();
@@ -135,6 +138,26 @@ function AssistantMessage({
   const imageToolParts = message.parts?.filter(isImageToolPart) ?? [];
   const questionnaireToolParts = message.parts?.filter(isQuestionnaireToolPart) ?? [];
   const sourceParts = message.parts?.filter((part) => part.type === "source-url") ?? [];
+
+  if (followingAssistantMessage) {
+    const followingQuestionnaireTitles = new Set(
+      followingAssistantMessage.parts
+        .filter(isQuestionnaireToolPart)
+        .flatMap((part) => (isQuestionnaireInput(part.input) ? [part.input.title] : [])),
+    );
+    return (
+      <AssistantMessageQuestionnaireParts
+        isInteractive={false}
+        onComplete={onQuestionnaireComplete}
+        parts={questionnaireToolParts.filter(
+          (part) =>
+            part.state === "output-available" &&
+            (!isQuestionnaireInput(part.input) ||
+              !followingQuestionnaireTitles.has(part.input.title)),
+        )}
+      />
+    );
+  }
 
   return (
     <div className="space-y-2">
@@ -320,7 +343,7 @@ function AssistantMessage({
       <AssistantMessageVideoParts messageId={message.id} videoToolParts={videoToolParts} />
       <AssistantMessageImageParts messageId={message.id} imageToolParts={imageToolParts} />
       <AssistantMessageQuestionnaireParts
-        isInteractive={state.isLastMessage && state.showActions}
+        isInteractive={state.isLastMessage && isActive}
         onComplete={onQuestionnaireComplete}
         parts={questionnaireToolParts}
       />
@@ -346,7 +369,8 @@ const areAssistantMessagePropsEqual = (
   previous.onWebSearchChange === next.onWebSearchChange &&
   previous.onQuestionnaireComplete === next.onQuestionnaireComplete &&
   (previous.webSearchAvailable ?? true) === (next.webSearchAvailable ?? true) &&
-  previous.isActive === next.isActive;
+  previous.isActive === next.isActive &&
+  previous.followingAssistantMessage === next.followingAssistantMessage;
 
 const MemoizedAssistantMessage = memo(AssistantMessage, areAssistantMessagePropsEqual);
 

@@ -3,6 +3,7 @@ import { buildChatSystemPrompt } from "../src/app/api/chat/_lib/prompt";
 import {
   createQuestionnaireTool,
   questionnaireToolInputSchema,
+  uniqueQuestionnaireParts,
 } from "../src/lib/chat-tools/questionnaire";
 
 describe("questionnaire chat tool", () => {
@@ -58,6 +59,13 @@ describe("questionnaire chat tool", () => {
 
   test("pauses for client input rather than executing on the server", () => {
     expect(createQuestionnaireTool().execute).toBeUndefined();
+  });
+
+  test("keeps separate completed questionnaires in the same assistant message", () => {
+    const first = { toolCallId: "first", state: "output-available", title: "First question" };
+    const second = { toolCallId: "second", state: "output-available", title: "Second question" };
+    const updatedFirst = { ...first, title: "Updated first" };
+    expect(uniqueQuestionnaireParts([first, second, updatedFirst])).toEqual([updatedFirst, second]);
   });
 });
 
