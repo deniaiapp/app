@@ -604,7 +604,7 @@ export const billingRouter = router({
                 }
               : undefined,
           allow_promotion_codes: flashOfferEligible ? undefined : true,
-          return_url: `${env.NEXT_PUBLIC_BETTER_AUTH_URL}/settings/billing/checkout/{CHECKOUT_SESSION_ID}`,
+          return_url: `${new URL(env.NEXT_PUBLIC_BETTER_AUTH_URL).origin}/settings/billing/checkout/{CHECKOUT_SESSION_ID}`,
         },
         customCheckoutRequestOptions,
       );
@@ -802,7 +802,7 @@ export const billingRouter = router({
 
     const portal = await stripe.billingPortal.sessions.create({
       customer: subscription.stripeCustomerId,
-      return_url: `${env.NEXT_PUBLIC_BETTER_AUTH_URL}/settings/billing`,
+      return_url: new URL("/settings/billing", env.NEXT_PUBLIC_BETTER_AUTH_URL).toString(),
     });
 
     return { url: portal.url };

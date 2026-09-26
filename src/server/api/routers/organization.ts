@@ -1000,7 +1000,7 @@ export const organizationRouter = router({
           },
           payment_method_options: checkoutCardPaymentMethodOptions,
           allow_promotion_codes: true,
-          return_url: `${env.NEXT_PUBLIC_BETTER_AUTH_URL}/settings/team/checkout/{CHECKOUT_SESSION_ID}?organizationId=${input.organizationId}`,
+          return_url: `${new URL(env.NEXT_PUBLIC_BETTER_AUTH_URL).origin}/settings/team/checkout/{CHECKOUT_SESSION_ID}?organizationId=${input.organizationId}`,
         },
         customCheckoutRequestOptions,
       );
@@ -1080,7 +1080,7 @@ export const organizationRouter = router({
 
       const portal = await stripe.billingPortal.sessions.create({
         customer: subscription.stripeCustomerId,
-        return_url: `${env.NEXT_PUBLIC_BETTER_AUTH_URL}/settings/team`,
+        return_url: new URL("/settings/team", env.NEXT_PUBLIC_BETTER_AUTH_URL).toString(),
       });
 
       return { url: portal.url };
