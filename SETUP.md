@@ -275,6 +275,8 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Stripe billing
 
+Deni AI Ads submission, editing, checkout, and view tracking require the browser `Origin` to match `NEXT_PUBLIC_BETTER_AUTH_URL` (the public origin), even behind a reverse proxy. If these requests return 403 in production, check that the configured URL matches the address in the browser, including scheme and hostname; an internal container URL is not valid.
+
 Stripe billing is enabled only when the Stripe secret and publishable keys are configured. Checkout UI needs `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`. Webhooks need `STRIPE_WEBHOOK_SECRET` in production. If the Stripe keys are omitted, billing UI and paid billing procedures are disabled.
 
 1. Create a [Stripe account](https://stripe.com/) and copy API keys

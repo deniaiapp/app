@@ -6,6 +6,7 @@ import { adCampaign } from "@/db/schema";
 import { env } from "@/env";
 import { adCreativeSchema } from "@/lib/ad-creative";
 import { reviewAd } from "@/lib/ad-review";
+import { isAllowedAdOrigin } from "@/lib/ad-origin";
 import { auth } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
 
@@ -15,8 +16,7 @@ const editSchema = z.strictObject({
 });
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (request.headers.get("origin") !== new URL(request.url).origin)
-    return new Response(null, { status: 403 });
+  if (!isAllowedAdOrigin(request)) return new Response(null, { status: 403 });
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.session || session.user.isAnonymous) return new Response(null, { status: 401 });
   if (!env.OPENROUTER_API_KEY)

@@ -1,12 +1,12 @@
 import { headers } from "next/headers";
 import { z } from "zod";
+import { isAllowedAdOrigin } from "@/lib/ad-origin";
 import { auth } from "@/lib/auth";
 import { recordAdEvent, verifyAdDelivery } from "@/lib/ads";
 import { isFreeAdViewer } from "@/lib/usage";
 
 export async function POST(request: Request) {
-  if (request.headers.get("origin") !== new URL(request.url).origin)
-    return new Response(null, { status: 403 });
+  if (!isAllowedAdOrigin(request)) return new Response(null, { status: 403 });
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.session) return new Response(null, { status: 401 });
   if (!session.user.isAnonymous && !(await isFreeAdViewer(session.session.userId)))
