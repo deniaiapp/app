@@ -79,8 +79,14 @@ export async function POST(request: Request) {
             quantity: 1,
           },
         ],
-        success_url: `${env.NEXT_PUBLIC_BETTER_AUTH_URL}/settings/ads?checkout=success`,
-        cancel_url: `${env.NEXT_PUBLIC_BETTER_AUTH_URL}/settings/ads?checkout=cancel`,
+        success_url: new URL(
+          "/settings/ads?checkout=success",
+          env.NEXT_PUBLIC_BETTER_AUTH_URL,
+        ).toString(),
+        cancel_url: new URL(
+          "/settings/ads?checkout=cancel",
+          env.NEXT_PUBLIC_BETTER_AUTH_URL,
+        ).toString(),
       });
       await tx
         .update(adCampaign)
