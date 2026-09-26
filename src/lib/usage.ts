@@ -91,6 +91,10 @@ function getDefaultPeriodEnd(now: Date) {
   return startOfNextMonth;
 }
 
+export async function isFreeAdViewer(userId: string): Promise<boolean> {
+  return (await getTierInfo(userId, new Date())).tier === "free";
+}
+
 async function getTierInfo(userId: string, now: Date): Promise<TierInfo> {
   // 1. Check personal billing (where organizationId is NULL)
   const [record] = await db

@@ -4,7 +4,6 @@ import { JetBrains_Mono, Geist, Geist_Mono, Inter } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getExtracted, getLocale, getMessages } from "next-intl/server";
 import { Suspense } from "react";
-import { AdSenseScript } from "@/components/adsense-script";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { defaultLocale } from "@/i18n/locales";
@@ -47,8 +46,6 @@ export const viewport: Viewport = {
 // Keep metadata free of cookies()/headers() so the document shell can prerender.
 // Per-request locale for page content is resolved in LocalizedRoot via next-intl.
 export async function generateMetadata(): Promise<Metadata> {
-  const adsenseAccount = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID;
-
   return {
     metadataBase: new URL("https://deniai.app"),
     applicationName: "Deni AI",
@@ -107,11 +104,6 @@ export async function generateMetadata(): Promise<Metadata> {
       index: true,
       follow: true,
     },
-    other: adsenseAccount
-      ? {
-          "google-adsense-account": adsenseAccount,
-        }
-      : undefined,
   };
 }
 
@@ -257,7 +249,6 @@ export default function RootLayout({
           </Suspense>
           <Toaster position="top-center" />
         </ThemeProvider>
-        <AdSenseScript />
         {process.env.NODE_ENV === "production" ? <GoogleAnalytics gaId={GA_ID} /> : null}
       </body>
     </html>

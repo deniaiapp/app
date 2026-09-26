@@ -120,6 +120,11 @@ export default function TermsPage() {
               "If you believe a charge is in error, contact us at contact@deniai.app before disputing the charge with your payment provider. We may contest chargebacks when the account used the Service after payment.",
             )}
           </p>
+          <p className="text-muted-foreground">
+            {t(
+              "Deni AI Ads are prepaid. Advertisers may choose ¥200 per 1,000 billable views, ¥30 per billable click, or ¥3,000 for one fixed chat slot for 30 days. Automated review may reject ads before purchase. Advertisers are responsible for their claims and destination sites; approval does not guarantee legality or performance. Contact us about billing errors or unused ad budget.",
+            )}
+          </p>
         </section>
 
         <section className="space-y-3">

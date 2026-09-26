@@ -2,7 +2,7 @@
 
 import type { ChatStatus, FileUIPart, UIMessage } from "ai";
 import { useExtracted } from "next-intl";
-import { memo, useEffect, useLayoutEffect, useRef } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useStickToBottomContext } from "use-stick-to-bottom";
 import {
   Attachment,
@@ -27,11 +27,13 @@ import {
   MessageContent,
   MessageResponse,
 } from "@/components/ai-elements/message";
+import { AdSlot } from "@/components/ad-slot";
 import { AssistantMessage } from "@/components/chat/assistant-message";
 import type { ModelOption } from "@/components/chat/chat-composer";
 import type { GroupedMessage } from "@/hooks/use-chat-branches";
 import type { ReasoningEffort } from "@/lib/constants";
 import { toDisplayChatRequestError } from "@/lib/chat-request-error";
+import { shouldShowChatAd } from "@/lib/chat-ad-placement";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import type { QuestionnaireToolOutput } from "@/lib/chat-tools/questionnaire";
@@ -70,6 +72,9 @@ export interface ChatInterfaceMessagesProps {
   showMessageActions: boolean;
   isSubmitBlocked: boolean;
   isWaitingForResponse: boolean;
+  sessionUserId?: string;
+  isAnonymous: boolean;
+  usageTier: string | null;
   error: Error | undefined;
   attachmentError: string | null;
   initialProjectId?: string | null;
@@ -160,6 +165,9 @@ export const ChatInterfaceMessages = memo(function ChatInterfaceMessages({
   showMessageActions,
   isSubmitBlocked,
   isWaitingForResponse,
+  sessionUserId,
+  isAnonymous,
+  usageTier,
   error,
   attachmentError,
   initialProjectId,
@@ -176,6 +184,21 @@ export const ChatInterfaceMessages = memo(function ChatInterfaceMessages({
   onLoadOlder,
 }: ChatInterfaceMessagesProps) {
   const t = useExtracted();
+  const [lastAd, setLastAd] = useState<{ chatId: string; id: string } | null>(null);
+  const rememberAd = useCallback(
+    (id: string) => setLastAd({ chatId: requestBody.id, id }),
+    [requestBody.id],
+  );
+  const latestMessage = messages.at(-1);
+  const showAd = shouldShowChatAd({
+    status,
+    lastMessage: latestMessage,
+    isWaitingForResponse,
+    hasError: Boolean(error),
+  });
+  const adViewerId = sessionUserId;
+  const canRequestAd =
+    Boolean(adViewerId) && (isAnonymous || usageTier === null || usageTier === "free");
 
   return (
     <Conversation className="flex-1 min-h-0 h-full">
@@ -297,6 +320,17 @@ export const ChatInterfaceMessages = memo(function ChatInterfaceMessages({
             </MessageBranch>
           );
         })}
+        {messages.length > 0 && canRequestAd && adViewerId && (
+          <AdSlot
+            className="mx-auto w-full max-w-xl"
+            viewerId={adViewerId}
+            chatId={requestBody.id}
+            visible={showAd}
+            requestInFlight={status === "submitted" || status === "streaming"}
+            excludeId={lastAd?.chatId === requestBody.id ? lastAd.id : null}
+            onAdSelected={rememberAd}
+          />
+        )}
         {status === "submitted" && (
           <div className="min-h-6">
             <Loader />

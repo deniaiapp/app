@@ -5,10 +5,8 @@ import { useRouter } from "next/navigation";
 import { useExtracted } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
-import { AdSenseSlot } from "@/components/adsense-slot";
 import { ChatComposer, type ComposerMessage } from "@/components/chat/chat-composer";
 import { ProjectSelect } from "@/components/projects/project-select";
-import { clientEnv } from "@/env.client";
 import { useAvailableModels } from "@/hooks/use-available-models";
 import { useNewChat } from "@/hooks/use-new-chat";
 import { defaultModel, getPreferredReasoningEffort, type ReasoningEffort } from "@/lib/constants";
@@ -268,10 +266,6 @@ export default function ChatHome() {
             onFastModeChange={setFastMode}
             deepResearch={effectiveDeepResearch}
             onDeepResearchChange={(enabled) => setDeepResearch(enabled && features.webSearch)}
-          />
-          <AdSenseSlot
-            slot={clientEnv.NEXT_PUBLIC_ADSENSE_CHAT_SLOT_ID ?? ""}
-            className="mx-auto mt-3 max-w-xl border-border/40 bg-background/40 p-2 shadow-none"
           />
         </div>
       </div>

@@ -67,6 +67,11 @@ export default function SettingsWrapper({ children }: { children: React.ReactNod
       value: "affiliate",
       href: "/settings/affiliate",
     },
+    {
+      label: t("Ads"),
+      value: "ads",
+      href: "/settings/ads",
+    },
     ...(blogAdminQuery.data
       ? [
           {

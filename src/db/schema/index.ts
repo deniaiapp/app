@@ -1,4 +1,5 @@
 export * from "./api-keys";
+export * from "./ads";
 export * from "./affiliate";
 export * from "./auth-schema";
 export * from "./blog";

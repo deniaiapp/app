@@ -7,13 +7,11 @@ import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } fro
 import dynamic from "next/dynamic";
 import { useExtracted } from "next-intl";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { AdSenseSlot } from "@/components/adsense-slot";
 import { ArtifactPreviewProvider } from "@/components/chat/artifact-preview-context";
 import { ChatComposer, type ComposerMessage } from "@/components/chat/chat-composer";
 import { ChatInterfaceHeader } from "@/components/chat/chat-interface-header";
 import { ChatInterfaceMessages } from "@/components/chat/chat-interface-messages";
 import { UsageAlerts } from "@/components/chat/usage-alerts";
-import { clientEnv } from "@/env.client";
 import { useAvailableModels } from "@/hooks/use-available-models";
 import { useChatPageSync } from "@/hooks/use-chat-page-sync";
 import { useInitialMessage } from "@/hooks/use-initial-message";
@@ -522,6 +520,9 @@ export function ChatInterface({
           showMessageActions={showMessageActions}
           isSubmitBlocked={isSubmitBlocked || hasPendingQuestionnaire}
           isWaitingForResponse={isWaitingForResponse}
+          sessionUserId={session.data?.session?.userId}
+          isAnonymous={isAnonymous}
+          usageTier={usageQuery.data?.tier ?? null}
           error={error}
           attachmentError={attachmentError}
           initialProjectId={initialProjectId}
@@ -587,10 +588,6 @@ export function ChatInterface({
           onFastModeChange={setFastMode}
           deepResearch={deepResearch}
           onDeepResearchChange={setDeepResearch}
-        />
-        <AdSenseSlot
-          slot={clientEnv.NEXT_PUBLIC_ADSENSE_CHAT_SLOT_ID ?? ""}
-          className="mx-auto mt-3 w-full max-w-xl border-border/40 bg-background/40 p-2 shadow-none"
         />
       </div>
     </ArtifactPreviewProvider>

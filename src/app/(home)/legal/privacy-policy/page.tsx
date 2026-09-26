@@ -220,7 +220,7 @@ export default function PrivacyPolicyPage() {
             </li>
             <li>
               {t(
-                "Cookies and similar technologies used for authentication, locale, security, abuse prevention, analytics, and advertising, as described below.",
+                "Cookies and similar technologies used for authentication, locale, security, abuse prevention, and analytics, as described below.",
               )}
             </li>
           </ul>
@@ -288,7 +288,7 @@ export default function PrivacyPolicyPage() {
           <ul className="list-disc space-y-2 pl-6 text-muted-foreground">
             <li>
               {t(
-                "Google LLC: Sign in with Google; Google Analytics; Google AdSense; and Google generative-AI APIs when you select a Gemini or related Google model.",
+                "Google LLC: Sign in with Google; Google Analytics; and Google generative-AI APIs when you select a Gemini or related Google model.",
               )}
             </li>
             <li>{t("GitHub, Inc.: GitHub sign-in, if you use that method.")}</li>
@@ -331,7 +331,7 @@ export default function PrivacyPolicyPage() {
           </p>
           <p className="text-muted-foreground">
             {t(
-              "On some pages we display ads through Google AdSense. AdSense uses its own cookies and identifiers to serve and measure ads. Deni AI does not send Google Sign-In user data (your Google name, email address, profile picture, or Google account identifier) to AdSense, Google Analytics, or other advertising systems for advertising, retargeting, or profiling.",
+              "Free-tier users and signed-in anonymous guests may see Deni AI Ads in chat. Advertisers submit text ads for automated review and prepay through Stripe. We record ad views and clicks against your account to prevent duplicate billing, but do not use your conversations or Google Sign-In profile to target ads. Opening an ad takes you to the advertiser's website, which has its own privacy practices. We do not send Google Sign-In user data to advertising systems for targeting, retargeting, or profiling.",
             )}
           </p>
           <p className="text-muted-foreground">

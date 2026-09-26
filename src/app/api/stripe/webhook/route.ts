@@ -5,6 +5,7 @@ import { db } from "@/db/drizzle";
 import { billing } from "@/db/schema";
 import { env } from "@/env";
 import { findPlanByLookupKey, isTeamPlan } from "@/lib/billing";
+import { activatePaidAd, pauseReversedAdCharge, releaseExpiredAdCheckout } from "@/lib/ad-checkout";
 import { getBillingFingerprintUpdates } from "@/lib/billing-card-usage";
 import { isAffiliatePaidStatus, processAffiliatePurchase } from "@/lib/affiliate";
 import { resetMaxModeUsage } from "@/lib/max-mode";
@@ -356,8 +357,16 @@ export async function POST(req: Request) {
         }
         break;
       }
+      case "checkout.session.expired": {
+        await releaseExpiredAdCheckout(event.data.object);
+        break;
+      }
       case "checkout.session.completed": {
         const session = event.data.object;
+        if (session.metadata?.adCampaignId) {
+          await activatePaidAd(session);
+          break;
+        }
         if (session.mode === "subscription" && session.subscription) {
           const subscription =
             typeof session.subscription === "string"
@@ -422,8 +431,15 @@ export async function POST(req: Request) {
         }
         break;
       }
+      case "charge.refunded": {
+        await pauseReversedAdCharge(event.data.object);
+        break;
+      }
       case "charge.dispute.created": {
         const dispute = event.data.object;
+        if (typeof dispute.charge === "string") {
+          await pauseReversedAdCharge(await stripe.charges.retrieve(dispute.charge));
+        }
         if (typeof dispute !== "object" || dispute === null || dispute.object !== "dispute") {
           break;
         }
